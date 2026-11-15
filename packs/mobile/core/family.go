@@ -51,7 +51,7 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 		return err
 	}
 	return onDevice(sc, app.Name, false, func(ctx context.Context, d Device) error {
-		el, n, came, err := target(sc, d, app.Name, k, name, actionTimeout)
+		el, n, came, err := reached(sc, d, app.Name, k, name, actionTimeout)
 		if err != nil {
 			return err
 		}
@@ -99,6 +99,20 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 		if came {
 			if shot, err := maskedShot(ctx, d); err == nil {
 				before = shot
+			}
+		}
+		// A control the driver says it cannot hit is tapped where it is: the driver's own tap of
+		// it taps nothing, and says it tapped.
+		if hitTests(sc, app.Name) {
+			tapped, err := tapWhereItIs(ctx, sc, d, el, quoted(name)+" "+k.noun)
+			if err != nil {
+				return fmt.Errorf("cannot tap the %s %s: %w", quoted(name), k.noun, err)
+			}
+			if tapped {
+				if before != nil {
+					return tapAgain(ctx, sc, d, app.Name, k, name, before)
+				}
+				return nil
 			}
 		}
 		err = el.Click(ctx)
@@ -161,18 +175,34 @@ func tapAgain(ctx context.Context, sc *core.Scenario, d Device, app string, k ki
 
 func (family) Fill(sc *core.Scenario, app *appcore.App, field, text string) error {
 	return onDevice(sc, app.Name, false, func(ctx context.Context, d Device) error {
-		el, err := element(sc, d, app.Name, kinds["field"], field, actionTimeout)
+		el, _, _, err := reached(sc, d, app.Name, kinds["field"], field, actionTimeout)
 		if err != nil {
 			return err
 		}
-		if err := el.Clear(ctx); err != nil {
+		if err := el.Clear(ctx); err != nil && !appium.IsNoTextField(err) {
 			return fmt.Errorf("cannot empty the %s field: %w", quoted(field), err)
 		}
-		if err := el.Type(ctx, text); err != nil {
+		err = el.Type(ctx, text)
+		if appium.IsNoTextField(err) {
+			// A field the driver takes for a slider (a web page's number field on Android): a
+			// person taps it and types. What it held is selected and typed over.
+			err = typeOver(ctx, d, el, text)
+		}
+		if err != nil {
 			return fmt.Errorf("cannot type into the %s field: %w", quoted(field), err)
 		}
 		return nil
 	})
+}
+
+// typeOver taps a field and types text over what it holds, a key at a time: the end of the
+// line, back over what is there (such a field holds a number, a few keys long), then the text.
+func typeOver(ctx context.Context, d Device, el *appium.Element, text string) error {
+	if err := el.Click(ctx); err != nil {
+		return err
+	}
+	const end, backspace = "\uE010", "\uE003"
+	return d.Session().Keys(ctx, end+strings.Repeat(backspace, 32)+text)
 }
 
 func (family) ScrollIntoView(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name string) error {

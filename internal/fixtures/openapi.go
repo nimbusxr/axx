@@ -102,8 +102,8 @@ func (c *openAPIComponent) validate(data []byte, fixtureName string) error {
 	return genError("%s does not conform to %s:\n  %s", fixtureName, c.name, strings.Join(lines, "\n  "))
 }
 
-func (c *openAPIComponent) resolve(tree, defaults *jsonx.Object, key, source string, unresolved *[]string) (*jsonx.Object, error) {
-	return c.object(c.component, tree, "", &jsonWalk{defaults: defaults, key: key, source: source, unresolved: unresolved})
+func (c *openAPIComponent) resolve(tree, defaults *jsonx.Object, removed removals, key, source string, unresolved *[]string) (*jsonx.Object, error) {
+	return c.object(c.component, tree, "", &jsonWalk{defaults: defaults, removed: removed, key: key, source: source, unresolved: unresolved})
 }
 
 func (c *openAPIComponent) shape() (*FieldShape, error) {
@@ -204,12 +204,13 @@ func (c *openAPIComponent) object(s *base.Schema, values *jsonx.Object, path str
 			present := remaining.Has(name)
 			value := get(remaining, name)
 			remaining.Delete(name)
-			if !present {
+			leftOut := w.removed.has(values, name)
+			if !present && !leftOut {
 				if fb := defaultsLookup(w.defaults, fieldPath, name); fb != nil {
 					value, present = fb, true
 				}
 			}
-			if !present && property.Default != nil {
+			if !present && !leftOut && property.Default != nil {
 				value, present = oaDefault(property), true
 			}
 			if present {

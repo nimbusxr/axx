@@ -34,8 +34,13 @@ type pack struct{}
 func (pack) Manifest() core.Manifest {
 	return core.Manifest{
 		Name: Name, Namespace: Name, Requires: []string{modelscore.Name, mobileandroid.Name, appcore.Name}, Steps: []core.StepDef{},
-		Doc:   "Answer SpeechRecognizer, ML Kit built-in image labeling, text recognition, object detection and selfie segmentation, and ML Kit Gemini Nano text generation in debuggable emulator apps from prebuilt .axxmodel files in axx-models. Speech uses log-mel matching for app-provided audio and the microphone step's precomputed matches for queued recordings. Microphone scenarios play recordings into AudioRecord, converted to its rate, channels and PCM format, then silence. MediaRecorder audio capture uses documented JNI registration for its public native controls and public codecs to write the requested file on stop. It supports pause/resume, amplitude, reset/release, paths, File and FileDescriptor outputs, preserving the app's descriptor ownership and microphone permission. It requires the public MediaRecorder(Context) constructor and Java reset/release methods; video, automatic duration/file-size limits and output rotation fail explicitly. The ART agent attaches before application binding. Vision inputs use InputImage.fromBitmap; custom ML Kit model clients retain their native loader. Text generation includes single-chunk streaming through the Prompt API.",
-		Hooks: []core.Hook{{ID: Name + ".prepare", Phase: core.BeforeStep, Run: prepare}},
+		Doc: "Answer SpeechRecognizer, ML Kit built-in image labeling, text recognition, object detection and selfie segmentation, and ML Kit Gemini Nano text generation in debuggable emulator apps from prebuilt .axxmodel files in axx-models. Speech uses log-mel matching for app-provided audio and the microphone step's precomputed matches for queued recordings. Microphone scenarios play recordings into AudioRecord, converted to its rate, channels and PCM format, then silence. MediaRecorder audio capture uses documented JNI registration for its public native controls and public codecs to write the requested file on stop. It supports pause/resume, amplitude, reset/release, paths, File and FileDescriptor outputs, preserving the app's descriptor ownership and microphone permission. It requires the public MediaRecorder(Context) constructor and Java reset/release methods; video, automatic duration/file-size limits and output rotation fail explicitly. The ART agent attaches before application binding. Vision inputs use InputImage.fromBitmap; custom ML Kit model clients retain their native loader. Text generation includes single-chunk streaming through the Prompt API.",
+		// The launch hook is set up in a run's scenario and, where the axx
+		// host starts the app, in the host's.
+		Hooks: []core.Hook{
+			{ID: Name + ".prepare", Phase: core.BeforeStep, Run: prepare},
+			{ID: Name + ".prepare.host", Phase: core.HostScenario, Run: prepare},
+		},
 	}
 }
 

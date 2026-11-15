@@ -59,6 +59,16 @@ else of this machine: the browser's network goes through the run, so the sandbox
 rules apply to it, it opens no file of this machine, and the host passes it only the
 commands of the web steps. A project needs no services for that.
 
+The host starts the devices and the apps of mobile and desktop scenarios for those
+runs too, where a sandbox keeps a simulator, an emulator or a desktop app from
+starting: the simulators and emulators of phone scenarios, and the Mac, Windows
+and Linux apps of desktop scenarios, with the packs' own code. A run asks for what
+a step does with a device or an app, by name, and names no program; the files it
+hands over are the project's. An app is the agent's code, and it starts outside
+the agent's sandbox, on this machine and as you: the host asks you about each app
+first, with everything of its registration, and starts it once you said y. The
+approval is for what it shows you, not for one build of the app.
+
 With --ide, an editor that started the host asks instead: the host writes its
 events as lines of JSON and reads the editor's answers on its standard input.`,
 		Args: wrapArgs(cobra.NoArgs),
@@ -69,7 +79,7 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 			}
 			packs, serves := hostPacks()
 			if len(cfg.Services) == 0 && len(packs) == 0 {
-				return axxerr.New("AXX-E0001", exitcode.Usage, "axx.yaml declares no services, and the project has no pack that an axx host does something for (web-core: browsers): an axx host has nothing to do").
+				return axxerr.New("AXX-E0001", exitcode.Usage, "axx.yaml declares no services, and the project has no pack that an axx host does something for (web-core: browsers; the mobile and desktop packs: devices and apps): an axx host has nothing to do").
 					WithHint("declare the services runs start under services: in %s", relPath(filepath.Join(cfg.Dir, "axx.yaml")))
 			}
 			props, err := cf.properties()
@@ -113,6 +123,7 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 				Launch:   hostLaunch(),
 				Packs:    packs,
 				Serves:   serves,
+				Suite:    app.hostSuite,
 			})
 			if err != nil {
 				return err
@@ -141,15 +152,31 @@ func hostPacks() (map[string]core.HostServer, []string) {
 }
 
 // useHost gives the run's packs the axx host that serves the project
-// (core.Suite.HostDial), for what they cannot do in a sandbox.
-func (a *App) useHost(e *engine.Engine, ann *host.Announcement) {
+// (core.Suite.HostDial), for what they cannot do in a sandbox. The host is
+// told the run's configuration with each connection: a pack's side there
+// that works with a suite has the run's settings.
+func (a *App) useHost(e *engine.Engine, ann *host.Announcement, cf configFlags) {
 	if ann == nil {
 		return
 	}
-	command := a.commandLine()
 	e.Suite.UseHost(func(ctx context.Context, pack string) (net.Conn, error) {
-		return host.Dial(ctx, ann, pack, command)
+		req, err := a.hostRequest(e.Config, cf, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Pack, req.Dir = pack, ""
+		return host.DialAs(ctx, ann, req)
 	})
+}
+
+// hostSuite is a suite of this axx's packs for a pack's side in the host
+// (host.Options.Suite): the project's packs with cfg, as a run has them.
+func (a *App) hostSuite(cfg *config.Config) (*core.Suite, func(context.Context) error, error) {
+	e, err := engine.New(engine.Options{Config: cfg, Logger: a.logger()})
+	if err != nil {
+		return nil, nil, err
+	}
+	return e.Suite, e.Close, nil
 }
 
 // stdinIsTerminal reports whether a person types into standard input

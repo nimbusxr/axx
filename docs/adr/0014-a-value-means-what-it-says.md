@@ -91,3 +91,8 @@ A value means what it says, the same in every pack, whether a step sets it or ch
   type being inferred, or that leave cells empty, fail, each with a message that names the fix. The
   examples, the docs, the skills and the agent evaluations change with it.
 - A string that looks like a number takes two more characters: `"10115"`.
+- Fixture specs follow the rule for the two words YAML has no "no such property" for (2026-11): in
+  a fixture's or a prototype's data, a bare `undefined` leaves the field out, where `null` writes
+  null, and `"undefined"` in quotes is the string. No prototype, `defaults:` entry or schema default
+  fills a field left out (`internal/fixtures/values.go`). Breaking for a spec whose bare
+  `undefined` was meant as the string.

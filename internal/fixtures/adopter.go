@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/compat/jsonx"
@@ -224,6 +225,16 @@ func (a *Adopter) Adopt(familyName, schemaRef, glob, factoryName string, dryRun 
 	if err != nil {
 		return nil, err
 	}
+	// What generating would add to a file (the schema's default for a field
+	// it lacks), its fixture leaves out.
+	leftOut := 0
+	if generated, gerr := a.regenerate(emitted, factoryPath, outputDir, fixtureDirs, family); gerr == nil {
+		if leftOut = leaveOut(generated, fixtureKeys, originalNames, adoption, decoded, fixtures); leftOut > 0 {
+			if emitted, err = a.emit(familyName, schemaRef, factoryName, outputDir, fixtureDirs, prototype, identityPaths, candidates, fixtureKeys, trees, fixtures); err != nil {
+				return nil, err
+			}
+		}
+	}
 	roundTrip, err := a.roundTrip(emitted, factoryPath, outputDir, fixtureDirs, originalNames, family, adoption, decoded, originals, fixtureKeys)
 	if err != nil {
 		return nil, err
@@ -244,7 +255,9 @@ func (a *Adopter) Adopt(familyName, schemaRef, glob, factoryName string, dryRun 
 	if prototype.Len() > 0 {
 		wrote += " + " + factoryName + PrototypeSuffix
 	}
-	report = append(report, wrote, roundTrip, "next: axx fixtures generate")
+	report = append(report, wrote)
+	report = append(report, leftOutReport(leftOut)...)
+	report = append(report, roundTrip, "next: axx fixtures generate")
 	return &AdoptionResult{Factory: factoryPath, Written: written, Report: report}, nil
 }
 
@@ -428,13 +441,23 @@ func (a *Adopter) compare(generated map[string]map[string][]byte, fixtureKeys []
 func (a *Adopter) roundTrip(emitted map[string][]byte, factoryPath, outputDir string, fixtureDirs, originalNames map[string]string,
 	family Family, adoption Adoption, decoded map[string]any, originals map[string][]byte, fixtureKeys []string,
 ) (string, error) {
-	root, err := jyaml.Unmarshal(emitted[factoryPath])
+	generated, err := a.regenerate(emitted, factoryPath, outputDir, fixtureDirs, family)
 	if err != nil {
-		return "", genError("internal: emitted spec does not parse back: %v", err)
+		return "", err
+	}
+	return a.compare(generated, fixtureKeys, originalNames, adoption, decoded, originals, "the adopted spec")
+}
+
+// regenerate expands the emitted files, parsed back exactly as the loader
+// would: each fixture's files by its key.
+func (a *Adopter) regenerate(emitted map[string][]byte, factoryPath, outputDir string, fixtureDirs map[string]string, family Family) (map[string]map[string][]byte, error) {
+	root, err := jyaml.UnmarshalPlain(emitted[factoryPath], plainWord)
+	if err != nil {
+		return nil, genError("internal: emitted spec does not parse back: %v", err)
 	}
 	spec, err := parseFactory(root, factoryPath)
 	if err != nil {
-		return "", genError("internal: emitted spec does not parse back: %s", errText(err))
+		return nil, genError("internal: emitted spec does not parse back: %s", errText(err))
 	}
 	spec.SourceName, spec.SourceDir = factoryPath, outputDir
 	spec.BaseName = strings.TrimSuffix(filepath.Base(factoryPath), FactorySuffix)
@@ -444,9 +467,9 @@ func (a *Adopter) roundTrip(emitted map[string][]byte, factoryPath, outputDir st
 	}
 	for _, path := range sortedMapKeys(emitted) {
 		name := strings.TrimPrefix(path, prefix)
-		doc, err := jyaml.Unmarshal(emitted[path])
+		doc, err := jyaml.UnmarshalPlain(emitted[path], plainWord)
 		if err != nil {
-			return "", genError("internal: emitted spec does not parse back: %v", err)
+			return nil, genError("internal: emitted spec does not parse back: %v", err)
 		}
 		data, _ := get(asObject(doc), "data").(*jsonx.Object)
 		switch {
@@ -464,13 +487,116 @@ func (a *Adopter) roundTrip(emitted map[string][]byte, factoryPath, outputDir st
 	}
 	ctx, err := a.context()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	generated, err := family.Expand(spec, a.baseDir, ctx)
-	if err != nil {
-		return "", err
+	return family.Expand(spec, a.baseDir, ctx)
+}
+
+// leaveOut finds what generating adds to an adopted file: a value its
+// prototype sets, or the schema's default, for a field the file lacks. Its
+// fixture leaves each out (undefined), so that the spec says what the file
+// says. It returns how many fields it left out. One it cannot name in the
+// fixture's data (in an element of a list the prototype holds) stays, and
+// the round trip reports it.
+func leaveOut(generated map[string]map[string][]byte, fixtureKeys []string, originalNames map[string]string,
+	adoption Adoption, decoded map[string]any, fixtures map[string]*jsonx.Object,
+) int {
+	n := 0
+	for _, key := range fixtureKeys {
+		data, ok := generated[key][originalNames[key]]
+		if !ok || fixtures[key] == nil {
+			continue
+		}
+		regenerated, err := adoption.Decode(data, "regenerated "+key)
+		if err != nil || deepEquals(regenerated, decoded[key]) {
+			continue
+		}
+		var added [][]fieldStep
+		addedPaths(nil, decoded[key], regenerated, &added)
+		for _, p := range added {
+			if setLeftOut(fixtures[key], p) {
+				n++
+			}
+		}
 	}
-	return a.compare(generated, fixtureKeys, originalNames, adoption, decoded, originals, "the adopted spec")
+	return n
+}
+
+// fieldStep is one step to a field: a map's key (index -1), or a list's
+// index.
+type fieldStep struct {
+	name  string
+	index int
+}
+
+// addedPaths collects where b has a field that a lacks.
+func addedPaths(at []fieldStep, a, b any, out *[][]fieldStep) {
+	a, b = orderedNative(a), orderedNative(b)
+	if ma, ok := a.(*jsonx.Object); ok {
+		mb, ok := b.(*jsonx.Object)
+		if !ok {
+			return
+		}
+		for _, k := range mb.Keys() {
+			p := slices.Concat(at, []fieldStep{{name: k, index: -1}})
+			if !ma.Has(k) {
+				*out = append(*out, p)
+				continue
+			}
+			addedPaths(p, get(ma, k), get(mb, k), out)
+		}
+		return
+	}
+	if la, ok := a.([]any); ok {
+		if lb, ok := b.([]any); ok && len(la) == len(lb) {
+			for i := range la {
+				addedPaths(slices.Concat(at, []fieldStep{{index: i}}), la[i], lb[i], out)
+			}
+		}
+	}
+}
+
+// setLeftOut writes undefined at a field of a fixture's data, making the
+// maps on the way; false when a list on the way is not the fixture's.
+func setLeftOut(data *jsonx.Object, path []fieldStep) bool {
+	var cursor any = data
+	for i, s := range path {
+		last := i == len(path)-1
+		if s.index >= 0 {
+			list, ok := cursor.([]any)
+			if !ok || s.index >= len(list) || last {
+				return false
+			}
+			cursor = list[s.index]
+			continue
+		}
+		m, ok := cursor.(*jsonx.Object)
+		if !ok {
+			return false
+		}
+		if last {
+			m.Set(s.name, undefined)
+			return true
+		}
+		next, has := m.Get(s.name)
+		if !has {
+			if path[i+1].index >= 0 {
+				return false // a list the prototype holds
+			}
+			next = jsonx.NewObject()
+			m.Set(s.name, next)
+		}
+		cursor = next
+	}
+	return false
+}
+
+// leftOutReport says what adoption left out, for its report.
+func leftOutReport(n int) []string {
+	if n == 0 {
+		return nil
+	}
+	return []string{itoa(n) + " field(s) left out with " + undefinedWord + ": a file lacks them, and generating would fill them in (from the prototype, or the schema's default)"}
 }
 
 func asObject(v any) *jsonx.Object {
@@ -582,13 +708,31 @@ func (a *Adopter) AdoptInto(factoryName, glob string, dryRun bool) (*AdoptionRes
 	for _, k := range fixtureKeys {
 		verify.Fixtures.put(k, &Fixture{Data: fixtures[k], Dir: fixtureDirs[k], Source: k + FixtureSuffix + " (adopted)"})
 	}
-	ctx, err := a.context()
+	expand := func() (map[string]map[string][]byte, error) {
+		ctx, err := a.context()
+		if err != nil {
+			return nil, err
+		}
+		return family.Expand(verify, a.baseDir, ctx)
+	}
+	generated, err := expand()
 	if err != nil {
 		return nil, err
 	}
-	generated, err := family.Expand(verify, a.baseDir, ctx)
-	if err != nil {
-		return nil, err
+	// What the factory's prototype sets, or the schema's default, for a
+	// field a file lacks, its fixture leaves out.
+	leftOut := leaveOut(generated, fixtureKeys, originalNames, adoption, decoded, fixtures)
+	if leftOut > 0 {
+		for _, k := range fixtureKeys {
+			body, err := fixtureFileBody(binding, fixtures[k])
+			if err != nil {
+				return nil, err
+			}
+			emitted[joinDir(fixtureDirs[k], k+FixtureSuffix)] = body
+		}
+		if generated, err = expand(); err != nil {
+			return nil, err
+		}
 	}
 	roundTrip, err := a.compare(generated, fixtureKeys, originalNames, adoption, decoded, originals, spec.SourceName)
 	if err != nil {
@@ -607,9 +751,9 @@ func (a *Adopter) AdoptInto(factoryName, glob string, dryRun bool) (*AdoptionRes
 		"decoded " + n + "/" + n + " files (family: " + spec.Family + ")",
 		"bound " + itoa(len(fixtures)) + " new fixture(s) into " + spec.SourceName + " (" + itoa(spec.Fixtures.Len()) + " existing fixture(s) untouched)",
 		verb + itoa(len(fixtures)) + " *.fixture.yaml next to the adopted files",
-		roundTrip,
-		"next: axx fixtures generate  (module-wide identity uniqueness is enforced there)",
 	}
+	report = append(report, leftOutReport(leftOut)...)
+	report = append(report, roundTrip, "next: axx fixtures generate  (module-wide identity uniqueness is enforced there)")
 	return &AdoptionResult{Factory: spec.SourceName, Written: written, Report: report}, nil
 }
 

@@ -1090,3 +1090,211 @@ func TestTheAppEndsWithItsScenario(t *testing.T) {
 		t.Errorf("adb calls:\n%s\nwant the app stopped", b)
 	}
 }
+
+// reportScreen is a screen of a form longer than the screen, as UiAutomator2 lists it: what
+// shows, and nothing of what is further down.
+func reportScreen(shown string) string {
+	return `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy index="0" class="hierarchy" rotation="0" width="1080" height="2400">
+<android.widget.FrameLayout index="0" package="example.parcels.courier" class="android.widget.FrameLayout" text="" clickable="false" enabled="true" scrollable="false" bounds="[0,0][1080,2400]" displayed="true">
+<android.widget.ScrollView index="0" package="example.parcels.courier" class="android.widget.ScrollView" text="" clickable="false" enabled="true" scrollable="true" bounds="[0,200][1080,2400]" displayed="true">
+` + shown + `
+</android.widget.ScrollView></android.widget.FrameLayout></hierarchy>`
+}
+
+// A tap or a fill scrolls for a control the screen does not list, as the scroll step does:
+// UiAutomator2 lists nothing of a screen past what shows, so a field or a button further down a
+// form is found by scrolling until its name shows. A check does not scroll: it asks what shows.
+func TestATapAndAFillScrollForAControlFurtherDown(t *testing.T) {
+	top := reportScreen(`<android.widget.TextView index="0" package="example.parcels.courier" class="android.widget.TextView" text="Did you ring the bell?" clickable="false" enabled="true" scrollable="false" bounds="[48,260][1032,340]" displayed="true"/>`)
+	bottom := reportScreen(`<android.widget.EditText index="0" package="example.parcels.courier" class="android.widget.EditText" text="" hint="Who did you speak to?" clickable="true" enabled="true" scrollable="false" bounds="[48,900][1032,1040]" displayed="true"/>
+<android.widget.Button index="1" package="example.parcels.courier" class="android.widget.Button" text="Send report" clickable="true" enabled="true" scrollable="false" bounds="[48,1200][1032,1340]" displayed="true"/>`)
+	sent := reportScreen(`<android.widget.TextView index="0" package="example.parcels.courier" class="android.widget.TextView" text="Report sent" clickable="false" enabled="true" scrollable="false" bounds="[48,260][1032,340]" displayed="true"/>`)
+	button := at(t, map[string]string{"bottom": bottom}, "bottom", "Send report")
+	scrolls := func(app *appiumtest.Server) int {
+		n := 0
+		for _, c := range app.Commands() {
+			if strings.HasPrefix(c, "mobile: scrollGesture") {
+				n++
+			}
+		}
+		return n
+	}
+	for _, c := range []struct{ name, step string }{
+		{"a fill", `the "Who did you speak to?" field in the courier app is filled with "Mara Lindqvist"`},
+		{"a tap", `the "Send report" button is tapped in the courier app`},
+	} {
+		app := appiumtest.Start(t, appiumtest.App{
+			Screens: map[string]string{"top": top, "bottom": bottom, "sent": sent},
+			Start:   "top",
+			Taps:    map[string]string{"scroll down top": "bottom", button: "sent"},
+		})
+		h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+		register(h, app.URL)
+		h.OK("the courier app is launched")
+		// A check asks what shows, and scrolls nothing.
+		_ = h.Fails(`within 1s the "Send report" button is shown in the courier app`, "No button named")
+		if app.Screen() != "top" || scrolls(app) != 0 {
+			t.Fatalf("%s: a check scrolled the screen to %s (%d scrolls)", c.name, app.Screen(), scrolls(app))
+		}
+		h.OK(c.step)
+		if scrolls(app) == 0 || app.Screen() == "top" {
+			t.Errorf("%s did not scroll for its control: the app shows %s after %v", c.name, app.Screen(), app.Commands())
+		}
+		if c.name == "a tap" && app.Screen() != "sent" {
+			t.Errorf("the button further down was not tapped: the app shows %s", app.Screen())
+		}
+	}
+
+	// The search takes what time it takes: a control it brings onto the screen after the step's
+	// own time is up (a slow device, a long list) is still the one the step uses. The step's time
+	// here ends just after the search starts.
+	late := appiumtest.Start(t, appiumtest.App{
+		Screens: map[string]string{"top": top, "bottom": bottom, "sent": sent},
+		Start:   "top",
+		Taps:    map[string]string{"scroll down top": "bottom", button: "sent"},
+	})
+	short := mobilecore.SetActionTimeout(1600 * time.Millisecond)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, late.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "Send report" button is tapped in the courier app`)
+	short()
+	if late.Screen() != "sent" {
+		t.Errorf("the button the search reached late was not tapped: the app shows %s", late.Screen())
+	}
+
+	// A control that is nowhere is still a failure that says so, the screen scrolled back.
+	app := appiumtest.Start(t, appiumtest.App{
+		Screens: map[string]string{"top": top, "bottom": bottom},
+		Start:   "top",
+		Taps:    map[string]string{"scroll down top": "bottom", "scroll up bottom": "top"},
+	})
+	restore := mobilecore.SetActionTimeout(time.Second)
+	defer restore()
+	h = cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	_ = h.Fails(`the "Cancel report" button is tapped in the courier app`, `No button named "Cancel report"`)
+	if app.Screen() != "top" {
+		t.Errorf("a control that is nowhere leaves the screen on %s", app.Screen())
+	}
+}
+
+// A web page's number field comes from Chrome as a control with a range: its label is its text,
+// empty or not, it has no hint, and UiAutomator2 will not set its text. It is a field named by
+// that label all the same, and filled as a person fills it: tapped, and typed into. A text
+// field beside it holds what its text says, and a number field of the app's own too.
+func TestAWebPagesNumberFieldIsNamedByItsLabelAndTypedInto(t *testing.T) {
+	page := func(inside string) string {
+		return `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy index="0" class="hierarchy" rotation="0" width="1080" height="2400">
+<android.widget.FrameLayout index="0" package="example.parcels.courier" class="android.widget.FrameLayout" text="" clickable="false" enabled="true" scrollable="false" bounds="[0,0][1080,2400]" displayed="true">
+` + inside + `
+</android.widget.FrameLayout></hierarchy>`
+	}
+	number := `<android.widget.EditText index="1" package="example.parcels.courier" class="android.widget.EditText" text="How many parcels are still in the van?" resource-id="q20" clickable="true" enabled="true" scrollable="false" bounds="[42,1777][1039,1897]" displayed="true" hint="" input-type="2" showing-hint="false"/>`
+	text := `<android.widget.EditText index="0" package="example.parcels.courier" class="android.widget.EditText" text="Mara Lindqvist" resource-id="q19" clickable="true" enabled="true" scrollable="false" bounds="[42,1500][1039,1620]" displayed="true" hint="Who did you speak to?" input-type="1" showing-hint="false"/>`
+	web := page(`<android.webkit.WebView index="0" package="example.parcels.courier" class="android.webkit.WebView" text="Report a delivery problem" clickable="false" enabled="true" scrollable="true" bounds="[0,0][1080,2400]" displayed="true">` + text + number + `</android.webkit.WebView>`)
+	s, err := parseSource(web)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, n := range s.Visible() {
+		if n.Role == mobilecore.RoleField {
+			names = append(names, n.Hint+"="+n.Text)
+		}
+	}
+	if got := strings.Join(names, "; "); got != "Who did you speak to?=Mara Lindqvist; How many parcels are still in the van?=" {
+		t.Errorf("the page's fields, by their labels and what they hold: %s", got)
+	}
+	// Android 15's web view says nothing of a field's input type: the label the page shows just
+	// before the field says which part of the field's text is its name. Filled, the field's
+	// text is what it holds, then its label. A field whose text is not the text before it holds
+	// what was typed.
+	label := `<android.view.View index="0" package="example.parcels.courier" class="android.view.View" text="How many parcels are still in the van?" clickable="false" enabled="true" scrollable="false" bounds="[42,1700][1039,1765]" displayed="true"/>`
+	untyped := strings.Replace(number, ` input-type="2"`, "", 1)
+	if untyped == number {
+		t.Fatal("the number field's source has no input type to take out")
+	}
+	as := func(text string) string {
+		return strings.Replace(untyped, `text="How many parcels are still in the van?"`, `text="`+text+`"`, 1)
+	}
+	for _, c := range []struct{ src, want string }{
+		{untyped, "How many parcels are still in the van?="},
+		{as("3, How many parcels are still in the van?"), "How many parcels are still in the van?=3"},
+		{as("3"), "=3"},
+	} {
+		s, err := parseSource(page(`<android.webkit.WebView index="0" package="example.parcels.courier" class="android.webkit.WebView" text="" clickable="false" enabled="true" scrollable="true" bounds="[0,0][1080,2400]" displayed="true">` + label + c.src + `</android.webkit.WebView>`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, n := range s.Visible() {
+			if n.Role == mobilecore.RoleField && n.Hint+"="+n.Text != c.want {
+				t.Errorf("a field after its label, with no input type: hint %q, text %q, want %s", n.Hint, n.Text, c.want)
+			}
+		}
+	}
+	// A number field of the app's own holds what its text says.
+	own, err := parseSource(page(number))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range own.Visible() {
+		if n.Role == mobilecore.RoleField && (n.Hint != "" || n.Text != "How many parcels are still in the van?") {
+			t.Errorf("a number field outside a web view: hint %q, text %q", n.Hint, n.Text)
+		}
+	}
+
+	field := `//android.widget.EditText[@bounds="[42,1777][1039,1897]" and @text="How many parcels are still in the van?"]`
+	app := appiumtest.Start(t, appiumtest.App{Screens: map[string]string{"report": web}, Start: "report", Ranged: []string{field}})
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	h.OK(`the "How many parcels are still in the van?" field in the courier app is filled with '"3"'`)
+	var did []string
+	for _, c := range app.Commands() {
+		if strings.HasPrefix(c, "tap ") || strings.HasPrefix(c, "keys ") {
+			did = append(did, c)
+		}
+	}
+	if got := strings.Join(did, "; "); got != "tap "+field+"; keys 3" {
+		t.Errorf("the number field was filled with: %s", got)
+	}
+}
+
+// Back closes a keyboard, and is pressed for nothing else: once the keyboard has closed, the
+// input method still says its input view shows (Android 13, 15 and 17), and a Back pressed for
+// that takes the app a screen back, out of a web page. The input method service says whether the
+// keyboard shows.
+func TestBackIsPressedOnlyForAKeyboardThatShows(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	keys, closed := filepath.Join(dir, "keys"), filepath.Join(dir, "closed")
+	adb := filepath.Join(dir, "adb")
+	// What dumpsys input_method says on Android 15 with a keyboard up, and after Back closed it.
+	script := "#!/bin/sh\ncase \"$*\" in\n" +
+		"*'input keyevent KEYCODE_BACK'*) echo KEYCODE_BACK >> " + keys + "; touch " + closed + " ;;\n" +
+		"*'input keyevent'*) echo \"$*\" >> " + keys + " ;;\n" +
+		"*'dumpsys input_method'*) if [ -e " + closed + " ]; then echo '  mInputShown=false'; else echo '  mInputShown=true'; fi; " +
+		"echo '  mDecorViewVisible=false mDecorViewWasVisible=false mWindowVisible=false mInShowWindow=false'; echo '  mIsInputViewShown=true mStatusIcon=0' ;;\n" +
+		"esac\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	d := &running{sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}}
+	if hid, err := d.HideKeyboard(t.Context()); err != nil || !hid {
+		t.Fatalf("a keyboard that shows is closed: %v, %v", hid, err)
+	}
+	// A scroll closes the keyboard before each page: the second finds none to close.
+	if hid, err := d.HideKeyboard(t.Context()); err != nil || hid {
+		t.Fatalf("no keyboard shows, and one was closed: %v, %v", hid, err)
+	}
+	pressed, _ := os.ReadFile(keys)
+	if string(pressed) != "KEYCODE_BACK\n" {
+		t.Errorf("the keys pressed for a keyboard that showed once: %q, want one Back", pressed)
+	}
+}

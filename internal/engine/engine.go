@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	messages "github.com/cucumber/messages/go/v34"
+	tagexpr "github.com/cucumber/tag-expressions/go/v11"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/axxerr"
@@ -273,9 +274,38 @@ func New(opts Options) (*Engine, error) {
 		Invoke: func(sc *core.Scenario, text string, table *core.Table, doc *core.DocString) error {
 			return e.Invoke(sc, text, table, doc)
 		},
-		Services: declaredServices(cfg),
+		HostScenario: e.hostScenario,
+		Services:     declaredServices(cfg),
 	})
 	return e, nil
+}
+
+// hostScenario runs the packs' hooks of the core.HostScenario phase on a
+// scenario the axx host has for one of a run's, in their order, those whose
+// tags the scenario's match.
+func (e *Engine) hostScenario(sc *core.Scenario) error {
+	var hooks []runner.PackHook
+	for _, h := range e.Hooks {
+		if h.Hook.Phase == core.HostScenario {
+			hooks = append(hooks, h)
+		}
+	}
+	sort.SliceStable(hooks, func(i, j int) bool { return hooks[i].Hook.Order < hooks[j].Hook.Order })
+	for _, h := range hooks {
+		if strings.TrimSpace(h.Hook.Tags) != "" {
+			ev, err := tagexpr.Parse(h.Hook.Tags)
+			if err != nil {
+				return fmt.Errorf("hook %s: invalid tag expression %q: %w", h.Hook.ID, h.Hook.Tags, err)
+			}
+			if !ev.Evaluate(sc.Tags) {
+				continue
+			}
+		}
+		if err := h.Hook.Run(sc); err != nil {
+			return axxerr.Wrap(err, CodePack, exitcode.Environment, "pack %s failed to set up the scenario in the axx host", h.Pack)
+		}
+	}
+	return nil
 }
 
 // Plan matches the steps of the scenarios a run will execute, for packs

@@ -201,6 +201,10 @@ func nodeOf(t xml.StartElement) *mobilecore.Node {
 		}
 	case "XCUIElementTypeScrollView", "XCUIElementTypeTable", "XCUIElementTypeCollectionView":
 		n.Scrolling = true
+	case "XCUIElementTypeWebView":
+		// A web view scrolls its page, and has no scroll view of its own among the elements: the
+		// page's controls past its first screen are reached by scrolling it.
+		n.Scrolling = true
 	}
 	// Finds the node through the XCUITest driver: by its type and where it is.
 	n.Using = "xpath"

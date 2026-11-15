@@ -2,6 +2,7 @@ package appium
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"time"
 )
@@ -44,6 +45,13 @@ func (s *Session) gesture(ctx context.Context, command string, args map[string]a
 	case "dragFromToForDuration": // XCUITest's: a press held for duration, then a drag
 		held := time.Duration(num("duration") * float64(time.Second))
 		return Touch{From: Point{num("fromX"), num("fromY")}, To: Point{num("toX"), num("toY")}, Length: held + 100*time.Millisecond}, true
+	case "dragFromToWithVelocity": // XCUITest's: a drag at a speed, in points a second, held at its end
+		from, to := Point{num("fromX"), num("fromY")}, Point{num("toX"), num("toY")}
+		length := 300 * time.Millisecond
+		if v := num("velocity"); v > 0 {
+			length = time.Duration(math.Hypot(to.X-from.X, to.Y-from.Y) / v * float64(time.Second))
+		}
+		return Touch{From: from, To: to, Length: length}, true
 	case "swipeGesture", "scrollGesture": // UiAutomator2's: an area, a direction and a share of it
 		if p := num("percent"); p > 0 {
 			share = p

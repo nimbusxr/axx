@@ -355,7 +355,7 @@ export class AxxHost implements vscode.Disposable, vscode.TextDocumentContentPro
       }
       const approve = choice === APPROVE;
       if (host.process.answer(id, approve)) {
-        this.log.appendLine(`${approval.run ? `run ${approval.run}: ` : ''}you ${approve ? 'approved' : 'refused'} the services' changed definition`);
+        this.log.appendLine(`${approval.run ? `run ${approval.run}: ` : ''}you ${approve ? 'approved' : 'refused'} ${approval.text || "the services' changed definition"}`);
       }
       return;
     }

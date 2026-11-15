@@ -32,23 +32,29 @@ type Recording struct {
 type microphoneState struct {
 	mu         sync.Mutex
 	next, read map[string]int
-	// fed are the apps whose platform pack plays recordings into the app's
-	// own audio capture.
-	fed map[string]bool
 }
 
 var microphones = core.NewStateKey(Name+"/microphones", func(*core.Scenario) *microphoneState {
-	return &microphoneState{next: map[string]int{}, read: map[string]int{}, fed: map[string]bool{}}
+	return &microphoneState{next: map[string]int{}, read: map[string]int{}}
 }, nil)
+
+// What the pack notes of a scenario (core.Scenario.Note). An app's platform
+// pack may prepare the app in the axx host, where the scenario is the
+// host's own: the microphone step runs in the run's, and each side reads
+// what the other knows.
+const (
+	// usesNote: the scenario's steps include the microphone step.
+	usesNote = Name + "/microphone"
+	// fedNote, with an app's name: its platform pack plays the recordings
+	// into the app's own audio capture.
+	fedNote = Name + "/microphone/fed/"
+)
 
 // FeedsMicrophone says the app's platform pack plays the app's recordings
 // into its own audio capture (what it records itself), not only to its
 // platform speech stubs: the microphone step then needs no speech stub.
 func FeedsMicrophone(sc *core.Scenario, app string) {
-	s := microphones.Of(sc)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.fed[sc.Suite().Interpolate(app)] = true
+	sc.Note(fedNote+sc.Suite().Interpolate(app), "true")
 }
 
 // microphoneScenarios are the run's scenarios whose steps include the
@@ -60,7 +66,23 @@ func microphoneScenarios(s *core.Suite) map[string]bool {
 
 // UsesMicrophone says the scenario's steps include the microphone step: a
 // platform pack prepares the app's audio capture before the app starts.
-func UsesMicrophone(sc *core.Scenario) bool { return microphoneScenarios(sc.Suite())[sc.ID] }
+func UsesMicrophone(sc *core.Scenario) bool {
+	if microphoneScenarios(sc.Suite())[sc.ID] {
+		return true
+	}
+	_, noted := sc.Noted(usesNote)
+	return noted
+}
+
+// noteMicrophone notes, in a scenario whose steps include the microphone
+// step, that they do: the run planned its scenarios, and the axx host, where
+// an app's platform pack may start the app, did not.
+func noteMicrophone(sc *core.Scenario) error {
+	if microphoneScenarios(sc.Suite())[sc.ID] {
+		sc.Note(usesNote, "true")
+	}
+	return nil
+}
 
 // Prepare finds the scenarios that use the microphone step.
 func (pack) Prepare(_ context.Context, s *core.Suite, plan *core.Plan) error {
@@ -116,9 +138,7 @@ func microphone(sc *core.Scenario, app, file string) error {
 		speech = append(speech, a)
 	}
 	s := microphones.Of(sc)
-	s.mu.Lock()
-	fed := s.fed[app]
-	s.mu.Unlock()
+	_, fed := sc.Noted(fedNote + app)
 	if rate == 0 && !fed {
 		return microphoneError("the %s app has no platform speech stub in axx-models, and its platform pack does not play recordings into the app's own audio capture", app)
 	}

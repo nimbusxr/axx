@@ -125,6 +125,9 @@ type Manifest struct {
 	Commands []Command `json:"commands,omitempty"`
 	// CommandHooks run before or after axx's commands, and those packs add.
 	CommandHooks []CommandHook `json:"commandHooks,omitempty"`
+	// FixtureFunctions are the expression functions the pack adds to the
+	// project's fixture factories: "${ name(args) }".
+	FixtureFunctions []FixtureFunction `json:"fixtureFunctions,omitempty"`
 	// ConfigSchema is a JSON Schema for the pack's section in axx.yaml.
 	ConfigSchema json.RawMessage `json:"configSchema,omitempty"`
 	// Checks are what `axx doctor` checks for the pack, in a project that
@@ -351,6 +354,14 @@ const (
 	AfterScenario
 	BeforeStep
 	AfterStep
+	// HostScenario is not a moment of a run: the hook runs in the axx host,
+	// once for each of a run's scenarios as the host has it (the scenario a
+	// pack's side in the host works in, [Suite.BeginHostScenario]), before
+	// the host starts anything of it. A pack that builds on a pack with a
+	// side in the host sets up there what it sets up in a run's scenario,
+	// like what it does as an app launches; what its two sides must know of
+	// each other, it notes ([Scenario.Note]).
+	HostScenario
 )
 
 func (p Phase) String() string {
@@ -363,6 +374,8 @@ func (p Phase) String() string {
 		return "beforeStep"
 	case AfterStep:
 		return "afterStep"
+	case HostScenario:
+		return "hostScenario"
 	}
 	return "unknown"
 }

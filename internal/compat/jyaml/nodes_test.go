@@ -87,3 +87,46 @@ func TestUnmarshalNodesSyntaxErrorHasAPosition(t *testing.T) {
 		t.Errorf("err = %#v", err)
 	}
 }
+
+// UnmarshalPlain gives the plain scalars its reader has a value for, and
+// only those: the same word in quotes, tagged or in a block is the string.
+func TestUnmarshalPlainReadsPlainWordsOnly(t *testing.T) {
+	type absent struct{}
+	v, err := UnmarshalPlain([]byte("a: undefined\nb: \"undefined\"\nc: 'undefined'\nd: !!str undefined\ne: |\n  undefined\nf: [undefined, x]\ng: null\nh: undefined-ish\n"),
+		func(text string) (any, bool) { return absent{}, text == "undefined" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := v.(*jsonx.Object)
+	get := func(k string) any { x, _ := o.Get(k); return x }
+	if _, ok := get("a").(absent); !ok {
+		t.Errorf("a: %#v", get("a"))
+	}
+	for _, k := range []string{"b", "c", "d"} {
+		if get(k) != "undefined" {
+			t.Errorf("%s: %#v", k, get(k))
+		}
+	}
+	if get("e") != "undefined\n" || get("g") != nil || get("h") != "undefined-ish" {
+		t.Errorf("e, g, h: %#v %#v %#v", get("e"), get("g"), get("h"))
+	}
+	if list := get("f").([]any); len(list) != 2 || list[1] != "x" {
+		t.Errorf("f: %#v", list)
+	} else if _, ok := list[0].(absent); !ok {
+		t.Errorf("f[0]: %#v", list[0])
+	}
+}
+
+// Quoted keeps the strings a reader gives another meaning in quotes.
+func TestMarshalKeepsQuotedStringsQuoted(t *testing.T) {
+	o := jsonx.NewObject()
+	o.Set("a", "undefined")
+	o.Set("b", "defined")
+	out, err := Marshal(o, Options{MinimizeQuotes: true, Quoted: func(s string) bool { return s == "undefined" }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != "a: \"undefined\"\nb: defined\n" {
+		t.Errorf("got %q", out)
+	}
+}

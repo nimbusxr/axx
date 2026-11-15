@@ -15,8 +15,11 @@ import (
 )
 
 // Protocol is the version of what a run and the host send each other: one
-// JSON object per line, over one TCP connection per run.
-const Protocol = 3
+// JSON object per line, over one TCP connection per run. It is 4 since a
+// pack's request says which configuration the run loaded, and the mobile and
+// desktop packs have a side in the host: a host of an earlier axx would have
+// none for them, and says the two must be the same axx instead.
+const Protocol = 4
 
 // Announcement is what a host writes to .axx/host.json for the runs of its
 // project to find it.
@@ -59,7 +62,9 @@ type Request struct {
 	Command string `json:"command"`
 	// Pack makes the connection a pack's: once the host accepted it, its
 	// side in the run and its side in the host (core.HostServer) speak
-	// their own protocol over it, and the rest of the request is not read.
+	// their own protocol over it. Of the rest of the request, the host
+	// reads the configuration (Config, Profile, Properties, Settings): a
+	// pack's side that works with a suite has the run's.
 	Pack string `json:"pack,omitempty"`
 	// IDE is the editor that started the run (AXX_IDE): an editor shows its
 	// own runs, and the host's others.

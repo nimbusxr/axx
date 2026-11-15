@@ -30,3 +30,13 @@ fixtures:
       name: Mary Somerville
       city: Munich
       postcode: "80331"
+  # An older order system exports no service level at all. The prototype sets one, and the
+  # contract has a default, so the fixture leaves the field out: the service chooses.
+  order-7733:
+    reference: PX-REG-1303
+    weightGrams: 980
+    serviceLevel: undefined
+    recipient:
+      name: Emmy Noether
+      city: Erlangen
+      postcode: "91054"

@@ -26,6 +26,11 @@ the skills instead: `axx skills install`.
   steps' forms with the ordinal first (`<id>.leading`).
 - `fixtures`: the public package a pack makes data with: one fixture's values for an instance the pack
   names, deterministically, as `axx fixtures check` resolves them (`internal/fixtures/instance.go`).
+  A spec's `${ name(args) }` calls an expression function: axx's own are for hashing and encoding only
+  (`internal/fixtures/functions.go`; keep it so), and a project's come from its packs
+  (`core.FixtureFunction`, `Manifest.FixtureFunctions`). A spec's bare `undefined` leaves a field out
+  (ADR 0014): it stays in the tree until the fixture's values resolve, then `takeUndefined` takes it
+  out and the families fill none of what it names (`removals`).
 - `packs/*`: the step packs (rest, mock, sql, mongo, kafka, logs, files, faults, otel; `web/*`, `aws/*` and
   `gcp/*`: a core pack and the packs that build on it; `azure/*`), each with its public context. `internal/packset/catalog.go` lists them.
   Packs that build on another (`aws-s3` on `aws-core`, `web-screenshots` on `web-core`) declare it in
@@ -179,6 +184,15 @@ the skills instead: `axx skills install`.
   emulator in CI's mobile job, and on simulators in its ios job (macOS). mobile-ios installs
   Appium's prebuilt WebDriverAgent (pinned, with its SHA-256 sums, in `install.go`) instead of
   building it with Xcode; mobile-android, Appium's UiAutomator2 server APKs (pinned in `uia2.go`).
+  A step scrolls by asking the view, and swipes only where it cannot (ADR 0020): on Android
+  through axx's scroll service (`packs/mobile/android/scroll`, an accessibility service of
+  axx's own, switched on for the run beside the UiAutomator2 server, which is started so that
+  it leaves it running; `scrolls.go`, `scroll.go`), with what the screen has out of view listed
+  too; on iOS through XCTest's scroll to an element. A release builds and signs the service
+  (`release.yml`'s `android-scroll` job, `internal/tools/androidscroll`) and publishes it in its
+  checksums, where that release's axx downloads it; an axx that is no release builds it with
+  the SDK's build-tools and a JDK. One build for both (`BuildScrollService`): keep it so.
+  Keep the two words apart, in code and docs: a swipe is a finger on the glass, a scroll is not.
   What an app's camera sees, and its AR, are played from a picture, a video or a glTF scene: on
   a simulator, by a library mobile-ios builds with Xcode (`packs/mobile/ios/ar`); on an emulator,
   by the emulator's own camera, which renders its AVD's environment as axx sets it
@@ -247,6 +261,16 @@ the skills instead: `axx skills install`.
   run nothing its sandbox would not: nothing it sends is run, names a file of the machine, or reaches an
   address past the sandbox. `cloudtest` runs a pack's tests through an in-process host when
   `AXX_TEST_HOSTED` is set.
+  A pack with a side in the host (`core.HostServer`, ADR 0018) does there what a sandbox keeps a run from:
+  web-core its browsers, the mobile and desktop packs their devices and apps (ADR 0019). The run's side asks
+  for what a step does, by name (`packs/internal/hostwire`), in a scenario of the host's own for each of the
+  run's (`packs/internal/hostscenario`), in a suite confined to the project's repository (`Suite.Confine`).
+  An app is the agent's code outside its sandbox: the pack's side asks the person first (`HostRun.Approve`),
+  with everything of the registration. A pack that builds on a platform pack sets up its launch hook in the
+  host's scenario too (a hook of phase `core.HostScenario`), and what its two sides must know of each other is
+  a note of the scenario (`Scenario.Note`). A new platform pack gets a host side with its first version, and a
+  new operation never names a program or a file outside the project. The platform packs' tests run again
+  through a host in the tests' process (`AXX_TEST_HOSTED`, `cloudtest.AgainHosted`).
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
   `axx-packs.yaml`, using a Go toolchain it downloads itself, as the go command downloads one (`golang.org/toolchain`
   through GOPROXY, checked against Go's checksum database, which GOSUMDB=off does not skip), so an organization's Go proxy serves it.

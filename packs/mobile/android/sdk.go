@@ -214,15 +214,33 @@ func (s *sdk) storageMounted(ctx context.Context, serial string) bool {
 	return true
 }
 
+// userUnlocked reports whether the device has unlocked its user's storage, the last step of its
+// start. Android says it has booted before that: on a device starting cold (an AVD without a
+// quick-boot snapshot) it comes up to half a minute later, and as it does, Android starts the
+// home screen again, in front of whatever app is there. A scenario that had begun by then found
+// its app behind the launcher, a few steps in. An Android that does not say is taken as unlocked.
+func (s *sdk) userUnlocked(ctx context.Context, serial string) bool {
+	out, err := s.shell(ctx, serial, "am", "get-started-user-state", "0")
+	if err != nil {
+		return true
+	}
+	for _, starting := range []string{"BOOTING", "RUNNING_LOCKED", "RUNNING_UNLOCKING"} {
+		if strings.Contains(out, starting) {
+			return false
+		}
+	}
+	return true
+}
+
 // waitBooted waits until a device has finished booting, and has its network and its shared
-// storage.
+// storage, and has unlocked its user.
 func (s *sdk) waitBooted(ctx context.Context, serial string, within time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
 	for {
 		out, err := s.shell(ctx, serial, "getprop", "sys.boot_completed")
 		if err == nil && out == "1" {
-			if _, err := s.shell(ctx, serial, "pm", "path", "android"); err == nil && s.online(ctx, serial) && s.storageMounted(ctx, serial) {
+			if _, err := s.shell(ctx, serial, "pm", "path", "android"); err == nil && s.online(ctx, serial) && s.storageMounted(ctx, serial) && s.userUnlocked(ctx, serial) {
 				return nil
 			}
 		}

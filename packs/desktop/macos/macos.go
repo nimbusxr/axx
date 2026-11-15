@@ -20,7 +20,7 @@ type pack struct{}
 
 const packDoc = `macOS apps, through AX, the accessibility tree VoiceOver reads: native apps (AppKit, SwiftUI), web views (Tauri, Wails), Electron, Qt, Java and Flutter, as they ship.
 
-macOS asks that the app running axx be allowed to control the computer, in System Settings > Privacy & Security > Device Control and Data Access (Accessibility before macOS 27), and to record the screen for screenshots, in Screen & System Audio Recording. That app is axx's launcher, "axx", when axx has it: ` + "`axx run`" + `, ` + "`axx mcp`" + ` and ` + "`axx doctor`" + ` run under it, and start apps as their children, so that a person allows one app once, whatever terminal, IDE or CI agent runs axx (` + "`AXX_MACOS_LAUNCHER`" + `: the path of its ` + "`axx.app`" + `, or ` + "`off`" + `). Without it, the app is the terminal, the IDE or the CI agent at the top of axx's process tree. ` + "`axx doctor`" + ` checks both, names the app, and has macOS list the launcher for the permissions it lacks. Hosted macOS runners allow both already.
+macOS asks that the app running axx be allowed to control the computer, in System Settings > Privacy & Security > Device Control and Data Access (Accessibility before macOS 27), and to record the screen for screenshots, in Screen & System Audio Recording. That app is axx's launcher, "axx", when axx has it: ` + "`axx run`" + `, ` + "`axx mcp`" + `, ` + "`axx host`" + ` and ` + "`axx doctor`" + ` run under it, and start apps as their children, so that a person allows one app once, whatever terminal, IDE or CI agent runs axx (` + "`AXX_MACOS_LAUNCHER`" + `: the path of its ` + "`axx.app`" + `, or ` + "`off`" + `). Without it, the app is the terminal, the IDE or the CI agent at the top of axx's process tree. ` + "`axx doctor`" + ` checks both, names the app, and has macOS list the launcher for the permissions it lacks. Hosted macOS runners allow both already.
 
 **Each scenario has the desktop, and a clean app.** Desktop scenarios take the Mac's desktop in turns: while they run, the screen, the pointer and the keyboard are theirs, so leave the Mac be, or run them in CI. Before the app starts, its home (` + "`HOME`" + ` and ` + "`CFFIXED_USER_HOME`" + `, which Foundation follows; Java's ` + "`user.home`" + `) is emptied, and its preferences, which macOS keeps for the user whatever the home, are emptied too: the domain of the app's bundle identifier, and the domains its registration names (` + "`preferences`" + `: Qt's ` + "`QSettings`" + ` names its own, after the app's organization). Your own are kept aside during the run and put back when it ends (or as the next run starts, after one that was stopped). Window restoration is off. The keychain is not reset: a sign-in an app keeps there outlives the scenario. An app's ` + "`./`" + ` files are its home's ` + "`Library/Application Support`" + `.`
 
@@ -61,16 +61,31 @@ func steps() []core.StepDef {
 			},
 			Examples: []string{"Given the depot macos app with the following properties:\n  | app | ../depot-desk/appkit/build/Depot desk.app |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				app, err := desktopcore.Parse(sc, "macos", a.String(0), a.Table, "preferences")
+				rows, err := desktopcore.Properties(sc, a.Table)
 				if err != nil {
 					return err
 				}
-				if _, err := preferenceDomains(app); err != nil {
+				app, err := parseApp(sc, a.String(0), rows)
+				if err != nil {
 					return err
 				}
-				app.Driver = driver{}
-				return desktopcore.Register(sc, app)
+				// Where an axx host serves the project, it runs the app.
+				return desktopcore.Register(sc, desktopcore.Hosted(sc, Name, app, rows))
 			},
 		},
 	}
+}
+
+// parseApp reads a macOS app's registration from its rows, for this pack's
+// driver: in a run, and in the axx host.
+func parseApp(sc *core.Scenario, name string, rows []desktopcore.Property) (*desktopcore.App, error) {
+	app, err := desktopcore.ParseRows(sc, "macos", name, rows, "preferences")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := preferenceDomains(app); err != nil {
+		return nil, err
+	}
+	app.Driver = driver{}
+	return app, nil
 }

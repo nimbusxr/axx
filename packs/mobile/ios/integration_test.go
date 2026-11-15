@@ -136,11 +136,24 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := p.lease(ctx)
-	if err != nil {
-		t.Fatal(err)
+	if os.Getenv(cloudtest.HostedEnv) != "" {
+		// Through an axx host, the host's side has the simulators, in a pool of its own, and
+		// leases one as the scenario starts: the simulator this machine keeps (CI's is made
+		// before the tests, scripts/ios-simulator.sh), or a clone it makes. A simulator leased
+		// here would stay this side's, and the host's side then made a second one beside it,
+		// from a simulator to clone it had to set up first: a first boot, which takes a hosted
+		// runner most of the job's ten minutes. So only what both sides share and no scenario
+		// has time for is made ready here: WebDriverAgent's first download.
+		if _, err := wdaFor(ctx, h.SC.Suite()); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		d, err := p.lease(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.release(d)
 	}
-	p.release(d)
 	// The scenario starts now, with all of its time. It ends before the test's other cleanups
 	// run: a failure's report is made before it does, while the app runs.
 	h.NewScenarioWithin(scenarioLimit)
@@ -160,6 +173,30 @@ func signIn(h *cloudtest.Harness) {
 	h.OK(`the "Courier ID" field in the courier app is filled with "CR-LEJ-12"`)
 	h.OK(`the "PIN" field in the courier app is filled with "${env:COURIER_PIN}"`)
 	h.OK(`the "Sign in" button is tapped in the courier app`)
+}
+
+// A courier finds a parcel far down a long round. The round is a list that makes its rows as it
+// scrolls, so the screen has nothing of a row further on: the step looks for it a page at a time
+// until the row shows, and scrolls back up to a row it passed.
+func TestACourierFindsAParcelFarDownTheRoundOnASimulator(t *testing.T) {
+	device := simulator(t)
+	courierapi.LongRound(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := harness(t)
+	warm(t, h, device)
+	h.OK("the courier ios app with the following properties:", [][]string{{"app", courierBuild(t)}, {"device", device}})
+	signIn(h)
+	h.OK(`the courier app's dialog is accepted`)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK(`the "PX-MOB-9401" list item is shown in the courier app`)
+	h.OK(`the "PX-MOB-9436" list item is scrolled into view in the courier app`)
+	h.OK(`the "PX-MOB-9436" list item is shown in the courier app`)
+	h.OK(`the "PX-MOB-9403" list item is tapped in the courier app`)
+	h.OK(`the "Mark delivered" button is disabled in the courier app`)
+	h.OK(`the courier app shows "PX-MOB-9403"`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // A courier delivers a parcel on a simulator, with every step of the packs;
@@ -393,9 +430,13 @@ func TestACourierMeasuresAParcelOnASimulator(t *testing.T) {
 	// processors from the scenarios running beside it, for the rest of the run.
 	var udid string
 	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
-		udid = d.(*running).dev.udid
+		// What the device says of itself: the simulator may be one the axx host runs.
+		udid, _ = d.Describe()["udid"].(string)
 		return nil
 	})
+	if udid == "" {
+		t.Fatal("the courier app's device names no simulator")
+	}
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)
 	}

@@ -12,6 +12,7 @@ import (
 	"maps"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -39,14 +40,45 @@ import (
 // tests run that way too.
 const HostedEnv = "AXX_TEST_HOSTED"
 
+// AgainHosted runs the package's tests again with HostedEnv set, in a
+// process of their own: every step of a pack with a side in the host then
+// crosses to the test's host and back. A package calls it from one test, in
+// a file its integration build leaves out (a device's tests run hosted in
+// CI's own parts). It does nothing in that second run, nor with -short.
+func AgainHosted(t *testing.T) {
+	t.Helper()
+	if os.Getenv(HostedEnv) != "" {
+		t.Skip("this is that run")
+	}
+	if testing.Short() {
+		t.Skip("runs the package's tests again")
+	}
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.count=1") //nolint:gosec // the test binary itself
+	cmd.Env = append(os.Environ(), HostedEnv+"=1")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("the package's tests, through the test's host: %v\n%s", err, out)
+	}
+}
+
 // hosted serves the suite's connections to a pack's side in the host with
-// that pack, over a pipe.
-func hosted(t *testing.T, suite *core.Suite, packs []core.Pack) {
+// that pack, over a pipe. A pack's side that works with a suite
+// (core.HostRun.Suite) has one of its own, made as the harness's is; what it
+// asks the host's person to approve is approved (a test's host has no one to
+// ask, and the tests of the host itself ask), unless the harness answers
+// (Harness.HostAnswer); the harness keeps what was asked.
+func hosted(t *testing.T, h *Harness, suite *core.Suite, packs []core.Pack, opts core.SuiteOptions) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
+	var hostSuite struct {
+		once sync.Once
+		s    *core.Suite
+	}
 	t.Cleanup(func() {
 		cancel()
 		wg.Wait()
+		if hostSuite.s != nil {
+			_ = hostSuite.s.Close(context.Background())
+		}
 	})
 	suite.UseHost(func(_ context.Context, name string) (net.Conn, error) {
 		for _, p := range packs {
@@ -56,7 +88,23 @@ func hosted(t *testing.T, suite *core.Suite, packs []core.Pack) {
 			}
 			run, host := net.Pipe()
 			wg.Go(func() {
-				_ = hs.ServeHost(ctx, core.HostRun{ProjectDir: suite.ProjectDir(), Command: "go test", Logger: suite.Logger(), Tell: func(string) {}}, host)
+				_ = hs.ServeHost(ctx, core.HostRun{
+					ProjectDir: suite.ProjectDir(), Command: "go test", Logger: suite.Logger(), Tell: func(string) {},
+					Approve: func(_ context.Context, a core.HostApproval) error {
+						h.hostMu.Lock()
+						h.hostAsked = append(h.hostAsked, a)
+						answer := h.HostAnswer
+						h.hostMu.Unlock()
+						if answer == nil {
+							return nil
+						}
+						return answer(a)
+					},
+					Suite: func() (*core.Suite, error) {
+						hostSuite.once.Do(func() { hostSuite.s = core.NewSuite(opts) })
+						return hostSuite.s, nil
+					},
+				}, host)
 			})
 			return run, nil
 		}
@@ -79,6 +127,20 @@ type Harness struct {
 	hooks []core.Hook
 	// line is the line of the scenario's last step in its feature file.
 	line int
+
+	// HostAnswer answers what a pack's side in the test's host asks its
+	// person to approve; nil approves.
+	HostAnswer func(core.HostApproval) error
+	hostMu     sync.Mutex
+	hostAsked  []core.HostApproval
+}
+
+// HostAsked are what the packs' sides in the test's host asked its person
+// to approve, in order.
+func (h *Harness) HostAsked() []core.HostApproval {
+	h.hostMu.Lock()
+	defer h.hostMu.Unlock()
+	return append([]core.HostApproval(nil), h.hostAsked...)
 }
 
 // Sink records scenario logs and attachments, and what packs announce to
@@ -172,7 +234,7 @@ func newHarness(t *testing.T, config map[string]any, services map[string]string,
 		}
 	})
 	var h *Harness
-	suite := core.NewSuite(core.SuiteOptions{
+	opts := core.SuiteOptions{
 		Logger: slog.New(slog.NewTextHandler(log, nil)),
 		// Steps run by text (a paused scenario's) run as the engine runs
 		// them: in the scenario's current step.
@@ -186,6 +248,18 @@ func newHarness(t *testing.T, config map[string]any, services map[string]string,
 				return err
 			}
 			return ms[0].Def().Step.Run(sc, args)
+		},
+		// A scenario the host's side makes for one of the run's gets the
+		// packs' hooks of that phase, as the engine runs them.
+		HostScenario: func(sc *core.Scenario) error {
+			for _, hk := range hooks {
+				if hk.Phase == core.HostScenario {
+					if err := hk.Run(sc); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
 		},
 		ProjectDir: dir,
 		PackConfig: packConfig,
@@ -206,10 +280,11 @@ func newHarness(t *testing.T, config map[string]any, services map[string]string,
 			}
 			return p, nil
 		},
-	})
+	}
+	suite := core.NewSuite(opts)
 	h = &Harness{t: t, reg: reg, packs: packs, Suite: suite, Dir: dir, Sink: sink, hooks: hooks}
 	if os.Getenv(HostedEnv) != "" {
-		hosted(t, suite, packs)
+		hosted(t, h, suite, packs, opts)
 	}
 	t.Cleanup(func() {
 		for i := len(packs) - 1; i >= 0; i-- {

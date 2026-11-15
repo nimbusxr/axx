@@ -48,6 +48,7 @@ Feature: Register parcels
       | order      | reference   | service  |
       | order-7731 | PX-REG-1301 | STANDARD |
       | order-7732 | PX-REG-1302 | EXPRESS  |
+      | order-7733 | PX-REG-1303 | STANDARD |
 
   Scenario: The courier collects an express parcel without being told who it goes to
     Given the mocked courier service with the following properties:

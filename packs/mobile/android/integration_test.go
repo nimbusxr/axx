@@ -5,6 +5,7 @@ package mobileandroid
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -73,6 +74,11 @@ func logsOnFailure(t *testing.T, h *cloudtest.Harness) {
 		for _, serial := range serials {
 			out, _ := s.run(ctx, serial, "logcat", "-d", "-b", "crash")
 			t.Logf("%s's crash log:\n%s", serial, out)
+			// What axx's scroll service was asked and answered: which view, whether it took the
+			// scroll, whether it moved, and how many milliseconds after.
+			out, _ = s.run(ctx, serial, "logcat", "-d", "-v", "time", "-s", "axx-scroll")
+			asked := strings.Split(strings.TrimSpace(out), "\n")
+			t.Logf("%s's scroll service's log:\n%s", serial, strings.Join(asked[max(0, len(asked)-60):], "\n"))
 			// Which window has the focus, where a tap goes: the app's, or the notification shade's.
 			out, _ = s.shell(ctx, serial, "dumpsys", "window", "displays")
 			for _, line := range strings.Split(out, "\n") {
@@ -90,11 +96,42 @@ func near(t *testing.T, h *cloudtest.Harness, lat, lon float64) {
 	t.Helper()
 	want := "location " + strconv.FormatFloat(lat, 'f', -1, 64) + ", " + strconv.FormatFloat(lon, 'f', -1, 64)
 	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
-		if resets, _ := d.Describe()["resets"].([]string); !slices.Contains(resets, want) {
+		if resets := resetsOf(d); !slices.Contains(resets, want) {
 			t.Errorf("the device's resets are %v, want %q among them", resets, want)
 		}
 		return nil
 	})
+}
+
+// resetsOf are what the scenario's device says it reset: the device may be
+// one the axx host runs, which says it over the wire.
+func resetsOf(d mobilecore.Device) []string {
+	switch r := d.Describe()["resets"].(type) {
+	case []string:
+		return r
+	case []any:
+		out := make([]string, 0, len(r))
+		for _, v := range r {
+			out = append(out, fmt.Sprint(v))
+		}
+		return out
+	}
+	return nil
+}
+
+// adbOf is the SDK and the serial of the scenario's device, for what a test
+// does to it behind the pack's back.
+func adbOf(t *testing.T, d mobilecore.Device) (*sdk, string) {
+	t.Helper()
+	s, err := findSDK()
+	if err != nil {
+		t.Fatal(err)
+	}
+	serial, _ := d.Describe()["device"].(string)
+	if serial == "" {
+		t.Fatalf("the courier app's device names no serial: %v", d.Describe())
+	}
+	return s, serial
 }
 
 func signIn(h *cloudtest.Harness) {
@@ -103,6 +140,32 @@ func signIn(h *cloudtest.Harness) {
 	h.OK(`the "Courier ID" field in the courier app is filled with "CR-LEJ-12"`)
 	h.OK(`the "PIN" field in the courier app is filled with "${env:COURIER_PIN}"`)
 	h.OK(`the "Sign in" button is tapped in the courier app`)
+}
+
+// A courier finds a parcel far down a long round. The round is a list that makes its rows as it
+// scrolls (a LazyColumn), so the screen has nothing of a row further on: the step asks the list
+// for a page at a time until the row shows. A row that went off the top on the way is looked for
+// up first, with no trip to the round's end.
+func TestACourierFindsAParcelFarDownTheRoundOnAnEmulator(t *testing.T) {
+	courierapi.LongRound(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"host ports", "8400"},
+	})
+	signIn(h)
+	h.OK(`the courier app shows "Hello, Hanna Wolf"`)
+	h.OK(`the "PX-MOB-9401" list item is shown in the courier app`)
+	h.OK(`the "PX-MOB-9436" list item is scrolled into view in the courier app`)
+	h.OK(`the "PX-MOB-9436" list item is shown in the courier app`)
+	// Back up the round, by a tap: the step scrolls to its row itself.
+	h.OK(`the "PX-MOB-9403" list item is tapped in the courier app`)
+	h.OK(`the "Mark delivered" button is disabled in the courier app`)
+	h.OK(`the courier app shows "PX-MOB-9403"`)
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // A courier delivers a parcel on an emulator, with every step of the packs;
@@ -129,13 +192,13 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	// The UiAutomator2 server crashes now and then, its own process: the scenario goes on, on
 	// a server started again.
 	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
-		r := d.(*running)
-		_, err := r.sdk.shell(ctx, r.dev.serial, "am", "force-stop", uia2Package)
+		s, serial := adbOf(t, d)
+		_, err := s.shell(ctx, serial, "am", "force-stop", uia2Package)
 		return err
 	})
 	h.OK(`the "PX-MOB-9401" list item is shown in the courier app`)
 	_ = mobilecore.OnDevice(h.SC, "courier", func(_ context.Context, d mobilecore.Device) error {
-		if resets, _ := d.Describe()["resets"].([]string); !slices.Contains(resets, "the UiAutomator2 server started again after it crashed") {
+		if resets := resetsOf(d); !slices.Contains(resets, "the UiAutomator2 server started again after it crashed") {
 			t.Errorf("the server was not started again: the device's resets are %v", resets)
 		}
 		return nil
@@ -144,14 +207,14 @@ func TestCouriersOnAnEmulator(t *testing.T) {
 	// the app reached as localhost go with it: the scenario goes on, and the app reaches this
 	// machine again (it delivers the parcel below through localhost:8400).
 	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
-		r := d.(*running)
-		_, err := r.sdk.run(ctx, r.dev.serial, "reconnect")
+		s, serial := adbOf(t, d)
+		_, err := s.run(ctx, serial, "reconnect")
 		return err
 	})
 	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
 	_ = mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
-		r := d.(*running)
-		if out, err := r.sdk.run(ctx, r.dev.serial, "reverse", "--list"); err != nil || !strings.Contains(out, "tcp:8400") {
+		s, serial := adbOf(t, d)
+		if out, err := s.run(ctx, serial, "reverse", "--list"); err != nil || !strings.Contains(out, "tcp:8400") {
 			t.Errorf("the app does not reach localhost:8400 after adb lost the device: %q, %v", out, err)
 		}
 		return nil
@@ -308,6 +371,47 @@ func TestACourierFollowsNotificationsOnAnEmulator(t *testing.T) {
 	h.OK("the courier app is sent to the background")
 	h.OK(`the "PX-MOB-9402 delivered" notification is tapped in the courier app`)
 	h.OK(`the courier app shows "No deliveries left today."`)
+}
+
+// A courier attaches a file that is further down Android's file picker than its first screen.
+// The picker has its grid of files in a view that scrolls too: asked for a page, that view only
+// folds the picker's header away, and has no more to scroll, while the grid has pages left. The
+// step asks each of them in turn (a look that asked the outer view alone stopped a page short of
+// the file, on CI).
+func TestACourierAttachesADocumentFurtherDownThePickerOnAnEmulator(t *testing.T) {
+	api := courierapi.Start(t)
+	t.Setenv("COURIER_PIN", "4711")
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	// The parcels example's documents: nine, more than the picker's grid shows at once.
+	dir, err := filepath.Abs(filepath.Join("..", "..", "..", "examples", "parcels", "acceptance", "features", "courier-app-documents", "documents"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var documents []string
+	for _, name := range []string{
+		"safe-place-PX-MOB-9481.pdf", "parcel-at-door.jpg", "house-number.jpg", "label-PX-MOB-9489.jpg", "parcel-and-dog.jpg",
+		"parcel-and-person.jpg", "safe-place-PX-MOB-9487.jpg", "parcel-cut-off.jpg", "crushed-parcel.jpg",
+	} {
+		documents = append(documents, filepath.Join(dir, name))
+	}
+	h.OK("the courier android app with the following properties:", [][]string{
+		{"apk", apk(t)}, {"device", avd(t)}, {"permissions", "POST_NOTIFICATIONS"}, {"host ports", "8400"}, {"documents", strings.Join(documents, ", ")},
+	})
+	signIn(h)
+	h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
+	h.OK(`the "Attach document" button is tapped in the courier app`)
+	h.OK(`the "Show roots" button is tapped in the courier app`)
+	h.OK(`the "Downloads" text is tapped in the courier app`)
+	h.OK(`the "crushed-parcel.jpg" text is scrolled into view in the courier app`)
+	h.OK(`the "crushed-parcel.jpg" text is tapped in the courier app`)
+	h.OK(`within 30s the courier app shows "crushed-parcel.jpg attached"`)
+	if docs := api.Documents(); len(docs) != 1 || docs[0].Name != "crushed-parcel.jpg" {
+		t.Errorf("the service has %+v, want crushed-parcel.jpg", docs)
+	}
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // A courier attaches a document from the phone's files to a delivery: the recipient's leave to

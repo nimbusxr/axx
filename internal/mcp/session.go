@@ -66,7 +66,18 @@ func (s *server) live(restart bool) (*runner.Session, error) {
 	// (web-core: a browser), whether or not it starts services for it.
 	if ann, err := host.Find(cfg.Dir); err == nil && ann != nil {
 		e.Suite.UseHost(func(ctx context.Context, pack string) (net.Conn, error) {
-			return host.Dial(ctx, ann, pack, "axx mcp: steps_try")
+			// With the session's configuration: a pack's side there that
+			// works with a suite has its settings.
+			req := host.Request{Pack: pack, Command: "axx mcp: steps_try", Profile: s.opts.Profile}
+			if req.Profile == "" {
+				req.Profile = os.Getenv("AXX_PROFILE")
+			}
+			if cfg.File != "" {
+				if rel, err := filepath.Rel(cfg.Dir, cfg.File); err == nil {
+					req.Config = filepath.ToSlash(rel)
+				}
+			}
+			return host.DialAs(ctx, ann, req)
 		})
 	}
 	lease, log, err := s.hostServices(ctx, cfg, e)

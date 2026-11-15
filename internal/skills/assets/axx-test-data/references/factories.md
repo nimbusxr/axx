@@ -5,6 +5,8 @@
 - Families: what each generates, from which schema
 - Which factory a fixture belongs to
 - Reference another fixture ($ref)
+- Leave a value out (undefined)
+- Compute a value (expressions)
 - Identities
 - Adopt existing files
 - Generate, check and clean; ignored outputs
@@ -54,6 +56,54 @@ data:
 
 A reference sees the fixture as it is generated: its prototype, its defaults and the identities derived for it. Loops fail and name the loop.
 
+A reference with no path before `#` points into the fixture it is written in. In a dataset, a column's value or a whole row can be a reference, so a value is said once:
+
+```yaml title="seeds/handover.fixture.yaml"
+data:
+  manifests:
+    - shop: fjord-outdoor                # its id derives from the fixture's name
+  scans:
+    - location: Leipzig
+      manifest_id:
+        $ref: "#/manifests/0/id"         # this fixture's own row
+    - $ref: ../scans/damaged.fixture.yaml#/scans/0   # a whole row of another seed
+      id: SC-HANDOVER-DAMAGED                        # its identities come along: give it its own
+      manifest_id:
+        $ref: "#/manifests/0/id"
+```
+
+## Leave a value out
+
+`null` writes the value null. To leave out a field the prototype sets, write `undefined` without quotes; `"undefined"` in quotes is the string.
+
+```yaml
+data:
+  location: undefined   # no such field in the generated file
+  scannedAt: null       # the value null
+```
+
+- Nothing fills a field left out: not the prototype, `defaults:` or the schema's default. A field the schema requires cannot be left out.
+- It stands for a field's value in a fixture's or a prototype's `data` and `metadata`, at any depth, and next to a `$ref`. Never for a list's element.
+- Avro: the field takes the schema's default (a record has every field). Dataset: the row has no such column, so the database's default applies; `null` is SQL's NULL (only the YAML format tells them apart).
+
+## Compute a value
+
+A value that is exactly `${ name(arguments) }` is computed when the fixtures are generated. An argument is a literal in quotes, a number, or the name of a field of the same fixture (in a dataset, a column of the same row). Never write out a hash or an encoding by hand:
+
+```yaml
+data:
+  shops:
+    api_key_hash: ${ sha256(api_key) }
+    webhook_auth: ${ base64(shop_id, ":", "s3cret") }
+```
+
+- axx's own functions: `sha256`, `sha512`, `sha1`, `md5` (lowercase hexadecimal), `base64`, `base64url` (no padding) and `hex`. Each works on its arguments joined together.
+- Any other function is the project's own, added by one of its packs (`FixtureFunctions` in the pack's manifest; the docs guide "Write custom steps" shows one). An unknown function's error lists the ones there are. When the project needs one it lacks, add it to its pack rather than writing computed values by hand.
+- A recorded function (one that asks a running service) is called only by `axx fixtures generate`, once for each set of arguments. Its results are in `axx-fixtures.pairings.yaml`, in `fixtures.baseDir`: each function's version, and each call's arguments and value. `axx fixtures check` reads it and never calls the function.
+  - Commit it, also when generated fixtures are gitignored. Never edit it by hand: its checksum is in the manifest, and an edited file is refused (`AXX-E0903`); revert it, or delete it and generate again with the stack running.
+  - A fixture that calls a recorded function with new arguments fails `axx fixtures check` ("no recorded pairing") until `axx fixtures generate` runs with whatever the function asks running. Tell the person when that is needed rather than writing a value in by hand.
+  - A new function version records every entry again; entries no fixture uses are dropped.
+
 ## Identities
 
 An identity is a field that tells fixtures apart: a parcel reference, a scan id, a manifest line id. No two fixtures, of any factories, have the same value in identity fields of the same name (the path's last field).
@@ -92,6 +142,7 @@ axx fixtures adopt --family json --schema openapi/address.yaml#/components/schem
 - **Identities are yours to declare.** The report lists identity candidates (string fields distinct in every file, with how many files they were compared across), and the factory lists them as comments. Declare the ones that really identify a fixture: `--identity reference` (repeatable). An email distinct in three examples is not an identity. Check the `prefix:` adoption gives each declared identity: a new fixture without a value gets that prefix and its name.
 - `--prototype common` takes each field's most common value instead of only what every file shares.
 - `--into <factory> --files '<glob>'` adds more files to an existing factory, with its prototype and identities.
+- A field a file lacks stays out: where generating would fill it (the schema's default; with `--into`, the factory's prototype), the fixture gets `undefined`, and the report counts them.
 - A refusal lists the paths that would change. Seed layouts keyed by document id often cause it: adopt the records as a factory of their own, then reference them from the layout with `$ref`.
 - Files a factory already generates cannot be adopted again.
 

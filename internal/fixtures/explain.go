@@ -115,6 +115,9 @@ func (g *Generator) Explain(file, path string) (ex *Explanation, err error) {
 	shown := renderSteps(steps)
 	value, ok := lookup(generated, steps, namesOf(spec))
 	if !ok {
+		if r, rerr := e.explain(spec, key, steps, generated, false, 0); rerr == nil && r.left != nil {
+			return nil, explainError("%s has no value at %s: the %s leaves it out (%s at %s in %s)", rel, shown, r.left.Kind, undefinedWord, r.left.At, r.left.File)
+		}
 		fields := ""
 		if o, isObject := object(generated); isObject {
 			fields = " (its fields: " + strings.Join(o.Keys(), ", ") + ")"
@@ -210,6 +213,9 @@ type found struct {
 	ok      bool
 	origins []Origin
 	miss    int
+	// left is where a source leaves the value out (undefined): no layer
+	// under it, $ref or defaults: entry sets it then.
+	left *Origin
 }
 
 // source is one layer's value at the walked prefix: kind and file say which
@@ -226,9 +232,12 @@ func (s source) with(node any) source {
 
 // document is one fixture being walked.
 type document struct {
-	spec  *Spec
-	key   string
-	refs  bool // whether $refs resolve in it (dataset rows keep them)
+	spec *Spec
+	key  string
+	refs bool // whether $refs resolve in it
+	// row says the walk starts at a dataset's row, which can itself be a
+	// $ref (a document's root cannot).
+	row   bool
 	names func(string) []string
 	hops  int
 }
@@ -269,7 +278,7 @@ func (e *explainer) generated(spec *Spec, key string, data []byte, out string) (
 		return nil, err
 	}
 	if spec.Family == "xml" {
-		applyDottedDefaults(spec.Defaults, tree)
+		applyDottedDefaults(spec.Defaults, tree, e.ctx.removed)
 	}
 	return tree, nil
 }
@@ -301,8 +310,10 @@ func (e *explainer) explain(spec *Spec, key string, steps []step, generated any,
 	if r.ok || r.miss < 0 || !fill {
 		return r, nil
 	}
-	if o, ok := e.defaults(d, steps, r.miss); ok {
-		return found{ok: true, origins: []Origin{o}}, nil
+	if r.left == nil { // defaults: fills nothing a fixture leaves out
+		if o, ok := e.defaults(d, steps, r.miss); ok {
+			return found{ok: true, origins: []Origin{o}}, nil
+		}
 	}
 	if _, ok := lookup(generated, steps, d.names); ok && generated != nil {
 		return found{ok: true, origins: []Origin{{Kind: OriginSchema, File: spec.SchemaRef(), Detail: "the schema's default"}}}, nil
@@ -364,7 +375,7 @@ func prototypes(spec *Spec, dir string) []source {
 func (e *explainer) walk(d *document, sources []source, steps []step, i int, ref *pendingRef) (found, error) {
 	top := sources[0]
 	_, topObject := object(top.node)
-	if topObject && d.refs && i > 0 {
+	if topObject && d.refs && (i > 0 || d.row) {
 		for _, s := range sources {
 			o, _ := object(s.node)
 			if has(o, refKeyword) {
@@ -399,6 +410,10 @@ func (e *explainer) walk(d *document, sources []source, steps []step, i int, ref
 				continue
 			}
 			v := get(o, name)
+			if isUndefined(v) && next == nil {
+				left := Origin{Kind: src.kind, File: src.file, At: joinAt(src.base, append(steps[:i:i], keyStep(name))), Detail: undefinedWord}
+				return found{miss: i, left: &left}, nil
+			}
 			_, isObject := object(v)
 			if next != nil && !isObject {
 				break
@@ -454,7 +469,11 @@ func (e *explainer) follow(d *document, ref *pendingRef, steps []step) (found, e
 		if same.hops > maxHops {
 			return found{}, genError("more than %d $refs lead to %s of fixtures.%s (%s)", maxHops, renderSteps(steps), d.key, d.spec.SourceName)
 		}
-		r, err = e.walk(&same, e.sources(d.spec, d.key), target, 0, nil)
+		if d.spec.Family == "dataset" {
+			r, err = e.row(d.spec, d.key, target, same.hops)
+		} else {
+			r, err = e.walk(&same, e.sources(d.spec, d.key), target, 0, nil)
+		}
 	} else {
 		fx := d.spec.Fixtures.Get(d.key)
 		var spec *Spec
@@ -584,8 +603,25 @@ func (e *explainer) row(spec *Spec, key string, steps []step, hops int) (found, 
 			sources = append(sources, p)
 		}
 	}
-	d := &document{spec: spec, key: key, names: exactName, hops: hops}
-	r, err := e.walk(d, sources, steps[2:], 0, nil)
+	if hops > maxHops {
+		return found{}, genError("more than %d $refs lead to %s of fixtures.%s (%s)", maxHops, renderSteps(steps), key, spec.SourceName)
+	}
+	d := &document{spec: spec, key: key, refs: true, row: true, names: exactName, hops: hops}
+	var r found
+	var err error
+	if o, _ := object(rows[n]); has(o, refKeyword) {
+		// A row a $ref brings: its own columns, then the row it names. One
+		// of another document lies over the row templates; one of this
+		// fixture has its templates already.
+		r, err = e.walk(d, sources[:1], steps[2:], 0, nil)
+		if path, _ := splitRef(valueOf(get(o, refKeyword))); err == nil && !r.ok && path != "" && len(sources) > 1 {
+			plain := *d
+			plain.row = false
+			r, err = e.walk(&plain, sources[1:], steps[2:], 0, nil)
+		}
+	} else {
+		r, err = e.walk(d, sources, steps[2:], 0, nil)
+	}
 	if err != nil {
 		return found{}, err
 	}

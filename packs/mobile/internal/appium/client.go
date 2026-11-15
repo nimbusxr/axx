@@ -138,6 +138,23 @@ func (c *Client) NewSession(ctx context.Context, caps map[string]any) (*Session,
 	return &Session{c: c, ID: out.SessionID, Capabilities: out.Capabilities}, nil
 }
 
+// Attach is a session the server has already: one another process started
+// on it (the axx host, for a run in a sandbox), which this one drives too.
+func (c *Client) Attach(id string, caps map[string]any) *Session {
+	return &Session{c: c, ID: id, Capabilities: caps}
+}
+
+// Server is the server the session is on, and whether it is a UiAutomator2
+// server (Client.Selectors): what another process needs to attach to it.
+func (s *Session) Server() (url string, selectors bool) { return s.c.URL, s.c.Selectors }
+
+// Identity is the session's ID, as the server knows it now.
+func (s *Session) Identity() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.ID
+}
+
 // Status reports whether the server is up.
 func (c *Client) Status(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, "/status", nil, nil)
@@ -192,6 +209,10 @@ type Element struct {
 	s  *Session
 	ID string
 }
+
+// Element is the session's element of that ID: one another client of the session found, as an
+// axx host has for a run's.
+func (s *Session) Element(id string) *Element { return &Element{s: s, ID: id} }
 
 // Find finds the first element a locator strategy matches.
 func (s *Session) Find(ctx context.Context, using, value string) (*Element, error) {
@@ -402,6 +423,28 @@ func (s *Session) DragAndHold(ctx context.Context, fromX, fromY, toX, toY float6
 	}
 	s.touched(Touch{From: Point{fromX, fromY}, To: Point{toX, toY}, At: time.Now().Add(100 * time.Millisecond), Length: d})
 	return s.do(ctx, http.MethodPost, "/actions", map[string]any{"actions": []any{finger}}, nil)
+}
+
+// Keys types text on the keyboard, a key at a time, into whatever has the focus: for a field the
+// driver cannot set a value of.
+func (s *Session) Keys(ctx context.Context, text string) error {
+	var actions []any
+	for _, r := range text {
+		actions = append(actions, map[string]any{"type": "keyDown", "value": string(r)}, map[string]any{"type": "keyUp", "value": string(r)})
+	}
+	if len(actions) == 0 {
+		return nil
+	}
+	keyboard := map[string]any{"type": "key", "id": "keyboard", "actions": actions}
+	return s.do(ctx, http.MethodPost, "/actions", map[string]any{"actions": []any{keyboard}}, nil)
+}
+
+// IsNoTextField reports that the driver would not set a field's text because it takes the field
+// for a control with a range, like a slider: UiAutomator2 does so with a web page's number
+// field, which Chrome presents as one. Its keys still type into it.
+func IsNoTextField(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && strings.Contains(e.Message, "ACTION_SET_PROGRESS")
 }
 
 // Tap taps a point of the screen, in points, as a finger does.

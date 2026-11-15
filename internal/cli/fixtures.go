@@ -9,6 +9,7 @@ import (
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/config"
+	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/fixtures"
 )
@@ -22,6 +23,10 @@ sources into fixture files (Avro/JSON/YAML/XML/protobuf payloads, database seed
 datasets) that are validated against their schemas, and records what it owns in
 axx-fixtures.manifest.yaml. Only files recorded there are ever touched; a managed
 file whose content no longer matches its sha256 is a refused hand-edit.
+
+A value of a spec that is ${ name(args) } is computed by a function: axx's own
+(sha256, sha512, sha1, md5, base64, base64url, hex) and those the project's packs
+add. An argument is a literal in quotes or the name of a field of the fixture.
 
 Configure it in the fixtures section of axx.yaml. The spec file formats:
 axx schema --kind factory|fixture|prototype.
@@ -70,10 +75,22 @@ func (a *App) loadFixturesConfig(cf *configFlags) (fixtures.Config, error) {
 	return fixturesConfig(cfg), nil
 }
 
-// fixturesOptions are the engine extensions: none yet. Families and
-// expression functions are internal interfaces a plugin capability
-// (factory.family / factory.function) can back later.
-func fixturesOptions() fixtures.Options { return fixtures.Options{} }
+// fixturesOptions are what the project's packs add to the fixture factory:
+// their expression functions (core.FixtureFunction), beside axx's own.
+func fixturesOptions() (fixtures.Options, error) {
+	var opts fixtures.Options
+	for _, np := range engine.CompiledPacks() {
+		m := np.Pack.Manifest()
+		for _, f := range m.FixtureFunctions {
+			fn, err := fixtures.PackFunction(m.Name, f)
+			if err != nil {
+				return opts, err
+			}
+			opts.Functions = append(opts.Functions, fn)
+		}
+	}
+	return opts, nil
+}
 
 // GenerateReport is the JSON result of `axx fixtures generate`.
 type GenerateReport struct {
@@ -102,7 +119,11 @@ file). There is no force option that discards edits.`,
 			if err != nil {
 				return err
 			}
-			g, err := fixtures.NewGenerator(fc, fixturesOptions())
+			opts, err := fixturesOptions()
+			if err != nil {
+				return err
+			}
+			g, err := fixtures.NewGenerator(fc, opts)
 			if err != nil {
 				return err
 			}
@@ -169,7 +190,11 @@ configuration or spec files.`,
 			if err != nil {
 				return err
 			}
-			checker, err := fixtures.NewChecker(fc, fixturesOptions())
+			opts, err := fixturesOptions()
+			if err != nil {
+				return err
+			}
+			checker, err := fixtures.NewChecker(fc, opts)
 			if err != nil {
 				return err
 			}
@@ -241,7 +266,11 @@ does not generate or a path with no single value.`,
 			if err != nil {
 				return err
 			}
-			g, err := fixtures.NewGenerator(fc, fixturesOptions())
+			opts, err := fixturesOptions()
+			if err != nil {
+				return err
+			}
+			g, err := fixtures.NewGenerator(fc, opts)
 			if err != nil {
 				return err
 			}
@@ -328,7 +357,11 @@ Paths and globs are relative to fixtures.baseDir.`,
 			if err != nil {
 				return err
 			}
-			a, err := fixtures.NewAdopter(fc, fixturesOptions())
+			opts, err := fixturesOptions()
+			if err != nil {
+				return err
+			}
+			a, err := fixtures.NewAdopter(fc, opts)
 			if err != nil {
 				return err
 			}
@@ -397,7 +430,11 @@ disk. Committed outputs, sources, the manifest, the pairings lock and the manage
 			if err != nil {
 				return err
 			}
-			g, err := fixtures.NewGenerator(fc, fixturesOptions())
+			opts, err := fixturesOptions()
+			if err != nil {
+				return err
+			}
+			g, err := fixtures.NewGenerator(fc, opts)
 			if err != nil {
 				return err
 			}
@@ -436,7 +473,11 @@ never touched and the removal is staged, not committed; re-running is harmless.`
 			if err != nil {
 				return err
 			}
-			g, err := fixtures.NewGenerator(fc, fixturesOptions())
+			opts, err := fixturesOptions()
+			if err != nil {
+				return err
+			}
+			g, err := fixtures.NewGenerator(fc, opts)
 			if err != nil {
 				return err
 			}

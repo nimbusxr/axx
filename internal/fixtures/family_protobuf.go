@@ -106,7 +106,7 @@ func (f protobufFamily) Expand(spec *Spec, baseDir string, ctx *ExpansionContext
 		if err != nil {
 			return nil, err
 		}
-		w := &protoWalk{defaults: spec.Defaults, key: key, source: spec.SourceName}
+		w := &protoWalk{defaults: spec.Defaults, removed: ctx.removed, key: key, source: spec.SourceName}
 		node, err := w.errText(md, tree, "")
 		if err != nil {
 			return nil, err
@@ -131,8 +131,10 @@ func (protobufFamily) Validate(data []byte, baseDir, schemaRef, fixtureName stri
 
 type protoWalk struct {
 	defaults *jsonx.Object
-	key      string
-	source   string
+	// removed are the fields the fixture leaves out: no default fills them.
+	removed removals
+	key     string
+	source  string
 }
 
 func (w *protoWalk) at(path string) string {
@@ -174,7 +176,7 @@ func (w *protoWalk) errText(md protoreflect.MessageDescriptor, values *jsonx.Obj
 			present, value = true, get(remaining, jsonName)
 			remaining.Delete(jsonName)
 		}
-		if !present {
+		if !present && !w.removed.has(values, name) && !w.removed.has(values, jsonName) {
 			if fb := defaultsLookup(w.defaults, fieldPath, name); fb != nil {
 				value, present = fb, true
 			}

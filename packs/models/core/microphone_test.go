@@ -159,3 +159,40 @@ func TestMicrophoneQueueBeyondListingCap(t *testing.T) {
 		t.Fatalf("the recording after 10,000 old entries was not delivered: %v", err)
 	}
 }
+
+// The run plans its scenarios and knows which use the microphone step; the
+// axx host, where an app's platform pack may start the app, does not. The
+// pack notes it in the run's scenario, and reads the note in the host's.
+func TestTheMicrophonesUseIsNotedForTheHost(t *testing.T) {
+	run := core.NewSuite(core.SuiteOptions{})
+	if err := (pack{}).Prepare(t.Context(), run, &core.Plan{Scenarios: []core.PlannedScenario{
+		{ScenarioInfo: core.ScenarioInfo{ID: "listens"}, Steps: []core.PlannedStep{{Definition: Name + ".microphone"}}},
+		{ScenarioInfo: core.ScenarioInfo{ID: "reads"}, Steps: []core.PlannedStep{{Definition: "files.copy"}}},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	host := core.NewSuite(core.SuiteOptions{})
+	for id, want := range map[string]bool{"listens": true, "reads": false} {
+		sc := core.NewScenario(t.Context(), core.ScenarioInfo{ID: id}, run, nil)
+		if err := noteMicrophone(sc); err != nil {
+			t.Fatal(err)
+		}
+		if got := UsesMicrophone(sc); got != want {
+			t.Errorf("%s uses the microphone in the run: %v", id, got)
+		}
+		// The host's scenario for it, with the run's notes.
+		mirror := core.NewScenario(t.Context(), core.ScenarioInfo{ID: id}, host, nil)
+		for name, value := range sc.Notes() {
+			mirror.Note(name, value)
+		}
+		if got := UsesMicrophone(mirror); got != want {
+			t.Errorf("%s uses the microphone in the host: %v", id, got)
+		}
+		// What the platform pack says there of the app's capture, the
+		// microphone step reads in the run's.
+		FeedsMicrophone(mirror, "courier")
+		if _, fed := mirror.Noted(fedNote + "courier"); !fed {
+			t.Errorf("%s: the app's capture is fed, and the scenario has no note of it", id)
+		}
+	}
+}

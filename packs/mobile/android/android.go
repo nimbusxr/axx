@@ -27,6 +27,8 @@ const packDoc = `Android apps, on emulators axx starts or on devices adb lists, 
 
 **Each scenario starts from a clean app.** Before the app starts, its data is cleared (and with it what it stored, its permissions and its notifications), the permissions the registration names are granted, the photos axx put in the library before are taken out (and the registration's put in), so are the documents in Downloads, the system's file picker starts afresh (on an emulator axx started), and the device's language, time zone and location are set. There is no switch that skips it: a scenario is one journey, and that journey is its own.
 
+**Scrolling.** A step that brings a control into view asks its view to scroll, as a screen reader does, and touches nothing: through a small accessibility service of axx's own, which axx downloads with its release (checked against the release's checksums; an axx built from a commit builds it, with the SDK's build-tools and a JDK), installs on the device, and names in the device's accessibility settings for the run. Other accessibility services that are on keep running during a run. Where axx has no service (` + "`axx doctor`" + ` says), and on a device another Appium server drives, the step swipes instead, which is slower.
+
 **What the camera sees.** On an emulator axx starts, the back camera renders the AVD's environment, which axx sets for each scenario: what ` + "`the <app> app's camera sees <file>`" + ` gives it (a picture, a video or a glTF scene, seen from where the phone is in it), or else the emulator's own room. In a debuggable app that has ARCore, an agent axx attaches as the app starts answers ARCore from the scene. An emulator started from a quick-boot snapshot saved with another camera starts afresh the first time a scenario's camera sees something.`
 
 func (pack) Manifest() core.Manifest {
@@ -67,11 +69,7 @@ func steps() []core.StepDef {
 			},
 			Examples: []string{"Given the courier android app with the following properties:\n  | apk         | ../courier/android/app/build/outputs/apk/debug/app-debug.apk |\n  | device      | Pixel_9                                                      |\n  | permissions | POST_NOTIFICATIONS                                           |"},
 			Run: func(sc *core.Scenario, a core.Args) error {
-				app, err := parseApp(sc, func(v string) string { return secrets.Expand(sc, v) }, a.String(0), a.Table)
-				if err != nil {
-					return err
-				}
-				return mobilecore.Register(sc, &mobilecore.App{Name: app.name, Platform: runner{app: app}})
+				return registerApp(sc, a.String(0), a.Table, func(v string) string { return secrets.Expand(sc, v) })
 			},
 		},
 		{
@@ -86,4 +84,25 @@ func steps() []core.StepDef {
 			},
 		},
 	}
+}
+
+// registerApp registers an Android app in a scenario from its
+// registration's table: the step does, in a run, and the pack's side in the
+// axx host, in the scenario it has for a run's (host.go), from the same
+// rows. In a run that an axx host serves, the app's device is the host's to
+// run (mobilecore.Hosted); a device of an Appium server's is that server's.
+func registerApp(sc *core.Scenario, name string, t *core.Table, expand func(string) string) error {
+	rows, err := mobilecore.Properties(t, expand)
+	if err != nil {
+		return err
+	}
+	app, err := parseApp(sc, func(v string) string { return v }, name, mobilecore.Table(rows))
+	if err != nil {
+		return err
+	}
+	var platform mobilecore.Platform = runner{app: app}
+	if app.server == "" {
+		platform = mobilecore.Hosted(sc, Name, app.name, rows, platform)
+	}
+	return mobilecore.Register(sc, &mobilecore.App{Name: app.name, Platform: platform})
 }

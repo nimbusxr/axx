@@ -228,6 +228,19 @@ func (c *Client) FetchDocs(ctx context.Context, tag, dir string) (string, error)
 	return c.fetchListed(ctx, tag, dir, func(string) (string, error) { return DocsArchiveName(tag), nil })
 }
 
+// AndroidScrollName is the file of a release that holds axx's scroll service for Android
+// devices (mobile-android): the app axx installs on a device to have its views scroll.
+func AndroidScrollName(v string) string {
+	return "axx_" + strings.TrimPrefix(v, "v") + "_android-scroll.apk"
+}
+
+// FetchAndroidScroll downloads a release's scroll service for Android devices into dir and
+// checks it against the release's checksums. A release from before axx published one has
+// none: ErrNotListed.
+func (c *Client) FetchAndroidScroll(ctx context.Context, tag, dir string) (string, error) {
+	return c.fetchListed(ctx, tag, dir, func(string) (string, error) { return AndroidScrollName(tag), nil })
+}
+
 // Fetched is a release's axx, checked and unpacked.
 type Fetched struct {
 	Binary  string // the axx it holds, executable

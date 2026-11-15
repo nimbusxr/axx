@@ -207,7 +207,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 		if err != nil {
 			return err
 		}
-		a.useHost(e, ann)
+		a.useHost(e, ann, f.cf)
 		if _, up := liveUp(cfg); !up && !f.noStart && len(cfg.Services) > 0 {
 			hostAnn = ann
 		}

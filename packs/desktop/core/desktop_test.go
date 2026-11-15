@@ -279,10 +279,10 @@ func desk() (*fakeProc, *fakeControl, *fakeControl) {
 
 func harness(t *testing.T, d *fakeDriver) *cloudtest.Harness {
 	t.Helper()
-	h := cloudtest.New(t, appcore.Pack(), Pack(), files.Pack())
+	h := cloudtest.New(t, appcore.Pack(), Pack(), files.Pack(), fakeOS{})
 	h.Start(&core.Plan{})
 	app := &App{Name: "depot", App: "depot", Driver: d, Dir: h.Dir}
-	if err := Register(h.SC, app); err != nil {
+	if err := registerFake(h, app); err != nil {
 		t.Fatal(err)
 	}
 	return h
@@ -292,6 +292,7 @@ func harness(t *testing.T, d *fakeDriver) *cloudtest.Harness {
 // registration's environment: its libraries after the registration's, the registration itself
 // left as it is.
 func TestLaunchHooks(t *testing.T) {
+	skipHosted(t, "on the host's desktop the hooks run in the host's scenario: TestAHostedAppLaunchesWithThePacksHooks")
 	p, _, _ := desk()
 	d := &fakeDriver{proc: p}
 	h := harness(t, d)
@@ -342,7 +343,7 @@ func TestSystemApp(t *testing.T) {
 	files := &fakeProc{tree: node("window", ".snap", nil), texts: []string{".snap", "snap.log"}}
 	d := &fakeDriver{proc: p, system: files}
 	h := harness(t, d)
-	if err := Register(h.SC, &App{Name: "files", App: "com.apple.finder", System: true, Driver: d, Dir: h.Dir}); err != nil {
+	if err := registerFake(h, &App{Name: "files", App: "com.apple.finder", System: true, Driver: d, Dir: h.Dir}); err != nil {
 		t.Fatal(err)
 	}
 	if d.watches != 1 || d.resets != 0 || d.starts != 0 {
@@ -362,7 +363,7 @@ func TestSystemApp(t *testing.T) {
 // The system's app is only that: an owner other than system, or settings
 // for an app the scenario would start, are refused.
 func TestSystemAppParse(t *testing.T) {
-	h := cloudtest.New(t, appcore.Pack(), Pack(), files.Pack())
+	h := cloudtest.New(t, appcore.Pack(), Pack(), files.Pack(), fakeOS{})
 	h.Start(&core.Plan{})
 	for _, c := range []struct {
 		rows [][]string
@@ -758,9 +759,9 @@ func TestACursorThatBlinksIsHidden(t *testing.T) {
 // scroll bar after the pointer moves, is gone from a screenshot taken.
 func TestAScreenshotIsTakenAtRest(t *testing.T) {
 	p, _, _ := desk()
-	h := cloudtest.NewWith(t, map[string]any{Name: map[string]any{"screenshots": map[string]any{"update": true}}}, appcore.Pack(), Pack(), files.Pack())
+	h := cloudtest.NewWith(t, map[string]any{Name: map[string]any{"screenshots": map[string]any{"update": true}}}, appcore.Pack(), Pack(), files.Pack(), fakeOS{})
 	h.Start(&core.Plan{})
-	if err := Register(h.SC, &App{Name: "depot", App: "depot", Driver: &fakeDriver{proc: p}, Dir: h.Dir}); err != nil {
+	if err := registerFake(h, &App{Name: "depot", App: "depot", Driver: &fakeDriver{proc: p}, Dir: h.Dir}); err != nil {
 		t.Fatal(err)
 	}
 	h.OK("the depot app is launched")
@@ -912,9 +913,9 @@ func TestRecordings(t *testing.T) {
 	p, _, _ := desk()
 	p.changing = true
 	d := &fakeDriver{proc: p}
-	h := cloudtest.NewWith(t, map[string]any{"desktop-core": map[string]any{"traces": "always", "videos": "always"}}, appcore.Pack(), Pack(), files.Pack())
+	h := cloudtest.NewWith(t, map[string]any{"desktop-core": map[string]any{"traces": "always", "videos": "always"}}, appcore.Pack(), Pack(), files.Pack(), fakeOS{})
 	h.Start(&core.Plan{})
-	if err := Register(h.SC, &App{Name: "depot", App: "depot", Driver: d, Dir: h.Dir}); err != nil {
+	if err := registerFake(h, &App{Name: "depot", App: "depot", Driver: d, Dir: h.Dir}); err != nil {
 		t.Fatal(err)
 	}
 	h.OK("the depot app is launched")
@@ -1027,9 +1028,9 @@ func (p *snapProc) Type(text string) error {
 func TestTraceSnapshotsAreTakenWhileTheNextStepLooks(t *testing.T) {
 	p, _, _ := desk()
 	sp := &snapProc{fakeProc: p}
-	h := cloudtest.NewWith(t, map[string]any{"desktop-core": map[string]any{"traces": "always"}}, appcore.Pack(), Pack(), files.Pack())
+	h := cloudtest.NewWith(t, map[string]any{"desktop-core": map[string]any{"traces": "always"}}, appcore.Pack(), Pack(), files.Pack(), fakeOS{})
 	h.Start(&core.Plan{})
-	if err := Register(h.SC, &App{Name: "depot", App: "depot", Driver: &fakeDriver{proc: p, wrap: sp}, Dir: h.Dir}); err != nil {
+	if err := registerFake(h, &App{Name: "depot", App: "depot", Driver: &fakeDriver{proc: p, wrap: sp}, Dir: h.Dir}); err != nil {
 		t.Fatal(err)
 	}
 	h.OK("the depot app is launched")
