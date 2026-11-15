@@ -53,7 +53,7 @@ func AgainHosted(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs the package's tests again")
 	}
-	cmd := exec.Command(os.Args[0], "-test.count=1") //nolint:gosec // the test binary itself
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.count=1") //nolint:gosec // the test binary itself
 	cmd.Env = append(os.Environ(), HostedEnv+"=1")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("the package's tests, through the test's host: %v\n%s", err, out)

@@ -67,6 +67,16 @@ func (p *testPhones) Start(sc *core.Scenario) (Device, error) {
 	return &phone{p: p, sc: sc, session: c.Attach("session-1", map[string]any{"platformName": "Android"}), files: map[string][]byte{}}, nil
 }
 
+// cameraPhones are test phones whose apps' camera axx plays: it says which
+// file the camera was given.
+type cameraPhones struct{ *testPhones }
+
+func (p cameraPhones) See(_ *core.Scenario, path string) error {
+	p.log.say("the camera sees %s", filepath.Base(path))
+	return nil
+}
+func (p cameraPhones) ScenePhone() ScenePhone { return nil }
+
 type phone struct {
 	p       *testPhones
 	sc      *core.Scenario
@@ -90,6 +100,7 @@ func (d *phone) Screen(context.Context) (*Screen, error) {
 	list.Children = []*Node{row, far}
 	return &Screen{Nodes: []*Node{list, row, far}, Size: Rect{0, 0, 400, 800}}, nil
 }
+
 func (d *phone) Launch(context.Context) error {
 	for _, fn := range *beforeLaunch.Of(d.sc) {
 		if err := fn(d.p.app); err != nil {
@@ -99,6 +110,7 @@ func (d *phone) Launch(context.Context) error {
 	d.p.log.say("launch")
 	return nil
 }
+
 func (d *phone) Restart(context.Context) error {
 	d.p.log.say("restart")
 	d.session.Renew("session-2") // the app is in a new session of its driver
@@ -317,6 +329,7 @@ func (f *hostedFixture) register(sc *core.Scenario, name string, t *core.Table) 
 		return err
 	}
 	p := &testPhones{app: name, log: f.log, driver: f.driver.URL}
+	camera := false
 	for _, r := range rows {
 		switch r.Name {
 		case "app":
@@ -325,7 +338,12 @@ func (f *hostedFixture) register(sc *core.Scenario, name string, t *core.Table) 
 			}
 		case "device":
 			p.device = r.Value
+		case "camera":
+			camera = true
 		}
+	}
+	if camera {
+		return Register(sc, &App{Name: name, Platform: Hosted(sc, "mobile-phones", name, rows, cameraPhones{p})})
 	}
 	return Register(sc, &App{Name: name, Platform: Hosted(sc, "mobile-phones", name, rows, p)})
 }
@@ -718,4 +736,48 @@ func TestAWatchedRunStartsItsPhonesItself(t *testing.T) {
 	if got := Hosted(sc, "mobile-phones", "courier", nil, local); got == Platform(local) {
 		t.Error("a run nobody watches has its phones from the host that serves it")
 	}
+}
+
+// A step names the file an app's camera sees outright. The host plays a
+// file of the project's, and refuses any other: what the camera sees, the
+// app has.
+func TestTheHostsCameraSeesTheProjectsFilesOnly(t *testing.T) {
+	f := newHosted(t)
+	label := filepath.Join(f.project, "labels", "torn.png")
+	if err := os.MkdirAll(filepath.Dir(label), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "passport.png")
+	for _, p := range []string{label, outside} {
+		if err := os.WriteFile(p, []byte("png"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A link in the project to a file outside it is a file outside it.
+	link := filepath.Join(f.project, "labels", "linked.png")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatal(err)
+	}
+	sc, _ := f.scenario(t, "a courier scans a label")
+	rows := &core.Table{Rows: [][]string{{"app", "build/courier.apk"}, {"device", "parcels-pixel"}, {"camera", "played"}}}
+	if err := f.register(sc, "courier", rows); err != nil {
+		t.Fatal(err)
+	}
+	app, _ := mobileApp(sc, "courier")
+	cam, ok := app.Platform.(Camera)
+	if !ok {
+		t.Fatal("the hosted platform of an app whose camera axx plays is no Camera")
+	}
+	if err := cam.See(sc, label); err != nil {
+		t.Fatalf("a picture of the project's: %v", err)
+	}
+	for _, p := range []string{outside, link} {
+		if err := cam.See(sc, p); err == nil || !strings.Contains(err.Error(), "is not in the project") {
+			t.Errorf("%s: %v", p, err)
+		}
+	}
+	if got := f.log.all(); got != "the camera sees torn.png" {
+		t.Errorf("the host's camera was given: %s", got)
+	}
+	_ = sc.Close()
 }

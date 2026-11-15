@@ -15,8 +15,11 @@ import (
 )
 
 // Protocol is the version of what a run and the host send each other: one
-// JSON object per line, over one TCP connection per run.
-const Protocol = 3
+// JSON object per line, over one TCP connection per run. It is 4 since a
+// pack's request says which configuration the run loaded, and the mobile and
+// desktop packs have a side in the host: a host of an earlier axx would have
+// none for them, and says the two must be the same axx instead.
+const Protocol = 4
 
 // Announcement is what a host writes to .axx/host.json for the runs of its
 // project to find it.
