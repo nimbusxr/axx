@@ -42,7 +42,7 @@ func TestSimulatorPlatformCalls(t *testing.T) {
 	if arch == "amd64" {
 		arch = "x86_64"
 	}
-	cmd := exec.CommandContext(ctx, "xcrun", "--sdk", "iphonesimulator", "clang", "-target", arch+"-apple-ios16.0-simulator", "-fobjc-arc", "../internal/apple/runtime/probe.m", "-framework", "Foundation", "-framework", "Vision", "-framework", "Speech", "-framework", "CoreVideo", "-framework", "CoreMedia", "-framework", "AVFoundation", "-o", probe)
+	cmd := exec.CommandContext(ctx, "xcrun", "--sdk", "iphonesimulator", "clang", "-target", arch+"-apple-ios16.0-simulator", "-fobjc-arc", "../internal/apple/runtime/probe.m", "-framework", "Foundation", "-framework", "Vision", "-framework", "Speech", "-framework", "CoreVideo", "-framework", "CoreMedia", "-framework", "AVFoundation", "-framework", "Accelerate", "-framework", "ImageIO", "-framework", "CoreGraphics", "-o", probe)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("compile: %v: %s", err, out)
 	}
@@ -117,7 +117,12 @@ func TestSimulatorPlatformCalls(t *testing.T) {
 	}
 	h.File("bell.wav", string(b))
 	h.OK(`the courier app's microphone hears the "bell.wav" file`)
-	for _, tc := range []struct{ kind, file, want string }{{"vision", photo, "carton"}, {"vision", noisy, "carton"}, {"vision", empty, "envelope"}, {"sequence", photo, "carton"}, {"text", photo, "PX-4111"}, {"humans", photo, "box 0.20 0.50 0.40 0.40"}, {"animals", photo, "box 0.20 0.50 0.40 0.40"}, {"mask", photo, "mask 2 2 255"}, {"speech", bell, "Ring twice, please."}, {"speech", knock, "Leave it by the door."}, {"speech", hum, "Please try again."}, {"speech-buffer", bell, "Ring twice, please."}, {"speech-cancel", bell, "cancelled"}, {"speech-queued", bell, "Ring twice, please."}} {
+	for _, tc := range []struct{ kind, file, want string }{{"vision", photo, "carton"}, {"vision", noisy, "carton"}, {"vision", empty, "envelope"}, {"sequence", photo, "carton"},
+		// The picture as a camera's frame: a pixel buffer of each format the stub reads where it
+		// is, a sample buffer, and one turned in its buffer, with its orientation and without.
+		{"frame-bgra", photo, "carton"}, {"frame-420v", photo, "carton"}, {"frame-420f", photo, "carton"}, {"frame-sample", photo, "carton"},
+		{"frame-420v-right", photo, "carton"}, {"frame-bgra-unturned", photo, "envelope"}, {"frame-420v", empty, "envelope"},
+		{"text", photo, "PX-4111"}, {"humans", photo, "box 0.20 0.50 0.40 0.40"}, {"animals", photo, "box 0.20 0.50 0.40 0.40"}, {"mask", photo, "mask 2 2 255"}, {"speech", bell, "Ring twice, please."}, {"speech", knock, "Leave it by the door."}, {"speech", hum, "Please try again."}, {"speech-buffer", bell, "Ring twice, please."}, {"speech-cancel", bell, "cancelled"}, {"speech-queued", bell, "Ring twice, please."}} {
 		t.Run(tc.kind+filepath.Base(tc.file), func(t *testing.T) {
 			cmd := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", device, probe, tc.kind, tc.file)
 			// Use the same initial library list as application launches.

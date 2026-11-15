@@ -1,4 +1,6 @@
 // Ordinary framework calls, compiled independently of the test adapter.
+#import <Accelerate/Accelerate.h>
+#import <ImageIO/ImageIO.h>
 #import <AVFoundation/AVFoundation.h>
 #import <Foundation/Foundation.h>
 #import <Speech/Speech.h>
@@ -207,6 +209,116 @@ static int capture(NSString *kind, NSURL *url) {
   printf("captured %.0f\n", file.processingFormat.sampleRate);
   return 0;
 }
+// frame is the picture at url as a camera hands a frame over: a pixel buffer
+// of a format, BGRA or the two-plane 4:2:0 a video output gives (written with
+// BT.601, as axx's camera writes it). Turned, the picture lies in the buffer a
+// quarter turn against the clock: an orientation of right shows it upright.
+static CVPixelBufferRef frame(NSURL *url, OSType format, BOOL turned) {
+  CGImageSourceRef source =
+      CGImageSourceCreateWithURL((__bridge CFURLRef)url, NULL);
+  CGImageRef image =
+      source ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
+  if (source)
+    CFRelease(source);
+  if (!image)
+    return NULL;
+  size_t w = CGImageGetWidth(image), h = CGImageGetHeight(image);
+  uint8_t *upright = calloc(w * h, 4);
+  CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB();
+  CGContextRef ctx = CGBitmapContextCreate(
+      upright, w, h, 8, w * 4, color,
+      kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+  CGContextDrawImage(ctx, CGRectMake(0, 0, w, h), image);
+  CGContextRelease(ctx);
+  CGColorSpaceRelease(color);
+  CGImageRelease(image);
+  size_t bw = turned ? h : w, bh = turned ? w : h;
+  NSDictionary *attrs = @{(id)kCVPixelBufferIOSurfacePropertiesKey : @{}};
+  CVPixelBufferRef bgra = NULL;
+  CVPixelBufferCreate(NULL, bw, bh, kCVPixelFormatType_32BGRA,
+                      (__bridge CFDictionaryRef)attrs, &bgra);
+  CVPixelBufferLockBaseAddress(bgra, 0);
+  uint8_t *base = CVPixelBufferGetBaseAddress(bgra);
+  size_t row = CVPixelBufferGetBytesPerRow(bgra);
+  for (size_t by = 0; by < bh; by++)
+    for (size_t bx = 0; bx < bw; bx++) {
+      size_t x = turned ? bh - 1 - by : bx, y = turned ? bx : by;
+      memcpy(base + by * row + bx * 4, upright + (y * w + x) * 4, 4);
+    }
+  free(upright);
+  if (format == kCVPixelFormatType_32BGRA) {
+    CVPixelBufferUnlockBaseAddress(bgra, 0);
+    return bgra;
+  }
+  BOOL full = format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
+  vImage_YpCbCrPixelRange video = {16, 128, 235, 240, 235, 16, 240, 16},
+                          whole = {0, 128, 255, 255, 255, 1, 255, 0};
+  vImage_ARGBToYpCbCr conversion;
+  vImageConvert_ARGBToYpCbCr_GenerateConversion(
+      kvImage_ARGBToYpCbCrMatrix_ITU_R_601_4, full ? &whole : &video,
+      &conversion, kvImageARGB8888, kvImage420Yp8_CbCr8, kvImageNoFlags);
+  CVPixelBufferRef out = NULL;
+  CVPixelBufferCreate(NULL, bw, bh, format, (__bridge CFDictionaryRef)attrs,
+                      &out);
+  CVPixelBufferLockBaseAddress(out, 0);
+  vImage_Buffer from = {base, bh, bw, row};
+  vImage_Buffer luma = {CVPixelBufferGetBaseAddressOfPlane(out, 0), bh, bw,
+                        CVPixelBufferGetBytesPerRowOfPlane(out, 0)};
+  vImage_Buffer chroma = {CVPixelBufferGetBaseAddressOfPlane(out, 1), bh / 2,
+                          bw / 2, CVPixelBufferGetBytesPerRowOfPlane(out, 1)};
+  const uint8_t bgraToARGB[4] = {3, 2, 1, 0};
+  vImageConvert_ARGB8888To420Yp8_CbCr8(&from, &luma, &chroma, &conversion,
+                                       bgraToARGB, kvImageNoFlags);
+  CVPixelBufferUnlockBaseAddress(out, 0);
+  CVPixelBufferUnlockBaseAddress(bgra, 0);
+  CVPixelBufferRelease(bgra);
+  return out;
+}
+
+// framed is a Vision request handler of the picture at url as a frame of the
+// kind: frame-bgra, frame-420v and frame-420f (a pixel buffer of that format),
+// frame-sample (a sample buffer, as a video output's delegate gets it), and
+// frame-420v-right and frame-bgra-unturned (the picture turned in its buffer,
+// the handler told so, or not).
+static VNImageRequestHandler *framed(NSString *kind, NSURL *url) {
+  OSType format = [kind containsString:@"bgra"]
+                      ? kCVPixelFormatType_32BGRA
+                      : ([kind containsString:@"420f"]
+                             ? kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+                             : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange);
+  BOOL turned =
+      [kind hasSuffix:@"-right"] || [kind hasSuffix:@"-unturned"];
+  CVPixelBufferRef pixels = frame(url, format, turned);
+  if (!pixels)
+    return nil;
+  VNImageRequestHandler *handler;
+  if ([kind isEqual:@"frame-sample"]) {
+    CMVideoFormatDescriptionRef description = NULL;
+    CMVideoFormatDescriptionCreateForImageBuffer(NULL, pixels, &description);
+    CMSampleTimingInfo timing = {CMTimeMake(1, 30), kCMTimeZero,
+                                 kCMTimeInvalid};
+    CMSampleBufferRef sample = NULL;
+    CMSampleBufferCreateReadyWithImageBuffer(NULL, pixels, description,
+                                             &timing, &sample);
+    handler = [[VNImageRequestHandler alloc] initWithCMSampleBuffer:sample
+                                                            options:@{}];
+    if (description)
+      CFRelease(description);
+    if (sample)
+      CFRelease(sample);
+  } else if ([kind hasSuffix:@"-right"]) {
+    handler = [[VNImageRequestHandler alloc]
+        initWithCVPixelBuffer:pixels
+                  orientation:kCGImagePropertyOrientationRight
+                      options:@{}];
+  } else {
+    handler = [[VNImageRequestHandler alloc] initWithCVPixelBuffer:pixels
+                                                           options:@{}];
+  }
+  CVPixelBufferRelease(pixels);
+  return handler;
+}
+
 int main(int argc, const char **argv) {
   @autoreleasepool {
     if (argc != 3)
@@ -247,7 +359,10 @@ int main(int argc, const char **argv) {
               ? [[VNSequenceRequestHandler new] performRequests:@[ request ]
                                                      onImageURL:url
                                                           error:&err]
-              : [[[VNImageRequestHandler alloc] initWithURL:url options:@{}]
+              : [([kind hasPrefix:@"frame-"]
+                      ? framed(kind, url)
+                      : [[VNImageRequestHandler alloc] initWithURL:url
+                                                           options:@{}])
                     performRequests:@[ request ]
                               error:&err];
       if (!ok) {
