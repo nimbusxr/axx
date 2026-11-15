@@ -365,7 +365,10 @@ func (h *hostSide) revive(ctx context.Context, p appRef) (any, error) {
 }
 
 func (h *hostSide) stop(ctx context.Context, p stopParams) (any, error) {
-	if _, err := h.mirror(p.Scenario); err != nil {
+	h.mu.Lock()
+	ended := h.scenarios[p.Scenario] == nil
+	h.mu.Unlock()
+	if ended {
 		// The scenario ended here already, and its apps with it.
 		return deviceAnswer{}, nil
 	}
