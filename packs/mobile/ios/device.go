@@ -555,8 +555,13 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 		}
 	}
 	if len(views) == 0 {
+		// One that has some of the screen: a SwiftUI List's collection view is the screen's
+		// size until it has scrolled, and a point taller after (853 of 852), so one asked to
+		// be on the screen all of it was no scroll view from the second page on, and a look
+		// down a long list stopped a page in.
 		for _, n := range s.Nodes {
-			if n.Scrolling && onScreen(n, s.Size) {
+			b := n.Bounds
+			if n.Scrolling && b.Width > 0 && b.Height > 0 && b.X < s.Size.X+s.Size.Width && b.Y < s.Size.Y+s.Size.Height && b.X+b.Width > s.Size.X && b.Y+b.Height > s.Size.Y {
 				views = append(views, n)
 			}
 		}
@@ -564,9 +569,37 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	if len(views) == 0 {
 		return false, nil
 	}
-	// With the keyboard up, the finger goes in the part of the view above it: the platform's own
-	// scroll swipes low in the view, on the keys, and types.
-	if v := uncovered(views[0]); v.Height > 0 && v.Height < views[0].Bounds.Height {
+	// A list that makes its rows as it scrolls has nothing for XCTest to scroll to, so a page of
+	// it is swiped: a finger drags the view by half of what shows of it (the part the keyboard
+	// leaves, when one is up: lower, it would type), at a walking pace and held a moment at the
+	// end, so that the view does not coast past rows a step has yet to see. (WebDriverAgent's
+	// own scroll took seven to eight seconds a page of a SwiftUI list, and now and then moved
+	// nothing with more of the list to go; this takes a second or so.)
+	if d.dev != nil {
+		v := uncovered(views[0])
+		if low := s.Size.Y + s.Size.Height; v.Y+v.Height > low {
+			v.Height = low - v.Y
+		}
+		if v.Height > 0 && (direction == "up" || direction == "down") {
+			x, from, to := v.X+v.Width/2, v.Y+v.Height*0.75, v.Y+v.Height*0.25 // down: the finger pushes the view up
+			if direction == "up" {
+				from, to = to, from
+			}
+			args := map[string]any{"fromX": x, "fromY": from, "toX": x, "toY": to, "pressDuration": 0.05, "velocity": 800, "holdDuration": 0.2}
+			if err := d.session.Gesture(ctx, "/wda/pressAndDragWithVelocity", "dragFromToWithVelocity", args); err != nil {
+				return false, err
+			}
+			after, err := d.Screen(ctx)
+			if err != nil {
+				return false, err
+			}
+			return placed(after) != placed(s), nil
+		}
+	}
+	// A device another Appium server drives is scrolled with that server's commands. With the
+	// keyboard up, the finger goes in the part of the view above it: the platform's own scroll
+	// swipes low in the view, on the keys, and types.
+	if v := uncovered(views[0]); d.dev == nil && v.Height > 0 && v.Height < views[0].Bounds.Height {
 		x, top, bottom := v.X+v.Width/2, v.Y+v.Height*0.2, v.Y+v.Height*0.8
 		from, to := bottom, top // down: the finger pushes the view up
 		if direction == "up" {
@@ -593,6 +626,16 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	}
 	after, err := d.session.Source(ctx)
 	return after != before, err
+}
+
+// placed is what a screen shows and where, in order: two screens with the same are where a
+// scroll left them.
+func placed(s *mobilecore.Screen) string {
+	var b strings.Builder
+	for _, n := range s.Visible() {
+		fmt.Fprintf(&b, "%s@%.0f,%.0f\n", n.Name(), n.Bounds.X, n.Bounds.Y)
+	}
+	return b.String()
 }
 
 // ScrollRow scrolls a row that scrolls sideways by most of its width, and tells whether the

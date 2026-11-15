@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
@@ -215,82 +214,4 @@ func (d *running) OutOfView(ctx context.Context, el *appium.Element) bool {
 	}
 	shown, err := el.Attribute(ctx, "displayed")
 	return err == nil && shown == "false"
-}
-
-// passed is what a device remembers of the controls that went by as it scrolled: Android lists
-// nothing of a list's rows past what the list has made, so a step that looks for one looks a
-// page at a time, and knowing that a row went off the top says which way to look first. It only
-// ever chooses the first direction; a memory that is out of date costs a look the other way.
-type passed struct {
-	mu      sync.Mutex
-	toward  string         // the direction the last scroll went, until the screen is read again
-	showing []string       // the names the screen showed when it was last read
-	where   map[string]int // a name that went by: 1 above the screen, -1 below
-}
-
-// passing notes that the screen was scrolled toward direction: what its next reading no longer
-// shows went by that way.
-func (d *running) passing(direction string) {
-	if direction != "up" && direction != "down" {
-		return
-	}
-	d.seen.mu.Lock()
-	d.seen.toward = direction
-	d.seen.mu.Unlock()
-}
-
-// read keeps what a reading of the screen shows.
-func (d *running) read(s *mobilecore.Screen) {
-	var names []string
-	for _, n := range s.Visible() {
-		if name := n.Name(); name != "" {
-			names = append(names, name)
-		}
-	}
-	d.seen.mu.Lock()
-	defer d.seen.mu.Unlock()
-	if d.seen.where == nil || len(d.seen.where) > 4000 {
-		d.seen.where = map[string]int{}
-	}
-	if d.seen.toward != "" {
-		side := 1 // scrolled down: what left went off the top
-		if d.seen.toward == "up" {
-			side = -1
-		}
-		now := map[string]bool{}
-		for _, name := range names {
-			now[name] = true
-		}
-		for _, name := range d.seen.showing {
-			if !now[name] {
-				d.seen.where[name] = side
-			}
-		}
-		d.seen.toward = ""
-	}
-	for _, name := range names {
-		delete(d.seen.where, name)
-	}
-	d.seen.showing = names
-}
-
-// forget drops what went by: the app shows another screen.
-func (d *running) forget() {
-	d.seen.mu.Lock()
-	d.seen.toward, d.seen.showing, d.seen.where = "", nil, nil
-	d.seen.mu.Unlock()
-}
-
-// toward is the directions to look for a name in, in order: down and then up, as a person
-// reads a screen, or up first for a name that went off the top.
-func (d *running) toward(name string) []string {
-	want := strings.Join(strings.Fields(name), " ")
-	d.seen.mu.Lock()
-	defer d.seen.mu.Unlock()
-	for seen, side := range d.seen.where {
-		if side > 0 && strings.Contains(seen, want) {
-			return []string{"up", "down"}
-		}
-	}
-	return []string{"down", "up"}
 }

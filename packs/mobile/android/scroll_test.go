@@ -303,48 +303,6 @@ func TestTheKeyboardsFrame(t *testing.T) {
 	}
 }
 
-// A row that went off the top as the screen scrolled down is looked for up first: Android lists
-// nothing of a list past the rows it has made.
-func TestWhatWentByIsLookedForUpFirst(t *testing.T) {
-	screen := func(names ...string) *mobilecore.Screen {
-		s := &mobilecore.Screen{}
-		for _, name := range names {
-			s.Nodes = append(s.Nodes, &mobilecore.Node{Text: name, Displayed: true})
-		}
-		return s
-	}
-	d := &running{}
-	d.read(screen("PX-MOB-9401", "PX-MOB-9402", "PX-MOB-9403"))
-	if got := strings.Join(d.toward("PX-MOB-9401"), " "); got != "down up" {
-		t.Errorf("a row the screen shows is looked for %s", got)
-	}
-	d.passing("down")
-	d.read(screen("PX-MOB-9403", "PX-MOB-9404", "PX-MOB-9405"))
-	if got := strings.Join(d.toward("PX-MOB-9401"), " "); got != "up down" {
-		t.Errorf("a row that went off the top is looked for %s, want up first", got)
-	}
-	if got := strings.Join(d.toward("PX-MOB-9409"), " "); got != "down up" {
-		t.Errorf("a row never seen is looked for %s, want down first", got)
-	}
-	// Scrolled back up, the row shows again, and what left went off the bottom.
-	d.passing("up")
-	d.read(screen("PX-MOB-9401", "PX-MOB-9402", "PX-MOB-9403"))
-	if got := strings.Join(d.toward("PX-MOB-9405"), " "); got != "down up" {
-		t.Errorf("a row that went off the bottom is looked for %s, want down first", got)
-	}
-	// A screen read with no scroll before it says nothing of where what it lacks went.
-	d.read(screen("Sign in"))
-	if got := strings.Join(d.toward("PX-MOB-9402"), " "); got != "down up" {
-		t.Errorf("after another screen came, a row is looked for %s, want down first", got)
-	}
-	d.passing("down")
-	d.forget()
-	d.read(screen("PX-MOB-9404"))
-	if got := strings.Join(d.toward("PX-MOB-9401"), " "); got != "down up" {
-		t.Errorf("after the app started again, a row is looked for %s, want down first", got)
-	}
-}
-
 // The scroll service is switched on beside the accessibility services a device already has on,
 // and taken out again, with those left as they were.
 func TestTheScrollServiceIsSwitchedOnBesideOthers(t *testing.T) {

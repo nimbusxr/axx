@@ -474,8 +474,7 @@ func pageFor(sc *core.Scenario, d Device, shown func() (bool, error)) (bool, err
 }
 
 // scrollFor scrolls until the control is shown, and reports whether it is: the platform scrolls
-// to it (iOS to the node its screen has out of view, Android until its text shows), else it
-// pages down, then up. With rows, it looks along each row that scrolls sideways as it passes it,
+// to it (to the node its screen has out of view), else it pages down, then up. With rows, it looks along each row that scrolls sideways as it passes it,
 // to the row's end and back.
 func scrollFor(sc *core.Scenario, d Device, k kind, name string, rows bool) (bool, error) {
 	if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) == 0 {
@@ -485,12 +484,16 @@ func scrollFor(sc *core.Scenario, d Device, k kind, name string, rows bool) (boo
 			}
 		}
 	}
-	for _, dir := range []string{"down", "up"} {
+	// A page at a time, down and then up: or up first, for a control that went off the top as an
+	// earlier look scrolled down (a row of a list that makes its rows as it scrolls).
+	went := passedBy(sc, d)
+	for _, dir := range went.Toward(name) {
 		for range 20 {
 			s, err := d.Screen(sc.Context())
 			if err != nil {
 				return false, err
 			}
+			went.Read(s)
 			if len(matches(s, k, name)) > 0 {
 				return true, nil
 			}
@@ -512,6 +515,7 @@ func scrollFor(sc *core.Scenario, d Device, k kind, name string, rows bool) (boo
 			if !moved {
 				break
 			}
+			went.Scrolled(dir)
 		}
 	}
 	return false, nil

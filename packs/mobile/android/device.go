@@ -293,8 +293,6 @@ type running struct {
 	resetAt time.Time
 	// shown is the app's camera the device's camera shows (camera.go); nil for the default.
 	shown *camera
-	// seen is what went by as the screen scrolled (scroll.go).
-	seen passed
 }
 
 func (d *running) Session() *appium.Session { return d.session }
@@ -587,14 +585,12 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 		return nil, err
 	}
 	d.under(ctx, src, s)
-	d.read(s)
 	return s, nil
 }
 
 // Launch brings the app to the front, as its launcher icon does: started if
 // it was not running, where it was if it was.
 func (d *running) Launch(ctx context.Context) error {
-	d.forget()
 	if d.dev == nil {
 		if _, err := d.prepareLaunch(ctx); err != nil {
 			return err
@@ -649,7 +645,6 @@ func (d *running) start(ctx context.Context, args []string) error {
 }
 
 func (d *running) Restart(ctx context.Context) error {
-	d.forget()
 	if d.dev == nil {
 		if err := d.session.Mobile(ctx, "terminateApp", map[string]any{"appId": d.pkg}, nil); err != nil {
 			return err
@@ -801,16 +796,9 @@ func (d *running) ScrollRow(ctx context.Context, row *mobilecore.Node, direction
 // swiped.
 func (d *running) scrollView(ctx context.Context, s *mobilecore.Screen, n *mobilecore.Node, direction string) (bool, error) {
 	if moved, asked := d.page(ctx, n, direction); asked {
-		if moved {
-			d.passing(direction)
-		}
 		return moved, nil
 	}
-	moved, err := d.swipeView(ctx, s, n, direction)
-	if moved && err == nil {
-		d.passing(direction)
-	}
-	return moved, err
+	return d.swipeView(ctx, s, n, direction)
 }
 
 // swipeView swipes the view n of the screen s, a finger across most of it, so that it scrolls
@@ -1021,23 +1009,25 @@ func shadeHasFocus(dumpsys string) bool {
 
 // ScrollToShow scrolls until the control of that name shows. A control the screen lists out of
 // view (n) is shown at once: its view is asked to bring it onto the screen. One the screen does
-// not list (a row a list has yet to make) is looked for a page at a time, down and then up, or
-// up first when it went by on the way down. A device without axx's scroll service looks for the
-// name by swiping: two pages, then flings through a long text (DTCD's terms, which took a minute
-// a page at a time), then back up a page at a time for what a fling went past.
+// not list (a row a list has yet to make) is left to the step, which looks for it a page at a
+// time (Scroll). A device without axx's scroll service looks for the name itself, by swiping: two
+// pages, then flings through a long text (DTCD's terms, which took a minute a page at a time),
+// then back up a page at a time for what a fling went past.
 func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, name string) (bool, error) {
-	asks := d.scrollService() != nil
-	if n != nil && asks {
+	if d.scrollService() != nil {
+		if n == nil {
+			return false, nil
+		}
 		return d.show(ctx, n), ctx.Err()
 	}
-	for _, dir := range d.toward(name) {
+	for _, dir := range []string{"down", "up"} {
 		for i := range 200 {
 			s, err := d.Screen(ctx)
 			if err != nil || s.Shows(name) {
 				return err == nil, err
 			}
 			var moved bool
-			if !asks && dir == "down" && i >= 2 && i < 52 {
+			if dir == "down" && i >= 2 && i < 52 {
 				moved, err = d.fling(ctx, s, dir)
 			} else {
 				moved, err = d.Scroll(ctx, dir)

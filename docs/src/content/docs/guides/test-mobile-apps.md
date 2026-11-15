@@ -209,12 +209,14 @@ How Axx asks a view to scroll:
 1. **On Android**, through a small accessibility service of its own. Axx builds it with the Android SDK's build-tools and a JDK, installs it on the device, and switches it on in the device's settings for the run. It takes it out of the settings again when the run ends. Other accessibility services that are on keep running during the run.
 2. **On iOS**, through the scroll to an element that Apple's test framework (XCTest) has.
 
-Android also tells Axx what a screen has out of view, so a step knows where a control is and has its view show it at once. A list that makes its rows as it scrolls (a `LazyColumn`, a `RecyclerView`) only has the rows it has made. For a row further on, Axx asks the list for a page at a time and looks: down and then up, or up first for a row it saw go off the top.
+Both phones tell Axx what a screen has out of view, so a step knows where a control is and has its view show it at once.
+
+A list that makes its rows as it scrolls (a `LazyColumn`, a `RecyclerView`, a SwiftUI `List`) only has the rows it has made, so there is nothing to scroll to for a row further on. For such a row, Axx looks a page at a time: down and then up, or up first for a row it saw go off the top. On Android each page is asked of the list. On iOS each page is a swipe, because XCTest only scrolls to a control that exists.
 
 Where a view cannot be asked, Axx swipes instead, which is slower:
 
 - on Android, when Axx cannot build the service (it says so once, with what is missing), when the device is one another Appium server drives, or when a view offers no scrolling to a screen reader;
-- on iOS, when XCTest refuses, and in a SwiftUI scroll view of plain text. A control far down such a text is reached in one move: Axx grabs the scroll bar and drags it there.
+- on iOS, when XCTest refuses, in a SwiftUI scroll view of plain text, and for each page of a list that makes its rows as it scrolls. A control far down a long text is reached in one move: Axx grabs the scroll bar and drags it there.
 
 **A control under the keyboard** is scrolled above it. When the page is at its end and no scroll frees the control, the step closes the keyboard, as a person does:
 

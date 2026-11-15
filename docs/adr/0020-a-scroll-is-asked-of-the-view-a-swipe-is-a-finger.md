@@ -67,14 +67,19 @@ A step scrolls by asking, and swipes only where a view cannot be asked.
   `allowInvisibleElements`), marked as not shown, where it is. A step then knows that a control
   is there, and has its view show it: no search.
 - A list that makes its rows as it scrolls lists only the rows it has made. A row further on
-  is looked for a page at a time, each page asked of the list. The device remembers which rows
-  went off the top, and looks up first for one of those.
+  is looked for a page at a time, each page asked of the list.
 - What the keyboard covers is not shown. A control under it is scrolled above it; where the
   view is at its end, the step closes the keyboard, with Back, pressed only while Android's
   input method service says the keyboard shows.
 
 **iOS.** The step asks XCTest to scroll to the control first. What that leaves (a control it
-refused, one still under the keyboard, a SwiftUI text) is done by the drags iOS had.
+refused, one still under the keyboard, a SwiftUI text) is done by the drags iOS had. XCTest
+scrolls only to an element that exists, so a page of a list that makes its rows as it scrolls
+is a swipe: a drag axx places, at a set speed and held at its end, a second or so a page.
+(WebDriverAgent's own scroll took seven to eight seconds a page of a SwiftUI list.)
+
+**Both.** The steps remember which controls went off the top as they paged down a screen, and
+look up first for one of those.
 
 **Where a view cannot be asked**, the step swipes: a device without the scroll service (no JDK
 or build-tools to build it with, which the run says once; a device another Appium server
