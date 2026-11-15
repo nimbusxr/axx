@@ -28,8 +28,10 @@ type App struct {
 	Start   string
 	// Taps moves to a screen when an element is tapped: by the XPath the
 	// packs find it with, or by the text it shows; on "tap <screen>"
-	// when a finger taps a point of the screen; and on "drag left <screen>"
-	// or "drag right <screen>" when a finger drags across it.
+	// when a finger taps a point of the screen; on "drag left <screen>"
+	// or "drag right <screen>" when a finger drags across it; and on
+	// "scroll down <screen>" or "scroll up <screen>" when the screen is
+	// scrolled (Android's scroll gesture).
 	Taps map[string]string
 	// Links moves to a screen when a deep link opens.
 	Links map[string]string
@@ -503,6 +505,16 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			reply(map[string]any{"statusBarSize": map[string]any{"width": 54, "height": 5}, "scale": 2})
 			return
 		case "mobile: scrollGesture":
+			// "scroll down <screen>" in Taps is a screen that scrolls, to the screen it shows
+			// next; UiAutomator2 answers whether the view can scroll further.
+			if len(args) > 0 {
+				way, _ := args[0].(map[string]any)["direction"].(string)
+				if next, ok := s.app.Taps["scroll "+way+" "+s.screen]; ok {
+					s.screen = next
+					reply(true)
+					return
+				}
+			}
 			reply(false)
 			return
 		case "mobile: swipe":
