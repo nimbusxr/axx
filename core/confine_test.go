@@ -3,6 +3,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -47,7 +48,7 @@ func TestAConfinedSuiteReadsItsProjectOnly(t *testing.T) {
 			t.Errorf("%s is in the project: %v", ok, err)
 		}
 	}
-	for _, out := range []string{filepath.Join(outside, ".ssh", "id"), "../home/.ssh/id", "keys/id", "keys/not-there", "/etc/hosts"} {
+	for _, out := range []string{filepath.Join(outside, ".ssh", "id"), "../home/.ssh/id", "keys/id", "keys/not-there", systemFile()} {
 		_, err := s.ResolvePath(out)
 		if err == nil || !strings.Contains(err.Error(), "is not in the project") {
 			t.Errorf("%s is not in the project: %v", out, err)
@@ -73,4 +74,13 @@ func TestAConfinedSuiteReadsItsProjectOnly(t *testing.T) {
 	if _, err := linked.ResolvePath(filepath.Join(project, "labels", "label.png")); err != nil {
 		t.Errorf("the project by its real path: %v", err)
 	}
+}
+
+// systemFile is a file of the system's, by its whole path. (On Windows, /etc/hosts is no whole
+// path: it has no drive, and is read from the project's folder, where it is in the project.)
+func systemFile() string {
+	if runtime.GOOS == "windows" {
+		return `C:\Windows\System32\drivers\etc\hosts`
+	}
+	return "/etc/hosts"
 }

@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -473,7 +474,13 @@ func TestAPacksSideHasASuiteAsTheRunLoadedIt(t *testing.T) {
 	if got := said(t, conn, "labels/label.png"); got != filepath.Join(dir, "labels", "label.png")+" (devices: 3)" {
 		t.Errorf("the pack's suite answered %q", got)
 	}
-	if got := said(t, conn, "/etc/hosts"); !strings.HasPrefix(got, "refused: ") || !strings.Contains(got, "is not in the project") {
+	// A file of the system's, by its whole path (on Windows, /etc/hosts has no drive, and is
+	// read from the project's folder).
+	system := "/etc/hosts"
+	if runtime.GOOS == "windows" {
+		system = `C:\Windows\System32\drivers\etc\hosts`
+	}
+	if got := said(t, conn, system); !strings.HasPrefix(got, "refused: ") || !strings.Contains(got, "is not in the project") {
 		t.Errorf("a file outside the project: %q", got)
 	}
 	if n := len(made); n != 1 {
