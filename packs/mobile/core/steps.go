@@ -100,6 +100,19 @@ func screenshot(sc *core.Scenario, d Device, app string) {
 	}
 }
 
+// note keeps, in the run's log, a scroll that failed under a search the step goes on from.
+func note(sc *core.Scenario, what, control string, err error) {
+	if l := sc.Suite().Logger(); l != nil {
+		l.Debug(what, "control", control, "error", err)
+	}
+}
+
+// reachAfter is how long a step that acts on a control waits for one the screen does not list
+// before it scrolls for it: a control that is only late (a sheet's button, a list's row after a
+// request) comes in that time on a busy machine, and a screen scrolled while it comes in is not
+// the screen the scenario meant. A person looks a moment, too, before they scroll.
+var reachAfter = 1500 * time.Millisecond
+
 // find is the one control of kind k named name, as the screen shows it now (a check's own
 // wait, within its time, is around it): a few looks, as a busy machine needs.
 func find(sc *core.Scenario, d Device, app string, k kind, name string) (*Node, error) {
@@ -118,7 +131,7 @@ func look(sc *core.Scenario, d Device, app string, k kind, name string, wait tim
 // they are about to use. A check does not: what it asks is whether the control shows.
 func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait time.Duration, reach bool) (*Node, bool, error) {
 	var found []*Node
-	reached := false
+	reached, since := false, time.Now()
 	var last *Screen
 	hid := false
 	looks := 0
@@ -131,7 +144,11 @@ func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 		last, found = s, matches(s, k, name)
 		// The control is there but not shown, and the step is about to use it: it is scrolled to,
 		// above the keyboard when one shows, which stays as it is.
-		if n := hidden(s, k, name); len(found) == 0 && reach && !reached && n != nil {
+		if n := hidden(s, k, name); len(found) == 0 && reach && !reached && looks > 1 && n != nil {
+			// At rest first: a control still coming in with its sheet is not one to scroll to.
+			if err := still(sc.Context(), d); err != nil {
+				return false, err
+			}
 			shown, err := d.ScrollToShow(sc.Context(), n, name)
 			// The control moved between reading the screen and scrolling to it, as a page
 			// still laying itself out moves its fields: read the screen again.
@@ -150,16 +167,19 @@ func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 		// lists nothing of a list or a screen past what shows (Android never does; iOS not the
 		// rows a list has yet to make), so the control may be further down: once the screen is at
 		// rest and still without it, the step scrolls for it as the scroll step does, until its
-		// name shows. A control only late in coming has had a look's time to come first.
-		if len(found) == 0 && reach && !reached && looks > 1 && hidden(s, k, name) == nil {
+		// name shows. A control only late in coming (a sheet's, a screen's after a request) is
+		// waited for first: the step scrolls once it has been missing for reachAfter.
+		if len(found) == 0 && reach && !reached && time.Since(since) >= reachAfter && hidden(s, k, name) == nil {
 			reached = true
 			if err := still(sc.Context(), d); err != nil {
 				return false, err
 			}
-			if _, err := scrollFor(sc, d, k, name, false); err != nil {
-				return false, fmt.Errorf("scrolling to the %s %s: %w", quoted(name), k.noun, err)
+			// A screen that changes under the search (a sheet that came in after all) fails a
+			// scroll, not the step: the look goes on for what the screen has by then.
+			if _, err := scrollFor(sc, d, k, name, false); err != nil && sc.Context().Err() == nil {
+				note(sc, "scrolling for a control the screen does not list", name, err)
 			}
-			return false, nil
+			return false, sc.Context().Err()
 		}
 		// The control is there but not shown: the keyboard may cover it. A person closes the
 		// keyboard to reach it, and so does axx, once.
@@ -329,11 +349,10 @@ func targetFor(sc *core.Scenario, d Device, app string, k kind, name string, wai
 			el = e
 			return err == nil, err
 		}
-		looks, paged := 0, false
+		paged, since := false, time.Now()
 		found, err := waitUntil(sc, wait, func() (bool, error) {
-			looks++
 			ok, err := find()
-			if err != nil || ok || !reach || paged || looks < 2 {
+			if err != nil || ok || !reach || paged || time.Since(since) < reachAfter {
 				return ok, err
 			}
 			// Nothing matches, and the step is about to use the control. A driver that finds
@@ -343,7 +362,13 @@ func targetFor(sc *core.Scenario, d Device, app string, k kind, name string, wai
 			if err := still(sc.Context(), d); err != nil {
 				return false, err
 			}
-			return pageFor(sc, d, find)
+			ok, err = pageFor(sc, d, find)
+			if err != nil && sc.Context().Err() == nil {
+				// A screen that changes under the search fails a scroll, not the step.
+				note(sc, "paging for a control a selector names", name, err)
+				return false, nil
+			}
+			return ok, err
 		})
 		if err != nil {
 			return nil, nil, false, err
