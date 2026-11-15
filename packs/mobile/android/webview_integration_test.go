@@ -123,8 +123,11 @@ func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 	h.OK("the reports android app with the following properties:", [][]string{{"apk", app}, {"device", device}})
 	h.OK("the reports app is launched")
 	h.OK(`within 30s the reports app shows "Did you ring the bell?"`)
+	// A question's radio button, inside the group the page makes of the question. (The first one
+	// after the question's text is another question's when the page is scrolled so that the text
+	// is just off the screen and the group still on it: Android lists only what the screen shows.)
 	radio := func(question, answer string) string {
-		return `the 'xpath=(//*[@text="` + question + `"]/following::android.widget.RadioButton[@text="` + answer + `"])[1]' element is tapped in the reports app`
+		return `the 'xpath=//*[@text="` + question + `"]//android.widget.RadioButton[@text="` + answer + `"]' element is tapped in the reports app`
 	}
 	// What the first screen shows.
 	h.OK(radio("Did you ring the bell?", "Yes"))
@@ -140,6 +143,11 @@ func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 	// label comes as its text, with no hint, and UiAutomator2 will not set its text, so the step
 	// taps it and types, as a person does.
 	h.OK(`the "How many parcels are still in the van?" field in the reports app is filled with '"3"'`)
+	// The keyboard is up now. A control back up the page is paged to: the keyboard is closed
+	// once, with Back, and no page after that presses Back again, which would leave the app.
+	h.OK(radio("Did you ring the bell?", "Yes"))
+	// The filled number field is still found by its label.
+	h.OK(`the "How many parcels are still in the van?" field is tapped in the reports app`)
 	// A button at the page's end, found by its name.
 	h.OK(`the "Send report" button is tapped in the reports app`)
 	h.OK(`within 10s the reports app shows "Report sent"`)

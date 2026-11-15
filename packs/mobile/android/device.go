@@ -1035,7 +1035,9 @@ func (d *running) fling(ctx context.Context, s *mobilecore.Screen, direction str
 	return false, nil
 }
 
-// HideKeyboard closes the keyboard when it shows, as the device's back gesture does.
+// HideKeyboard closes the keyboard when it shows, with Back, as a person does. While the input
+// method shows, Android gives Back to it and the app does not get the key; so Back is pressed
+// only then, or it would take the app a screen back.
 func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 	if d.dev == nil {
 		shown, err := d.session.KeyboardShown(ctx)
@@ -1051,26 +1053,33 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 	if err != nil || !shown {
 		return false, err
 	}
-	// Escape closes it in most keyboards; back, in the others.
-	for _, key := range []string{"KEYCODE_ESCAPE", "KEYCODE_BACK"} {
-		if _, err := d.sdk.shell(ctx, d.dev.serial, "input", "keyevent", key); err != nil {
-			return false, err
-		}
+	if _, err := d.sdk.shell(ctx, d.dev.serial, "input", "keyevent", "KEYCODE_BACK"); err != nil {
+		return false, err
+	}
+	// The keyboard slides away: what comes next (a scroll, a tap) waits until it has gone.
+	for range 8 {
 		if shown, err := d.keyboardShown(ctx); err != nil || !shown {
 			return true, err
+		}
+		select {
+		case <-ctx.Done():
+			return true, ctx.Err()
+		case <-time.After(250 * time.Millisecond):
 		}
 	}
 	return true, nil
 }
 
-// keyboardShown is whether the input method shows its keyboard, as the
-// device's input method service says.
+// keyboardShown is whether the input method shows, as the device's input method service says
+// (mInputShown): the state in which Android gives Back to the keyboard. The input method's own
+// mIsInputViewShown is not that: it stays true once a keyboard has shown and been closed
+// (Android 13, 15 and 17), and a Back pressed for it leaves the app's screen.
 func (d *running) keyboardShown(ctx context.Context) (bool, error) {
 	out, err := d.sdk.shell(ctx, d.dev.serial, "dumpsys", "input_method")
 	if err != nil {
 		return false, err
 	}
-	return strings.Contains(out, "mInputShown=true") || strings.Contains(out, "mIsInputViewShown=true"), nil
+	return strings.Contains(out, "mInputShown=true"), nil
 }
 
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {

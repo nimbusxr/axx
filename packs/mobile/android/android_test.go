@@ -1191,20 +1191,30 @@ func TestAWebPagesNumberFieldIsNamedByItsLabelAndTypedInto(t *testing.T) {
 	if got := strings.Join(names, "; "); got != "Who did you speak to?=Mara Lindqvist; How many parcels are still in the van?=" {
 		t.Errorf("the page's fields, by their labels and what they hold: %s", got)
 	}
-	// Another build of Chrome says nothing of the field's input type: the label the page shows
-	// just before the field says its text is that label. A field whose text is not the text
-	// before it holds what was typed.
+	// Android 15's web view says nothing of a field's input type: the label the page shows just
+	// before the field says which part of the field's text is its name. Filled, the field's
+	// text is what it holds, then its label. A field whose text is not the text before it holds
+	// what was typed.
 	label := `<android.view.View index="0" package="example.parcels.courier" class="android.view.View" text="How many parcels are still in the van?" clickable="false" enabled="true" scrollable="false" bounds="[42,1700][1039,1765]" displayed="true"/>`
 	untyped := strings.Replace(number, ` input-type="2"`, "", 1)
-	typed := strings.Replace(untyped, `text="How many parcels are still in the van?"`, `text="3"`, 1)
-	for src, want := range map[string]string{untyped: "How many parcels are still in the van?=", typed: "=3"} {
-		s, err := parseSource(page(`<android.webkit.WebView index="0" package="example.parcels.courier" class="android.webkit.WebView" text="" clickable="false" enabled="true" scrollable="true" bounds="[0,0][1080,2400]" displayed="true">` + label + src + `</android.webkit.WebView>`))
+	if untyped == number {
+		t.Fatal("the number field's source has no input type to take out")
+	}
+	as := func(text string) string {
+		return strings.Replace(untyped, `text="How many parcels are still in the van?"`, `text="`+text+`"`, 1)
+	}
+	for _, c := range []struct{ src, want string }{
+		{untyped, "How many parcels are still in the van?="},
+		{as("3, How many parcels are still in the van?"), "How many parcels are still in the van?=3"},
+		{as("3"), "=3"},
+	} {
+		s, err := parseSource(page(`<android.webkit.WebView index="0" package="example.parcels.courier" class="android.webkit.WebView" text="" clickable="false" enabled="true" scrollable="true" bounds="[0,0][1080,2400]" displayed="true">` + label + c.src + `</android.webkit.WebView>`))
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, n := range s.Visible() {
-			if n.Role == mobilecore.RoleField && n.Hint+"="+n.Text != want {
-				t.Errorf("a field after its label, with no input type: hint %q, text %q, want %s", n.Hint, n.Text, want)
+			if n.Role == mobilecore.RoleField && n.Hint+"="+n.Text != c.want {
+				t.Errorf("a field after its label, with no input type: hint %q, text %q, want %s", n.Hint, n.Text, c.want)
 			}
 		}
 	}
@@ -1233,5 +1243,40 @@ func TestAWebPagesNumberFieldIsNamedByItsLabelAndTypedInto(t *testing.T) {
 	}
 	if got := strings.Join(did, "; "); got != "tap "+field+"; keys 3" {
 		t.Errorf("the number field was filled with: %s", got)
+	}
+}
+
+// Back closes a keyboard, and is pressed for nothing else: once the keyboard has closed, the
+// input method still says its input view shows (Android 13, 15 and 17), and a Back pressed for
+// that takes the app a screen back, out of a web page. The input method service says whether the
+// keyboard shows.
+func TestBackIsPressedOnlyForAKeyboardThatShows(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	keys, closed := filepath.Join(dir, "keys"), filepath.Join(dir, "closed")
+	adb := filepath.Join(dir, "adb")
+	// What dumpsys input_method says on Android 15 with a keyboard up, and after Back closed it.
+	script := "#!/bin/sh\ncase \"$*\" in\n" +
+		"*'input keyevent KEYCODE_BACK'*) echo KEYCODE_BACK >> " + keys + "; touch " + closed + " ;;\n" +
+		"*'input keyevent'*) echo \"$*\" >> " + keys + " ;;\n" +
+		"*'dumpsys input_method'*) if [ -e " + closed + " ]; then echo '  mInputShown=false'; else echo '  mInputShown=true'; fi; " +
+		"echo '  mDecorViewVisible=false mDecorViewWasVisible=false mWindowVisible=false mInShowWindow=false'; echo '  mIsInputViewShown=true mStatusIcon=0' ;;\n" +
+		"esac\n"
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	d := &running{sdk: &sdk{adb: adb}, dev: &device{serial: "emulator-5554"}}
+	if hid, err := d.HideKeyboard(t.Context()); err != nil || !hid {
+		t.Fatalf("a keyboard that shows is closed: %v, %v", hid, err)
+	}
+	// A scroll closes the keyboard before each page: the second finds none to close.
+	if hid, err := d.HideKeyboard(t.Context()); err != nil || hid {
+		t.Fatalf("no keyboard shows, and one was closed: %v, %v", hid, err)
+	}
+	pressed, _ := os.ReadFile(keys)
+	if string(pressed) != "KEYCODE_BACK\n" {
+		t.Errorf("the keys pressed for a keyboard that showed once: %q, want one Back", pressed)
 	}
 }

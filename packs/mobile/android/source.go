@@ -65,18 +65,26 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 		n.Role = roleOf(n)
 		n.Value = strings.TrimSuffix(n.Value, "]") + shows(n) + "]"
 	}
-	// A web page's number field (<input type="number">) comes with its label as its text, empty
-	// or not, and no hint: Chrome presents it as a control with a range, whose text is its name
-	// and whose number is the range's. A text field's label is its hint. So the text is what
-	// the field is called, not what it holds. (Its locator, made above, finds it by that text.)
-	// Not every WebView says a field's input type (Android 15's says none, of any field), so
-	// the page's own label counts as well: a field whose text is the text just before it on the
-	// page shows its label, not something typed.
+	// A web page's number field (<input type="number">) comes with its label in its text and no
+	// hint: Chrome presents it as a control with a range, whose text is its name and whose
+	// number is the range's. A text field's label is its hint. So that text is what the field
+	// is called, not what it holds. (Its locator, made above, finds it by the text it came with.)
+	//
+	// Android 17's web view says the field takes a number, and its text is its label, filled
+	// or not. Android 15's says no field's input type, and puts what the field holds before
+	// the label ("3, How many parcels?"); there the page's own label, the text just before the
+	// field, says which part of the field's text is its name.
 	for _, n := range s.Nodes {
 		if n.Class != "android.widget.EditText" || n.Hint != "" || n.Label != "" || n.Text == "" || !inWebView(n) {
 			continue
 		}
-		if numbers[n] || before(n) == n.Text {
+		label := before(n)
+		switch {
+		case label != "" && n.Text == label:
+			n.Hint, n.Text = label, ""
+		case label != "" && strings.HasSuffix(n.Text, ", "+label):
+			n.Hint, n.Text = label, strings.TrimSuffix(n.Text, ", "+label)
+		case numbers[n]:
 			n.Hint, n.Text = n.Text, ""
 		}
 	}
