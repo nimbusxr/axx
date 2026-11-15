@@ -22,6 +22,7 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 	dec := xml.NewDecoder(strings.NewReader(src))
 	s := &mobilecore.Screen{}
 	var stack []*mobilecore.Node
+	numbers := map[*mobilecore.Node]bool{} // the fields that take a number
 	for {
 		tok, err := dec.Token()
 		if errors.Is(err, io.EOF) {
@@ -38,6 +39,11 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 				continue
 			}
 			n := nodeOf(t)
+			// The class of what a field takes is the low bits of its input type; a number's
+			// is 2, with flags above it for a sign or a decimal point.
+			if kind, err := strconv.Atoi(attr(t.Attr, "input-type")); err == nil && kind&0xf == 2 {
+				numbers[n] = true
+			}
 			bounds := attr(t.Attr, "bounds")
 			n.Bounds = parseBounds(bounds)
 			if len(stack) > 0 {
@@ -59,7 +65,56 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 		n.Role = roleOf(n)
 		n.Value = strings.TrimSuffix(n.Value, "]") + shows(n) + "]"
 	}
+	// A web page's number field (<input type="number">) comes with its label in its text and no
+	// hint: Chrome presents it as a control with a range, whose text is its name and whose
+	// number is the range's. A text field's label is its hint. So that text is what the field
+	// is called, not what it holds. (Its locator, made above, finds it by the text it came with.)
+	//
+	// Android 17's web view says the field takes a number, and its text is its label, filled
+	// or not. Android 15's says no field's input type, and puts what the field holds before
+	// the label ("3, How many parcels?"); there the page's own label, the text just before the
+	// field, says which part of the field's text is its name.
+	for _, n := range s.Nodes {
+		if n.Class != "android.widget.EditText" || n.Hint != "" || n.Label != "" || n.Text == "" || !inWebView(n) {
+			continue
+		}
+		label := before(n)
+		switch {
+		case label != "" && n.Text == label:
+			n.Hint, n.Text = label, ""
+		case label != "" && strings.HasSuffix(n.Text, ", "+label):
+			n.Hint, n.Text = label, strings.TrimSuffix(n.Text, ", "+label)
+		case numbers[n]:
+			n.Hint, n.Text = n.Text, ""
+		}
+	}
 	return s, nil
+}
+
+// before is the text of what comes just before a node in what holds it: a field's label, on a
+// web page that puts one before its field.
+func before(n *mobilecore.Node) string {
+	if n.Parent == nil {
+		return ""
+	}
+	prev := ""
+	for _, c := range n.Parent.Children {
+		if c == n {
+			return prev
+		}
+		prev = c.Text
+	}
+	return ""
+}
+
+// inWebView reports whether a node is part of a web page an app shows.
+func inWebView(n *mobilecore.Node) bool {
+	for p := n.Parent; p != nil; p = p.Parent {
+		if p.Class == "android.webkit.WebView" {
+			return true
+		}
+	}
+	return false
 }
 
 // shows is what a node's locator says it shows, beside its class and bounds: its own description

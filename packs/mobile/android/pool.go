@@ -30,6 +30,9 @@ type device struct {
 	mjpegPort  int         // its screen stream's port on the host
 	server     *uia2Server // the UiAutomator2 server on it, while it runs
 	served     bool        // whether a server ran on it this run: one started again adds to its log
+	scrolls    *scrolls    // axx's scroll service on it, while it runs; nil when the device has none
+	scrollPort int         // the scroll service's port on the host
+	swipes     bool        // whether the run was told that the device scrolls by swiping
 	emulator   *exec.Cmd
 	group      *proc.Group
 	exited     chan struct{}

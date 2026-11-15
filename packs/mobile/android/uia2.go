@@ -171,6 +171,9 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	// What a scenario before left of a server: one instrumentation at a time.
 	_, _ = p.sdk.shell(ctx, d.serial, "am", "force-stop", uia2Package)
 	_, _ = p.sdk.shell(ctx, d.serial, "am", "force-stop", uia2Test)
+	// axx's scroll service is switched on first: the server, as it starts, takes the device's
+	// accessibility for itself, and leaves other services running only when told to.
+	p.ensureScrolls(ctx, d)
 	// The server reads the screen through Android's hidden APIs, which Android 9 and later refuse
 	// it unless the device allows them; without them, it fails to read a screen now and then
 	// (it "cannot set AccessibilityNodeInfo's field 'mSealed'"). Appium's driver allows them the
@@ -195,8 +198,11 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	d.served = true
 	_, _ = fmt.Fprintf(log, "--- the UiAutomator2 server starts, %s\n", time.Now().Format(time.RFC3339))
 	// The server outlives this step: it runs until the device leaves the pool.
-	cmd := p.sdk.command(context.Background(), "-s", d.serial, "shell",
-		"am", "instrument", "-w", "--no-window-animation", "-e", "disableAnalytics", "true", uia2Runner)
+	instrument := []string{"-s", d.serial, "shell", "am", "instrument", "-w", "--no-window-animation", "-e", "disableAnalytics", "true"}
+	if d.scrolls != nil {
+		instrument = append(instrument, "-e", "DISABLE_SUPPRESS_ACCESSIBILITY_SERVICES", "true")
+	}
+	cmd := p.sdk.command(context.Background(), append(instrument, uia2Runner)...)
 	cmd.Stdout, cmd.Stderr = log, log
 	cmd.WaitDelay = time.Second
 	proc.Setup(cmd)
@@ -212,6 +218,7 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 		for _, k := range hiddenAPIPolicies {
 			_, _ = p.sdk.shell(ctx, d.serial, "settings", "delete", "global", k)
 		}
+		p.stopScrolls(ctx, d)
 	}
 	if g, err := proc.NewGroup(cmd); err == nil {
 		s.group = g

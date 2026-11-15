@@ -195,9 +195,37 @@ Controls are found by the names people see: a button by its text, a field by its
 
 `swiped down` pulls a list to refresh; `up`, `left` and `right` swipe too. The back button is Android's; on iOS, tap the back button the screen shows, by its text.
 
-`scrolled into view` scrolls the list or text that holds the control until it shows, as a person does. A control far down a long text, like the end of a terms of service, is reached in one move on iOS, which grabs the scroll bar and drags it there, and in a few flings on Android.
+`scrolled into view` has the list, page or text that holds the control show it.
 
-A tap or a fill scrolls to its control when the control is further down the screen, so a form longer than the screen needs no scroll step, on Android or iOS. The step looks first, and gives a control that is only late a moment to come (a second and a half). When the control is still not there and the screen is at rest, it scrolls for it as `scrolled into view` does, until its name shows (or its `id=` or `xpath=` selector finds it), and then uses it. On Android it closes the keyboard to scroll; on iOS it scrolls above the keyboard. `scrolled into view` is for the rest, like a check of something further down, and it takes a selector as the other steps do. A check never scrolls: it asks what the screen shows.
+**Scrolling and swiping are two things in Axx.**
+
+- A **swipe** is a finger on the screen. The `swiped` step swipes.
+- A **scroll** is the view moving because it was asked to, with nothing touched. A screen reader scrolls this way. `scrolled into view` scrolls, and so do a tap and a fill when their control is out of view.
+
+A scroll takes about a tenth of a second, moves the view by exactly what is needed, and cannot land on a key of the keyboard or on an edge of the screen that goes home or pulls the notifications down.
+
+A tap or a fill scrolls to its control when the control is out of view, so a form longer than the screen needs no scroll step, on Android or iOS. The step looks first, and gives a control that is only late a moment to come. `scrolled into view` is for the rest, like a check of something further down, and it takes a selector as the other steps do. A check never scrolls: it asks what the screen shows.
+
+How Axx asks a view to scroll:
+
+1. **On Android**, through a small accessibility service of its own, an app named "axx scroll". Axx installs it on the device and switches it on in the device's settings for the run. It takes it out of the settings again when the run ends. Other accessibility services that are on keep running during the run.
+
+   Where the service comes from depends on your Axx. A release of Axx downloads the service that its release built and signed, once, and checks it against the release's checksums (a [mirror](/guides/use-mirrors/) works for it too). An Axx built from a commit has no release to download from, so it builds the service on your machine, which needs the Android SDK's build-tools and a JDK. `axx doctor` says which of the two your Axx does.
+2. **On iOS**, through the scroll to an element that Apple's test framework (XCTest) has.
+
+Both phones tell Axx what a screen has out of view, so a step knows where a control is and has its view show it at once.
+
+A list that makes its rows as it scrolls (a `LazyColumn`, a `RecyclerView`, a SwiftUI `List`) only has the rows it has made, so there is nothing to scroll to for a row further on. For such a row, Axx looks a page at a time: down and then up, or up first for a row it saw go off the top. On Android each page is asked of the list. On iOS each page is a swipe, because XCTest only scrolls to a control that exists.
+
+Where a view cannot be asked, Axx swipes instead, which is slower:
+
+- on Android, when Axx has no service (it says so once, with why), when the device is one another Appium server drives, or when a view offers no scrolling to a screen reader;
+- on iOS, when XCTest refuses, in a SwiftUI scroll view of plain text, and for each page of a list that makes its rows as it scrolls. A control far down a long text is reached in one move: Axx grabs the scroll bar and drags it there.
+
+**A control under the keyboard** is scrolled above it. When the page is at its end and no scroll frees the control, the step closes the keyboard, as a person does:
+
+- on Android with Back, which Android gives to the keyboard while one is up. With no keyboard up Axx presses nothing, so the app stays on its screen;
+- on an iPhone with the Done of the bar over the keyboard when it has one, as a web form's keyboard and a number pad do, and with return otherwise.
 
 **Web pages in an app.** A page an app shows in a web view (`WKWebView` on iOS, `WebView` on Android) works with the same steps. Its controls are found by what the page says of them: a field by its label, a button by its text. A radio button or a checkbox has the same name as the label beside it, and a form often has several with one name ("Yes"), so name the one you mean by its question:
 
@@ -205,7 +233,9 @@ A tap or a fill scrolls to its control when the control is further down the scre
 When the 'xpath=(//*[@label="Can the parcel go to a neighbour?"]/following::*[@label="No"])[1]' element is tapped in the courier app
 ```
 
-That is iOS's page; on Android the same radio button is `xpath=(//*[@text="Can the parcel go to a neighbour?"]/following::android.widget.RadioButton[@text="No"])[1]`.
+That is iOS's page. On Android the same radio button is `xpath=//*[@text="Can the parcel go to a neighbour?"]//android.widget.RadioButton[@text="No"]`: the button inside the group the page makes of the question. Android lists only what the screen shows, so do not take "the first No after the question's text" there: when the page is scrolled so that the question's text is just off the screen, the first one after it is the next question's.
+
+On Android, a page's number field (`<input type="number">`) is found by its label and filled like any other field. Chrome presents it as a slider-like control whose text is its label, so Axx taps it and types, as a person does. Android 15's web view does not say that the field takes a number, and there Axx knows the field by the label the page shows just before it. What it holds cannot be read back on every Android version: check what the page shows of the number, not the field's value.
 
 On iOS, the test framework cannot place its own tap on some of a page's controls, like a radio button past the page's first screen. Axx asks first, and taps such a control where it is on the screen, as a finger does. The step's log says when it did.
 

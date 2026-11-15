@@ -45,6 +45,9 @@ type App struct {
 	// (a web page's radio button past its first screen): WebDriverAgent says they are not
 	// hittable, and its tap of one taps nothing and answers that it tapped.
 	Unplaced []string
+	// Ranged are fields UiAutomator2 takes for controls with a range, by the XPath the packs find
+	// them with (a web page's number field, as Chrome presents it): it will not set their text.
+	Ranged []string
 	// Notifications is the screen of the device's notifications: opened over
 	// the app (Android's shade, or a finger from iOS's top edge), and closed
 	// by back or by activating the app.
@@ -379,6 +382,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.commands = append(s.commands, "back")
 		s.closeNotifications()
 		reply(nil)
+	case path == "/actions" && keys(body) != "":
+		// Keys go to whatever has the focus: the field tapped last.
+		s.commands = append(s.commands, "keys "+keys(body))
+		reply(nil)
 	case path == "/actions":
 		s.commands = append(s.commands, "drag")
 		from, to, held := finger(body)
@@ -595,6 +602,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.typed[xpath] = ""
 			reply(nil)
 		case "value":
+			if slices.Contains(s.app.Ranged, xpath) {
+				fail("invalid element state", "ACTION_SET_PROGRESS has failed on the element 'android.view.accessibility.AccessibilityNodeInfo'")
+				return
+			}
 			text, _ := body["text"].(string)
 			s.typed[xpath] += text
 			s.commands = append(s.commands, "type "+text)
@@ -610,6 +621,32 @@ func abs(n int) int {
 		return -n
 	}
 	return n
+}
+
+// keys is the text a keyboard's actions type, the keys that are no characters (End, Backspace)
+// left out; "" for actions of no keyboard.
+func keys(body map[string]any) string {
+	sources, _ := body["actions"].([]any)
+	var b strings.Builder
+	for _, src := range sources {
+		k, _ := src.(map[string]any)
+		if k["type"] != "key" {
+			continue
+		}
+		actions, _ := k["actions"].([]any)
+		for _, a := range actions {
+			act, _ := a.(map[string]any)
+			if v, _ := act["value"].(string); act["type"] == "keyDown" {
+				if r := []rune(v); len(r) == 1 && (r[0] < 0xE000 || r[0] > 0xF8FF) {
+					b.WriteString(v)
+				}
+			}
+		}
+		if b.Len() == 0 {
+			return " " // a keyboard that typed no character
+		}
+	}
+	return b.String()
 }
 
 // finger is where a finger's actions put it down and lift it, and how long it rests there before

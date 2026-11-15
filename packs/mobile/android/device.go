@@ -94,6 +94,9 @@ func (d *running) begin(ctx context.Context) error {
 		return fmt.Errorf("cannot start the %s app: %w", a.name, err)
 	}
 	xpath1(ctx, s)
+	if dev.scrolls != nil {
+		wholeScreen(ctx, s)
+	}
 	d.session, d.caps = s, caps
 	s.Revive = d.revive
 	if err := d.grant(ctx); err != nil {
@@ -317,6 +320,9 @@ func (d *running) revive(ctx context.Context) error {
 		return err
 	}
 	xpath1(ctx, s)
+	if d.dev.scrolls != nil {
+		wholeScreen(ctx, s)
+	}
 	d.session.Renew(s.ID)
 	d.resets = append(d.resets, "the UiAutomator2 server started again after it crashed")
 	return nil
@@ -574,7 +580,12 @@ func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 		}
 		return nil, fmt.Errorf("cannot read the %s app's screen: %w", d.app.name, err)
 	}
-	return parseSource(src)
+	s, err := parseSource(src)
+	if err != nil {
+		return nil, err
+	}
+	d.under(ctx, src, s)
+	return s, nil
 }
 
 // Launch brings the app to the front, as its launcher icon does: started if
@@ -755,14 +766,9 @@ func (d *running) Swipe(ctx context.Context, direction string) error {
 	}, nil)
 }
 
-// Scroll scrolls the first thing on the screen that scrolls. A keyboard that shows is closed
-// first, as a person closes it to scroll a page: it covers the lower part of the view, where the
-// gesture would land on its keys, and a page keeps the field being typed in on the screen, so it
-// scrolls back to it.
+// Scroll scrolls the first thing on the screen that scrolls a page toward direction, and reports
+// whether it moved.
 func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
-	if _, err := d.HideKeyboard(ctx); err != nil {
-		return false, err
-	}
 	s, err := d.Screen(ctx)
 	if err != nil {
 		return false, err
@@ -775,7 +781,7 @@ func (d *running) Scroll(ctx context.Context, direction string) (bool, error) {
 	return false, nil
 }
 
-// ScrollRow scrolls a row that scrolls sideways (left or right) by most of its width.
+// ScrollRow scrolls a row that scrolls sideways (left or right) a page of its own.
 func (d *running) ScrollRow(ctx context.Context, row *mobilecore.Node, direction string) (bool, error) {
 	s, err := d.Screen(ctx)
 	if err != nil {
@@ -784,8 +790,39 @@ func (d *running) ScrollRow(ctx context.Context, row *mobilecore.Node, direction
 	return d.scrollView(ctx, s, row, direction)
 }
 
-// scrollView scrolls the view n of the screen s toward direction, and reports whether it moved.
+// scrollView scrolls the view n of the screen s a page toward direction, and reports whether it
+// moved. The view is asked to scroll (scrolls.go): nothing is touched, and it says at once when
+// it is at its end. A view that cannot be asked, or a device without axx's scroll service, is
+// swiped.
 func (d *running) scrollView(ctx context.Context, s *mobilecore.Screen, n *mobilecore.Node, direction string) (bool, error) {
+	if moved, asked := d.page(ctx, n, direction); asked {
+		return moved, nil
+	}
+	return d.swipeView(ctx, s, n, direction)
+}
+
+// swipeView swipes the view n of the screen s, a finger across most of it, so that it scrolls
+// toward direction, and reports whether it moved. A keyboard that shows is closed before a swipe
+// up or down the screen, as a person closes it: the finger would land on its keys.
+func (d *running) swipeView(ctx context.Context, s *mobilecore.Screen, n *mobilecore.Node, direction string) (bool, error) {
+	if direction == "up" || direction == "down" {
+		if hid, err := d.HideKeyboard(ctx); err != nil {
+			return false, err
+		} else if hid {
+			// The screen as it is without the keyboard: the view is taller, and elsewhere.
+			if s, err = d.Screen(ctx); err != nil {
+				return false, err
+			}
+			again := n
+			for _, m := range s.Visible() {
+				if m.Scrolling {
+					again = m
+					break
+				}
+			}
+			n = again
+		}
+	}
 	// The gesture keeps a little inside the view's edges: one that starts on its edge does
 	// not scroll a Compose scroll view (DTCD's terms).
 	b := n.Bounds
@@ -817,7 +854,28 @@ func (d *running) scrollView(ctx context.Context, s *mobilecore.Screen, n *mobil
 	var more bool
 	var err error
 	if d.dev != nil {
-		more, err = d.session.Scroll(ctx, area, direction, 0.8)
+		// A finger axx moves itself, from a point to a point: down on the glass, steadily over
+		// most of the view, a moment still (no flick), and up. The server's own scroll gesture
+		// starts where it sees fit, and that was the screen's lowest part, from which Android
+		// takes a swipe up for "go home" (a touch at 2280 of 2400, on a Pixel's screen: the
+		// launcher's swipe region is its lowest 48dp), and an app's test ended on the home screen.
+		// So the finger keeps above the screen's lowest twelfth as well.
+		if low := s.Size.Y + s.Size.Height*11/12; area.Top+area.Height > low && low > area.Top {
+			area.Height = low - area.Top
+		}
+		x, y := area.Left+area.Width/2, area.Top+area.Height/2
+		fromX, fromY, toX, toY := x, y, x, y
+		switch direction {
+		case "down":
+			fromY, toY = area.Top+area.Height, area.Top+area.Height*0.2
+		case "up":
+			fromY, toY = area.Top, area.Top+area.Height*0.8
+		case "right":
+			fromX, toX = area.Left+area.Width, area.Left+area.Width*0.2
+		case "left":
+			fromX, toX = area.Left, area.Left+area.Width*0.8
+		}
+		err = d.session.DragAndHold(ctx, fromX, fromY, toX, toY, 400*time.Millisecond, 150*time.Millisecond)
 	} else {
 		err = d.session.Mobile(ctx, "scrollGesture", map[string]any{
 			"left": int(area.Left), "top": int(area.Top), "width": int(area.Width), "height": int(area.Height),
@@ -827,9 +885,9 @@ func (d *running) scrollView(ctx context.Context, s *mobilecore.Screen, n *mobil
 	if err != nil || more {
 		return more, err
 	}
-	// A Compose scroll view tells UiAutomator it can scroll no further after every gesture
-	// that scrolled it (DTCD's terms): what the screen shows says whether it moved, once
-	// Compose has told accessibility (a moment after the gesture).
+	// What the screen shows says whether it moved, once the view has told accessibility (a
+	// moment after the finger lifts). (A Compose scroll view also tells UiAutomator that it can
+	// scroll no further after every gesture that scrolled it: DTCD's terms.)
 	before := shown(s)
 	for range 4 {
 		select {
@@ -949,42 +1007,41 @@ func shadeHasFocus(dumpsys string) bool {
 	return false
 }
 
-// ScrollToShow scrolls the screen's scrolling view down until the control of that name shows, as
-// a person looks for something in a long text: Android does not list what a scroll view holds
-// out of view, so it looks each time the view is at rest. It turns a page twice; a control
-// further down is in a long text (DTCD's terms, which took a minute a page at a time), which it
-// flings through, many screens at once; what a fling went past, it turns back to a page at a
-// time.
-func (d *running) ScrollToShow(ctx context.Context, _ *mobilecore.Node, name string) (bool, error) {
-	for i := range 52 {
-		s, err := d.Screen(ctx)
-		if err != nil || s.Shows(name) {
-			return err == nil, err
+// ScrollToShow scrolls until the control of that name shows. A control the screen lists out of
+// view (n) is shown at once: its view is asked to bring it onto the screen. One the screen does
+// not list (a row a list has yet to make) is left to the step, which looks for it a page at a
+// time (Scroll). A device without axx's scroll service looks for the name itself, by swiping: two
+// pages, then flings through a long text (DTCD's terms, which took a minute a page at a time),
+// then back up a page at a time for what a fling went past.
+func (d *running) ScrollToShow(ctx context.Context, n *mobilecore.Node, name string) (bool, error) {
+	if d.scrollService() != nil {
+		if n == nil {
+			return false, nil
 		}
-		var moved bool
-		if i < 2 {
-			moved, err = d.Scroll(ctx, "down")
-		} else {
-			moved, err = d.fling(ctx, s, "down")
-		}
-		if err != nil {
-			return false, err
-		}
-		if !moved {
-			break // at the end
+		return d.show(ctx, n), ctx.Err()
+	}
+	for _, dir := range []string{"down", "up"} {
+		for i := range 200 {
+			s, err := d.Screen(ctx)
+			if err != nil || s.Shows(name) {
+				return err == nil, err
+			}
+			var moved bool
+			if dir == "down" && i >= 2 && i < 52 {
+				moved, err = d.fling(ctx, s, dir)
+			} else {
+				moved, err = d.Scroll(ctx, dir)
+			}
+			if err != nil {
+				return false, err
+			}
+			if !moved {
+				break // at the end
+			}
 		}
 	}
-	for range 200 {
-		s, err := d.Screen(ctx)
-		if err != nil || s.Shows(name) {
-			return err == nil, err
-		}
-		moved, err := d.Scroll(ctx, "up")
-		if err != nil || !moved {
-			return false, err
-		}
-	}
-	return false, nil
+	s, err := d.Screen(ctx)
+	return err == nil && s.Shows(name), err
 }
 
 // fling flings the screen's first scrolling view toward direction, as a quick finger does, and
@@ -1035,7 +1092,9 @@ func (d *running) fling(ctx context.Context, s *mobilecore.Screen, direction str
 	return false, nil
 }
 
-// HideKeyboard closes the keyboard when it shows, as the device's back gesture does.
+// HideKeyboard closes the keyboard when it shows, with Back, as a person does. While the input
+// method shows, Android gives Back to it and the app does not get the key; so Back is pressed
+// only then, or it would take the app a screen back.
 func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 	if d.dev == nil {
 		shown, err := d.session.KeyboardShown(ctx)
@@ -1051,26 +1110,33 @@ func (d *running) HideKeyboard(ctx context.Context) (bool, error) {
 	if err != nil || !shown {
 		return false, err
 	}
-	// Escape closes it in most keyboards; back, in the others.
-	for _, key := range []string{"KEYCODE_ESCAPE", "KEYCODE_BACK"} {
-		if _, err := d.sdk.shell(ctx, d.dev.serial, "input", "keyevent", key); err != nil {
-			return false, err
-		}
+	if _, err := d.sdk.shell(ctx, d.dev.serial, "input", "keyevent", "KEYCODE_BACK"); err != nil {
+		return false, err
+	}
+	// The keyboard slides away: what comes next (a scroll, a tap) waits until it has gone.
+	for range 8 {
 		if shown, err := d.keyboardShown(ctx); err != nil || !shown {
 			return true, err
+		}
+		select {
+		case <-ctx.Done():
+			return true, ctx.Err()
+		case <-time.After(250 * time.Millisecond):
 		}
 	}
 	return true, nil
 }
 
-// keyboardShown is whether the input method shows its keyboard, as the
-// device's input method service says.
+// keyboardShown is whether the input method shows, as the device's input method service says
+// (mInputShown): the state in which Android gives Back to the keyboard. The input method's own
+// mIsInputViewShown is not that: it stays true once a keyboard has shown and been closed
+// (Android 13, 15 and 17), and a Back pressed for it leaves the app's screen.
 func (d *running) keyboardShown(ctx context.Context) (bool, error) {
 	out, err := d.sdk.shell(ctx, d.dev.serial, "dumpsys", "input_method")
 	if err != nil {
 		return false, err
 	}
-	return strings.Contains(out, "mInputShown=true") || strings.Contains(out, "mIsInputViewShown=true"), nil
+	return strings.Contains(out, "mInputShown=true"), nil
 }
 
 func (d *running) SystemBars(ctx context.Context) ([]mobilecore.Rect, error) {

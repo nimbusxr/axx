@@ -182,14 +182,21 @@ func lookFor(sc *core.Scenario, d Device, app string, k kind, name string, wait 
 			return false, sc.Context().Err()
 		}
 		// The control is there but not shown: the keyboard may cover it. A person closes the
-		// keyboard to reach it, and so does axx, once.
-		if len(found) == 0 && !hid && hidden(s, k, name) != nil {
+		// keyboard to reach it, and so does axx, once. A step that scrolls to its control has
+		// scrolled first: a control the scroll brought above the keyboard needs no keyboard
+		// closed, and closing one can act (a return key sends a web form).
+		if len(found) == 0 && !hid && (!reach || reached) && hidden(s, k, name) != nil {
 			hid = true
 			closed, err := d.HideKeyboard(sc.Context())
 			if err != nil {
 				return false, fmt.Errorf("closing the keyboard over the %s %s: %w", quoted(name), k.noun, err)
 			}
 			if closed {
+				// A control that is still out of view without the keyboard (the page had gone
+				// back to the field being typed in) is scrolled to once more.
+				if reach {
+					reached = false
+				}
 				return false, nil
 			}
 		}
@@ -376,6 +383,22 @@ func targetFor(sc *core.Scenario, d Device, app string, k kind, name string, wai
 		if !found {
 			return nil, nil, false, core.Failf("No %s in the %s app matches %q", k.noun, app, name)
 		}
+		// A driver that finds what the screen has out of view, and does not scroll to it to use
+		// it (Android's): the step has the control's view show it, and finds it again where it
+		// then is.
+		if o, ok := d.(outOfViewer); ok && reach && o.OutOfView(sc.Context(), el) {
+			if err := bringIntoView(sc.Context(), d, el); err != nil {
+				return nil, nil, false, fmt.Errorf("scrolling to the %s %s: %w", quoted(name), k.noun, err)
+			}
+			if _, err := find(); err != nil {
+				return nil, nil, false, err
+			}
+			// One that still does not show is not tapped where the driver would tap it, off the
+			// screen: the step says so.
+			if o.OutOfView(sc.Context(), el) {
+				return nil, nil, false, core.Failf("The %s in the %s app that matches %q is out of view, and its view does not scroll it into view", k.noun, app, name)
+			}
+		}
 		return el, nil, false, nil
 	}
 	deadline := time.Now().Add(wait)
@@ -451,8 +474,7 @@ func pageFor(sc *core.Scenario, d Device, shown func() (bool, error)) (bool, err
 }
 
 // scrollFor scrolls until the control is shown, and reports whether it is: the platform scrolls
-// to it (iOS to the node its screen has out of view, Android until its text shows), else it
-// pages down, then up. With rows, it looks along each row that scrolls sideways as it passes it,
+// to it (to the node its screen has out of view), else it pages down, then up. With rows, it looks along each row that scrolls sideways as it passes it,
 // to the row's end and back.
 func scrollFor(sc *core.Scenario, d Device, k kind, name string, rows bool) (bool, error) {
 	if s, err := d.Screen(sc.Context()); err == nil && len(matches(s, k, name)) == 0 {
@@ -462,12 +484,16 @@ func scrollFor(sc *core.Scenario, d Device, k kind, name string, rows bool) (boo
 			}
 		}
 	}
-	for _, dir := range []string{"down", "up"} {
+	// A page at a time, down and then up: or up first, for a control that went off the top as an
+	// earlier look scrolled down (a row of a list that makes its rows as it scrolls).
+	went := passedBy(sc, d)
+	for _, dir := range went.Toward(name) {
 		for range 20 {
 			s, err := d.Screen(sc.Context())
 			if err != nil {
 				return false, err
 			}
+			went.Read(s)
 			if len(matches(s, k, name)) > 0 {
 				return true, nil
 			}
@@ -489,6 +515,7 @@ func scrollFor(sc *core.Scenario, d Device, k kind, name string, rows bool) (boo
 			if !moved {
 				break
 			}
+			went.Scrolled(dir)
 		}
 	}
 	return false, nil

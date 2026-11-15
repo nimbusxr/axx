@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Checks what `goreleaser release --snapshot` put in dist/ before anything is published:
 # the archives, their checksums and SBOMs, the Homebrew cask, the binaries and the images,
+# the Android scroll service AXX_ANDROID_SCROLL names (release.yml's android-scroll job),
 # and the docs archive AXX_DOCS_ARCHIVE names (release.yml's docs-archive job), which the
 # build lists in checksums.txt.
 #
@@ -31,6 +32,11 @@ docsname=
 if [[ -n $docs ]]; then
 	docsname=$(basename "$docs")
 fi
+scroll=${AXX_ANDROID_SCROLL:-}
+scrollname=
+if [[ -n $scroll ]]; then
+	scrollname=$(basename "$scroll")
+fi
 
 # Archives: one per target, each with the binary and the license files.
 for t in "${targets[@]}"; do
@@ -59,14 +65,15 @@ listed=$(awk '{print $2}' "$dist/checksums.txt" | sort)
 want=$({
 	find "$dist" -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sbom.json' \) -exec basename {} \;
 	if [[ -n $docsname ]]; then echo "$docsname"; fi
+	if [[ -n $scrollname ]]; then echo "$scrollname"; fi
 } | sort)
 if [[ -n $listed && $listed == "$want" ]]; then
 	ok "checksums.txt lists the $(wc -l <<<"$listed" | tr -d ' ') archives and SBOMs"
 else
 	fail "checksums.txt lists '$(tr '\n' ' ' <<<"$listed")', want '$(tr '\n' ' ' <<<"$want")'"
 fi
-# The docs archive is not in dist/: its sum is checked below.
-if (cd "$dist" && awk -v docs="$docsname" '$2 != docs' checksums.txt >"${TMPDIR:-/tmp}/release-check-sums.txt" &&
+# The docs archive and the Android scroll service are not in dist/: their sums are checked below.
+if (cd "$dist" && awk -v docs="$docsname" -v scroll="$scrollname" '$2 != docs && $2 != scroll' checksums.txt >"${TMPDIR:-/tmp}/release-check-sums.txt" &&
 	{ sha256sum --check --quiet "${TMPDIR:-/tmp}/release-check-sums.txt" 2>/dev/null || shasum -a 256 --check --quiet "${TMPDIR:-/tmp}/release-check-sums.txt"; }); then
 	ok "checksums match"
 else
@@ -89,6 +96,22 @@ else
 		if grep -qx "$f" <<<"$entries"; then ok "$docsname has $f"; else fail "$docsname has no $f"; fi
 	done
 	if grep -q '^next/' <<<"$entries"; then fail "$docsname has main's docs (next/)"; else ok "$docsname has no main's docs"; fi
+fi
+
+# The Android scroll service (release.yml's android-scroll job): named for the release, its sum
+# in checksums.txt, and an app's package (its manifest, its code and its resources).
+if [[ -z $scroll ]]; then
+	if [[ $strict == 1 ]]; then fail "no Android scroll service: AXX_ANDROID_SCROLL names none"; else echo "  skip  Android scroll service (AXX_ANDROID_SCROLL names none)"; fi
+elif [[ ! -f $scroll ]]; then
+	fail "no Android scroll service at $scroll"
+else
+	if [[ $scrollname == "axx_${version%%-SNAPSHOT*}_android-scroll.apk" ]]; then ok "$scrollname is the release's"; else fail "$scrollname is not axx_${version%%-SNAPSHOT*}_android-scroll.apk"; fi
+	sum=$({ sha256sum "$scroll" 2>/dev/null || shasum -a 256 "$scroll"; } | awk '{print $1}')
+	if [[ $(awk -v n="$scrollname" '$2 == n {print $1}' "$dist/checksums.txt") == "$sum" ]]; then ok "$scrollname's sum is in checksums.txt"; else fail "checksums.txt has not $scrollname's sum ($sum)"; fi
+	entries=$(unzip -Z1 "$scroll")
+	for f in AndroidManifest.xml classes.dex resources.arsc; do
+		if grep -qx "$f" <<<"$entries"; then ok "$scrollname has $f"; else fail "$scrollname has no $f"; fi
+	done
 fi
 
 # SBOMs: one per archive.

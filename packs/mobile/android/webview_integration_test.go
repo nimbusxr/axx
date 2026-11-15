@@ -109,11 +109,11 @@ func reportsAPK(t *testing.T) string {
 }
 
 // A courier reports a delivery problem in a form the app shows in a web view, longer than the
-// screen. UiAutomator2 lists nothing of the page past what shows, so the steps scroll for what is
-// further down themselves: a field found by its name is scrolled to and filled, and so is a
-// control only a selector finds, down the page and back up it. The app draws under the status
-// bar, as Android 15 has apps do: a scroll's finger starts below the bar, where it moves the page
-// and not the notifications. The feature reads as the iOS one does.
+// screen. The steps scroll to what is out of view themselves, by asking the page (axx's scroll
+// service): a field found by its name is shown and filled, and so is a control only a selector
+// finds, down the page and back up it, with nothing swiped. A number field is typed into, which
+// brings the keyboard up: a control the page will not stay on with the keyboard up has the
+// keyboard closed, and is scrolled to again. The feature reads as the iOS one does.
 func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 	device := avd(t)
 	app := reportsAPK(t)
@@ -123,8 +123,11 @@ func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 	h.OK("the reports android app with the following properties:", [][]string{{"apk", app}, {"device", device}})
 	h.OK("the reports app is launched")
 	h.OK(`within 30s the reports app shows "Did you ring the bell?"`)
+	// A question's radio button, inside the group the page makes of the question. (The first one
+	// after the question's text is another question's when the page is scrolled so that the text
+	// is just off the screen and the group still on it: Android lists only what the screen shows.)
 	radio := func(question, answer string) string {
-		return `the 'xpath=(//*[@text="` + question + `"]/following::android.widget.RadioButton[@text="` + answer + `"])[1]' element is tapped in the reports app`
+		return `the 'xpath=//*[@text="` + question + `"]//android.widget.RadioButton[@text="` + answer + `"]' element is tapped in the reports app`
 	}
 	// What the first screen shows.
 	h.OK(radio("Did you ring the bell?", "Yes"))
@@ -136,12 +139,23 @@ func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 	// The scroll step takes a selector too.
 	h.OK(`the 'xpath=//android.widget.EditText[@hint="What did the neighbour say?"]' field is scrolled into view in the reports app`)
 	h.OK(`the "What did the neighbour say?" field in the reports app is filled with "Nobody home since Monday"`)
+	// A number field, found by its label. Chrome presents it as a control with a range: its
+	// label comes as its text, with no hint, and UiAutomator2 will not set its text, so the step
+	// taps it and types, as a person does.
+	h.OK(`the "How many parcels are still in the van?" field in the reports app is filled with '"3"'`)
+	// The keyboard is up now, and the page keeps the field being typed in on the screen: asked
+	// to show a control back up the page, it goes back to the field a moment later. The step
+	// closes the keyboard, with one Back, which Android gives to the keyboard, and scrolls
+	// again. The answer changes, so a tap that missed would show.
+	h.OK(radio("Did you ring the bell?", "No"))
+	// The filled number field is still found by its label.
+	h.OK(`the "How many parcels are still in the van?" field is tapped in the reports app`)
 	// A button at the page's end, found by its name.
 	h.OK(`the "Send report" button is tapped in the reports app`)
 	h.OK(`within 10s the reports app shows "Report sent"`)
 	for _, answer := range []string{
-		"Did you ring the bell? Yes", "Did you call the recipient? No", "What did the neighbour say? Nobody home since Monday",
-		"Is the parcel back in the van? Yes", "Who did you speak to? Mara Lindqvist",
+		"Did you ring the bell? No", "Did you call the recipient? No", "What did the neighbour say? Nobody home since Monday",
+		"Is the parcel back in the van? Yes", "Who did you speak to? Mara Lindqvist", "How many parcels are still in the van? 3",
 	} {
 		h.OK(`the reports app shows "` + answer + `"`)
 	}
