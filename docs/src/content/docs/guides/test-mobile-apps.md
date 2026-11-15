@@ -195,6 +195,16 @@ Controls are found by the names people see: a button by its text, a field by its
 
 `scrolled into view` scrolls the list or text that holds the control until it shows, as a person does. A control far down a long text, like the end of a terms of service, is reached in one move on iOS, which grabs the scroll bar and drags it there, and in a few flings on Android.
 
+A tap or a fill scrolls to its control when the screen has it out of view, so a form longer than the screen needs no scroll step: the step brings the field or the button into view, above the keyboard if one shows, and then uses it. `scrolled into view` is for the rest, like a check of something further down, and it takes an `id=` or `xpath=` selector as the other steps do.
+
+**Web pages in an app.** A page an app shows in a web view (`WKWebView` on iOS) works with the same steps. Its controls are found by what the page says of them: a field by its label, a button by its text. A radio button or a checkbox has the same name as the label beside it, and a form often has several with one name ("Yes"), so name the one you mean by its question:
+
+```gherkin
+When the 'xpath=(//*[@label="Can the parcel go to a neighbour?"]/following::*[@label="No"])[1]' element is tapped in the courier app
+```
+
+On iOS, the test framework cannot place its own tap on some of a page's controls, like a radio button past the page's first screen. Axx asks first, and taps such a control where it is on the screen, as a finger does. The step's log says when it did.
+
 ## Check what it shows
 
 ```gherkin
