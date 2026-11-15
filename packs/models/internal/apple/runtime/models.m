@@ -106,14 +106,176 @@ static void slow(NSString *api, CFAbsoluteTime took) {
     NSLog(@"axx models: the %@ stub took %.1fs to answer a request", api, took);
 }
 
-// The same bilinear crop, pooling and standardization as match.Picture and
-// match.Reducer. Decode at the original size; CoreGraphics does no resizing.
-static NSUInteger picture(NSDictionary *a, CIImage *ci, NSError **error) {
-  if (!ci) {
-    if (error)
-      *error = failure(@"The Vision input image was not captured");
-    return NSNotFound;
+// AXXFrame is a pixel buffer a Vision request handler was given, and how it is
+// turned: a camera's frame, as an app's video output hands it over.
+@interface AXXFrame : NSObject
+@property(readonly) CVPixelBufferRef buffer;
+@property(readonly) CGImagePropertyOrientation orientation;
+@end
+@implementation AXXFrame
+- (instancetype)initWithBuffer:(CVPixelBufferRef)buffer
+                   orientation:(CGImagePropertyOrientation)orientation {
+  if ((self = [super init])) {
+    _buffer = CVPixelBufferRetain(buffer);
+    _orientation = orientation;
   }
+  return self;
+}
+- (void)dealloc {
+  CVPixelBufferRelease(_buffer);
+}
+// The frame as Core Image has it, for a pixel format the stub does not read
+// where it is.
+- (CIImage *)image {
+  return [[CIImage imageWithCVPixelBuffer:_buffer]
+      imageByApplyingCGOrientation:_orientation];
+}
+@end
+
+// AXXPixels is a picture's pixels as the stub samples them, the picture turned
+// the way its orientation says: a decoded picture's, red, green, blue and alpha
+// a pixel; or a pixel buffer's, read where they are.
+//
+// A camera's frames come many a second, and all the stub needs of one is a few
+// thousand of its two million pixels. Decoded through Core Image, each frame
+// was drawn whole, by the GPU: 5 ms on a Mac, and from 1.4 to 8.7 seconds on
+// CI's virtual Macs, where a 3-second video of a label then went by in too few
+// frames to show the label held still. So a frame's pixels are read from its
+// buffer, and only those the stub samples.
+typedef struct {
+  NSUInteger sw, sh; // the picture's size, turned
+  const unsigned char *rgba;
+  size_t rgbaRow;
+  // A pixel buffer: its own size, how it is turned, and its planes.
+  NSUInteger bw, bh;
+  CGImagePropertyOrientation turn;
+  const unsigned char *bgra, *luma, *chroma;
+  size_t bgraRow, lumaRow, chromaRow;
+  BOOL full, bt709;
+} AXXPixels;
+
+static double channel(double v) {
+  return v < 0 ? 0 : (v > 255 ? 255 : (double)lround(v));
+}
+
+// rgbAt is the red, green and blue of the pixel at x, y of the turned picture.
+static void rgbAt(const AXXPixels *p, NSUInteger x, NSUInteger y,
+                  double rgb[3]) {
+  if (p->rgba) {
+    const unsigned char *px = p->rgba + y * p->rgbaRow + x * 4;
+    rgb[0] = px[0];
+    rgb[1] = px[1];
+    rgb[2] = px[2];
+    return;
+  }
+  // Where the pixel is in the buffer, which is not turned: an orientation says
+  // which of the buffer's sides is the picture's top, and which its left.
+  NSUInteger bx = x, by = y;
+  switch (p->turn) {
+  case kCGImagePropertyOrientationUpMirrored:
+    bx = p->bw - 1 - x;
+    break;
+  case kCGImagePropertyOrientationDown:
+    bx = p->bw - 1 - x;
+    by = p->bh - 1 - y;
+    break;
+  case kCGImagePropertyOrientationDownMirrored:
+    by = p->bh - 1 - y;
+    break;
+  case kCGImagePropertyOrientationLeftMirrored:
+    bx = y;
+    by = x;
+    break;
+  case kCGImagePropertyOrientationRight:
+    bx = y;
+    by = p->bh - 1 - x;
+    break;
+  case kCGImagePropertyOrientationRightMirrored:
+    bx = p->bw - 1 - y;
+    by = p->bh - 1 - x;
+    break;
+  case kCGImagePropertyOrientationLeft:
+    bx = p->bw - 1 - y;
+    by = x;
+    break;
+  default:
+    break;
+  }
+  if (p->bgra) {
+    const unsigned char *px = p->bgra + by * p->bgraRow + bx * 4;
+    rgb[0] = px[2];
+    rgb[1] = px[1];
+    rgb[2] = px[0];
+    return;
+  }
+  // Luma for each pixel, and a blue and a red difference for each two by two.
+  double l = p->luma[by * p->lumaRow + bx];
+  const unsigned char *c = p->chroma + (by / 2) * p->chromaRow + (bx / 2) * 2;
+  double cb = c[0] - 128.0, cr = c[1] - 128.0;
+  if (!p->full) {
+    l = (l - 16) * (255.0 / 219.0);
+    cb *= 255.0 / 224.0;
+    cr *= 255.0 / 224.0;
+  }
+  if (p->bt709) {
+    rgb[0] = channel(l + 1.5748 * cr);
+    rgb[1] = channel(l - 0.1873 * cb - 0.4681 * cr);
+    rgb[2] = channel(l + 1.8556 * cb);
+  } else {
+    rgb[0] = channel(l + 1.402 * cr);
+    rgb[1] = channel(l - 0.344136 * cb - 0.714136 * cr);
+    rgb[2] = channel(l + 1.772 * cb);
+  }
+}
+
+// reads reports whether the stub reads a pixel buffer where it is, and fills
+// in where: 8-bit BGRA, and the two-plane 4:2:0 a camera's video output gives
+// unless it is asked for another. The buffer must be locked meanwhile.
+static BOOL reads(CVPixelBufferRef buffer, CGImagePropertyOrientation turn,
+                  AXXPixels *p) {
+  OSType format = CVPixelBufferGetPixelFormatType(buffer);
+  memset(p, 0, sizeof(*p));
+  p->bw = CVPixelBufferGetWidth(buffer);
+  p->bh = CVPixelBufferGetHeight(buffer);
+  p->turn = turn;
+  BOOL sideways = turn >= kCGImagePropertyOrientationLeftMirrored &&
+                  turn <= kCGImagePropertyOrientationLeft;
+  p->sw = sideways ? p->bh : p->bw;
+  p->sh = sideways ? p->bw : p->bh;
+  if (!p->bw || !p->bh)
+    return NO;
+  if (format == kCVPixelFormatType_32BGRA) {
+    p->bgra = CVPixelBufferGetBaseAddress(buffer);
+    p->bgraRow = CVPixelBufferGetBytesPerRow(buffer);
+    return p->bgra != NULL;
+  }
+  if (format != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange &&
+      format != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
+    return NO;
+  p->full = format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
+  p->luma = CVPixelBufferGetBaseAddressOfPlane(buffer, 0);
+  p->lumaRow = CVPixelBufferGetBytesPerRowOfPlane(buffer, 0);
+  p->chroma = CVPixelBufferGetBaseAddressOfPlane(buffer, 1);
+  p->chromaRow = CVPixelBufferGetBytesPerRowOfPlane(buffer, 1);
+  // The matrix the buffer says its colors were written with. A buffer that
+  // says none is read as Core Image reads it, so that a frame matches what it
+  // matched when Core Image decoded it: a video-range one of 720 lines or more
+  // as BT.709, any other as BT.601.
+  CFTypeRef matrix =
+      CVBufferCopyAttachment(buffer, kCVImageBufferYCbCrMatrixKey, NULL);
+  if (matrix) {
+    p->bt709 = CFEqual(matrix, kCVImageBufferYCbCrMatrix_ITU_R_709_2);
+    CFRelease(matrix);
+  } else {
+    p->bt709 = !p->full && (p->bw >= 1280 || p->bh >= 720);
+  }
+  return p->luma != NULL && p->chroma != NULL;
+}
+
+// The same bilinear crop, pooling and standardization as match.Picture and
+// match.Reducer, of pixels at the picture's original size.
+static NSUInteger sampled(NSDictionary *a, const AXXPixels *p,
+                          NSError **error) {
   NSDictionary *in = input(a), *spec = in[@"image"];
   NSArray *shape = in[@"shape"];
   NSString *layout = spec[@"layout"];
@@ -122,15 +284,7 @@ static NSUInteger picture(NSDictionary *a, CIImage *ci, NSError **error) {
              c = [shape[off + (first ? 0 : 2)] unsignedIntegerValue];
   NSUInteger h = [shape[off + (first ? 1 : 0)] unsignedIntegerValue],
              w = [shape[off + (first ? 2 : 1)] unsignedIntegerValue];
-  CGImageRef cg = [decoder() createCGImage:ci
-                                                           fromRect:ci.extent];
-  if (!cg) {
-    if (error)
-      *error = failure(@"Cannot decode the Vision input image");
-    return NSNotFound;
-  }
-  NSUInteger sw = CGImageGetWidth(cg), sh = CGImageGetHeight(cg), cw = sw,
-             ch = sh, ox = 0, oy = 0;
+  NSUInteger sw = p->sw, sh = p->sh, cw = sw, ch = sh, ox = 0, oy = 0;
   if (![spec[@"resize"] isEqual:@"stretch"]) {
     if (sw * h > sh * w) {
       cw = sh * w / h;
@@ -149,11 +303,78 @@ static NSUInteger picture(NSDictionary *a, CIImage *ci, NSError **error) {
     ch = nh;
   }
   if (!cw || !ch) {
-    CGImageRelease(cg);
     if (error)
       *error = failure(@"The image crop is empty");
     return NSNotFound;
   }
+  BOOL bgr = [spec[@"channels"] isEqual:@"BGR"],
+       gray = c == 1 || [spec[@"channels"] isEqual:@"gray"];
+  NSUInteger kh = MAX(h / MIN(16, h), 1), kw = MAX(w / MIN(16, w), 1),
+             ph = h / kh, pw = w / kw, n = c * ph * pw;
+  double *v = calloc(n, sizeof(double));
+  for (NSUInteger y = 0; y < ph * kh; y++)
+    for (NSUInteger x = 0; x < pw * kw; x++) {
+      double sx = (x + 0.5) * cw / w - 0.5, sy = (y + 0.5) * ch / h - 0.5,
+             fx = sx - floor(sx), fy = sy - floor(sy), rgb[3], samples[4][3];
+      NSInteger x0 = floor(sx), y0 = floor(sy);
+      for (int dy = 0; dy < 2; dy++)
+        for (int dx = 0; dx < 2; dx++)
+          rgbAt(p, ox + MIN(MAX(x0 + dx, 0), (NSInteger)cw - 1),
+                oy + MIN(MAX(y0 + dy, 0), (NSInteger)ch - 1),
+                samples[dy * 2 + dx]);
+      for (NSUInteger k = 0; k < 3; k++) {
+        double top = samples[0][k] * (1 - fx) + samples[1][k] * fx,
+               bottom = samples[2][k] * (1 - fx) + samples[3][k] * fx;
+        rgb[k] = top * (1 - fy) + bottom * fy;
+      }
+      for (NSUInteger k = 0; k < c; k++) {
+        double value = k < 3 ? rgb[bgr ? 2 - k : k] : 255;
+        if (gray)
+          value = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+        v[k * ph * pw + (y / kh) * pw + x / kw] += value;
+      }
+    }
+  for (NSUInteger i = 0; i < n; i++)
+    v[i] /= kh * kw;
+  for (NSUInteger k = 0; k < c; k++)
+    standardize(v + k * ph * pw, ph * pw);
+  NSUInteger at = nearest(a, v, n);
+  free(v);
+  return at;
+}
+
+// picture is the mapping a Vision request's picture matches: a camera's frame
+// read where it is, another picture decoded at its original size (CoreGraphics
+// does no resizing).
+static NSUInteger picture(NSDictionary *a, id source, NSError **error) {
+  AXXPixels p;
+  CIImage *ci = nil;
+  if ([source isKindOfClass:AXXFrame.class]) {
+    AXXFrame *frame = source;
+    CVPixelBufferLockBaseAddress(frame.buffer, kCVPixelBufferLock_ReadOnly);
+    NSUInteger at = NSNotFound;
+    BOOL read = reads(frame.buffer, frame.orientation, &p);
+    if (read)
+      at = sampled(a, &p, error);
+    CVPixelBufferUnlockBaseAddress(frame.buffer, kCVPixelBufferLock_ReadOnly);
+    if (read)
+      return at;
+    ci = [frame image];
+  } else {
+    ci = source;
+  }
+  if (!ci) {
+    if (error)
+      *error = failure(@"The Vision input image was not captured");
+    return NSNotFound;
+  }
+  CGImageRef cg = [decoder() createCGImage:ci fromRect:ci.extent];
+  if (!cg) {
+    if (error)
+      *error = failure(@"Cannot decode the Vision input image");
+    return NSNotFound;
+  }
+  NSUInteger sw = CGImageGetWidth(cg), sh = CGImageGetHeight(cg);
   unsigned char *pixels = calloc(sw * sh, 4);
   CGColorSpaceRef color = CGColorSpaceCreateDeviceRGB();
   CGContextRef ctx = CGBitmapContextCreate(pixels, sw, sh, 8, sw * 4, color,
@@ -163,41 +384,13 @@ static NSUInteger picture(NSDictionary *a, CIImage *ci, NSError **error) {
   CGContextRelease(ctx);
   CGColorSpaceRelease(color);
   CGImageRelease(cg);
-  NSUInteger kh = MAX(h / MIN(16, h), 1), kw = MAX(w / MIN(16, w), 1),
-             ph = h / kh, pw = w / kw, n = c * ph * pw;
-  double *v = calloc(n, sizeof(double));
-  for (NSUInteger y = 0; y < ph * kh; y++)
-    for (NSUInteger x = 0; x < pw * kw; x++) {
-      double sx = (x + 0.5) * cw / w - 0.5, sy = (y + 0.5) * ch / h - 0.5,
-             fx = sx - floor(sx), fy = sy - floor(sy), rgb[3];
-      NSInteger x0 = floor(sx), y0 = floor(sy);
-      for (NSUInteger k = 0; k < 3; k++) {
-        double samples[4];
-        for (int dy = 0; dy < 2; dy++)
-          for (int dx = 0; dx < 2; dx++) {
-            NSUInteger px = ox + MIN(MAX(x0 + dx, 0), (NSInteger)cw - 1),
-                       py = oy + MIN(MAX(y0 + dy, 0), (NSInteger)ch - 1);
-            samples[dy * 2 + dx] = pixels[(py * sw + px) * 4 + k];
-          }
-        double top = samples[0] * (1 - fx) + samples[1] * fx,
-               bottom = samples[2] * (1 - fx) + samples[3] * fx;
-        rgb[k] = top * (1 - fy) + bottom * fy;
-      }
-      for (NSUInteger k = 0; k < c; k++) {
-        double value =
-            k < 3 ? rgb[[spec[@"channels"] isEqual:@"BGR"] ? 2 - k : k] : 255;
-        if (c == 1 || [spec[@"channels"] isEqual:@"gray"])
-          value = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-        v[k * ph * pw + (y / kh) * pw + x / kw] += value;
-      }
-    }
+  memset(&p, 0, sizeof(p));
+  p.sw = sw;
+  p.sh = sh;
+  p.rgba = pixels;
+  p.rgbaRow = sw * 4;
+  NSUInteger at = sampled(a, &p, error);
   free(pixels);
-  for (NSUInteger i = 0; i < n; i++)
-    v[i] /= kh * kw;
-  for (NSUInteger k = 0; k < c; k++)
-    standardize(v + k * ph * pw, ph * pw);
-  NSUInteger at = nearest(a, v, n);
-  free(v);
   return at;
 }
 
@@ -500,23 +693,34 @@ static void installVision(void) {
       sel = NSSelectorFromString([[NSStringFromSelector(sel)
           componentsSeparatedByString:@" "] componentsJoinedByString:@""]);
       __block IMP old;
-      CIImage * (^decode)(void *) = ^CIImage *(void *raw) {
-        if ([kind isEqual:@"CGImage"])
-          return [CIImage imageWithCGImage:(CGImageRef)raw];
-        if ([kind isEqual:@"CVPixelBuffer"])
-          return [CIImage imageWithCVPixelBuffer:(CVPixelBufferRef)raw];
-        if ([kind isEqual:@"CMSampleBuffer"]) {
-          CVImageBufferRef image =
-              CMSampleBufferGetImageBuffer((CMSampleBufferRef)raw);
-          return image ? [CIImage imageWithCVPixelBuffer:image] : nil;
-        }
-        id obj = (__bridge id)raw;
-        if ([kind isEqual:@"CIImage"])
-          return obj;
-        if ([kind isEqual:@"URL"])
-          return [CIImage imageWithContentsOfURL:obj];
-        return [CIImage imageWithData:obj];
-      };
+      // What the handler keeps of its picture: a pixel buffer itself, turned
+      // as the handler was told (AXXFrame), or the picture as Core Image
+      // decodes it.
+      id (^decode)(void *, CGImagePropertyOrientation) =
+          ^id(void *raw, CGImagePropertyOrientation o) {
+            if ([kind isEqual:@"CGImage"])
+              return [[CIImage imageWithCGImage:(CGImageRef)raw]
+                  imageByApplyingCGOrientation:o];
+            if ([kind isEqual:@"CVPixelBuffer"])
+              return raw ? [[AXXFrame alloc]
+                               initWithBuffer:(CVPixelBufferRef)raw
+                                  orientation:o]
+                         : nil;
+            if ([kind isEqual:@"CMSampleBuffer"]) {
+              CVImageBufferRef image =
+                  CMSampleBufferGetImageBuffer((CMSampleBufferRef)raw);
+              return image ? [[AXXFrame alloc] initWithBuffer:image
+                                                  orientation:o]
+                           : nil;
+            }
+            id obj = (__bridge id)raw;
+            CIImage *ci = [kind isEqual:@"CIImage"]
+                              ? obj
+                              : ([kind isEqual:@"URL"]
+                                     ? [CIImage imageWithContentsOfURL:obj]
+                                     : [CIImage imageWithData:obj]);
+            return [ci imageByApplyingCGOrientation:o];
+          };
       if (orientation)
         old =
             replace(cls, sel,
@@ -526,15 +730,15 @@ static void installVision(void) {
                           ((id (*)(id, SEL, void *, CGImagePropertyOrientation,
                                    id))old)(self, sel, raw, o, opts);
                       objc_setAssociatedObject(
-                          result, &imageKey,
-                          [decode(raw) imageByApplyingCGOrientation:o],
+                          result, &imageKey, decode(raw, o),
                           OBJC_ASSOCIATION_RETAIN_NONATOMIC);
                       return result;
                     });
       else
         old = replace(cls, sel, ^id(id self, void *raw, NSDictionary *opts) {
           id result = ((id (*)(id, SEL, void *, id))old)(self, sel, raw, opts);
-          objc_setAssociatedObject(result, &imageKey, decode(raw),
+          objc_setAssociatedObject(result, &imageKey,
+                                   decode(raw, kCGImagePropertyOrientationUp),
                                    OBJC_ASSOCIATION_RETAIN_NONATOMIC);
           return result;
         });
