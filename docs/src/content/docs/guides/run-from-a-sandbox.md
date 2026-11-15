@@ -227,6 +227,7 @@ One limit is worth knowing. The host checks where a file is and then reads it, a
 The [VS Code extension and the IntelliJ plugin](/guides/set-up-your-editor/#the-axx-host) can start the host when you open the project, and stop it when you close it:
 
 - An approval has **Show Diff**, **Approve** and **Refuse**, and the diff opens in the editor's diff view: a notification in VS Code, and a dialog in front of IntelliJ IDEA. It works as the terminal's question does: it stays open until you answer. Only a click there approves. Nothing else in the editor can, including an agent's editor tools.
+- An app's question is asked the same way. It names the run that asks, the app and what the app reaches, and **Show Diff** shows what the host would start.
 - The agent's runs show in the test results as they run, scenario by scenario.
 - The status bar shows what the host is doing: idle, a run's services starting or running, or waiting for your approval.
 

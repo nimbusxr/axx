@@ -116,7 +116,7 @@ func TestWhatFollowsTheRequestIsThePacks(t *testing.T) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 	l := newLines(conn)
-	req := `{"protocol":3,"token":"` + ann.Token + `","command":"axx run","pack":"depot-scanners"}` + "\n" + "px-4101 at leeds\n"
+	req := fmt.Sprintf(`{"protocol":%d,"token":%q,"command":"axx run","pack":"depot-scanners"}`, Protocol, ann.Token) + "\n" + "px-4101 at leeds\n"
 	if _, err := io.WriteString(conn, req); err != nil {
 		t.Fatal(err)
 	}

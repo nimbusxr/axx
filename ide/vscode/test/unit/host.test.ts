@@ -77,6 +77,7 @@ test('parses the events of axx host --ide', () => {
     proposed: 'services:\n  api:\n    volumes: [/tmp:/host-tmp]\n',
     diff: '--- approved\n+++ proposed\n',
     warnings: ['services.api: compose service api mounts /tmp of this machine'],
+    text: '',
   });
   assert.deepEqual(events[11], { event: 'answered', id: 1, run: 2, answer: 'approved' });
 });
@@ -221,6 +222,17 @@ test("an approval's question has its run and warnings", () => {
   assert.equal(
     approvalMessage({ ...approval, warnings: [] }),
     'axx host: run 2 (axx run --compact) needs services whose definition changed. Approve?',
+  );
+});
+
+test("a pack's question says what it would start", () => {
+  const approval = parseHostEvent(
+    '{"event":"approval","id":3,"command":"axx run features/courier-app","text":"mobile-ios: the courier app, in the iOS Simulator","proposed":"mobile-ios: the courier app, in the iOS Simulator\\napp: build/Courier.app\\n","warnings":["an app in the iOS Simulator is a process of this Mac"]}',
+  ) as ApprovalEvent;
+  assert.equal(approval.text, 'mobile-ios: the courier app, in the iOS Simulator');
+  assert.equal(
+    approvalMessage(approval),
+    'axx host: axx run features/courier-app asks to start mobile-ios: the courier app, in the iOS Simulator on this machine. Approve? Warnings: an app in the iOS Simulator is a process of this Mac.',
   );
 });
 
