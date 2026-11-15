@@ -39,7 +39,6 @@ trap 'pairs "as the script failed"' ERR
 
 started=$(date +%s)
 udid=$(xcrun simctl create "$name" "$device_type" "$runtime")
-xcrun simctl boot "$udid"
 
 # A new simulator's first minutes go to work no test here needs: analysing the photo library
 # (mediaanalysisd), Screen Time, Fitness's intelligence and the App Store's engagement. On three
@@ -60,33 +59,57 @@ xcrun simctl boot "$udid"
 # keeps the Calendar app busy (72% of a core while a camera test read its label, which took 16 s
 # rather than 2 on a Mac), Fitness's, Wallet's and Maps' daemons, Spotlight's indexing, the apps'
 # of the App Store, Game Center, Home, News, Weather, Tips, Reminders and Mail, or Siri's
-# knowledge. They are turned off as the simulator starts to boot, so that its boot does none of
-# that work either: launchd keeps them off from then on, through the rest of the boot. That runs
-# alongside the wait for the boot, each service at once with the others: one after another, an
-# iOS 27 simulator's took two and a half minutes past its boot (simctl spawn takes seconds each,
-# there; on GitHub's xcode-27 runner it takes none until the boot is done).
-disabled=$(mktemp)
-(
-  for service in com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice \
-    com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd \
-    com.apple.apsd com.apple.chronod com.apple.assetsubscriptiond com.apple.accessibility.axassetsd com.apple.healthappd \
-    com.apple.siriactionsd com.apple.PosterBoard com.apple.spotlightknowledged com.apple.spotlightknowledged.updater \
-    com.apple.mobileassetd com.apple.dataaccess.dataaccessd com.apple.calaccessd com.apple.fitcore com.apple.fitcore.session \
-    com.apple.financed com.apple.navd com.apple.searchd com.apple.corespotlightservice com.apple.hybridsearchd \
-    com.apple.appstored com.apple.gamed com.apple.homed com.apple.newsd com.apple.weatherd com.apple.tipsd com.apple.remindd \
-    com.apple.email.maild com.apple.icloudmailagent com.apple.knowledgeconstructiond com.apple.siriknowledged; do
+# knowledge.
+services=(com.apple.mediaanalysisd com.apple.mediaanalysisd.analysis com.apple.mediaanalysisd.computeservice
+  com.apple.mediaanalysisd.photos com.apple.ScreenTimeAgent com.apple.fitnessintelligenced com.apple.amsengagementd
+  com.apple.apsd com.apple.chronod com.apple.assetsubscriptiond com.apple.accessibility.axassetsd com.apple.healthappd
+  com.apple.siriactionsd com.apple.PosterBoard com.apple.spotlightknowledged com.apple.spotlightknowledged.updater
+  com.apple.mobileassetd com.apple.dataaccess.dataaccessd com.apple.calaccessd com.apple.fitcore com.apple.fitcore.session
+  com.apple.financed com.apple.navd com.apple.searchd com.apple.corespotlightservice com.apple.hybridsearchd
+  com.apple.appstored com.apple.gamed com.apple.homed com.apple.newsd com.apple.weatherd com.apple.tipsd com.apple.remindd
+  com.apple.email.maild com.apple.icloudmailagent com.apple.knowledgeconstructiond com.apple.siriknowledged)
+
+# They are off before the simulator boots: its launchd reads the services `launchctl disable`
+# turned off from a file of the Mac's, by the simulator's id, as it starts, and loads none of
+# them. Written there before the first boot, the file has them never start. Turning them off
+# once the simulator was booting was a race the boot often won: `simctl spawn` runs only when
+# the simulator's launchd answers, which on GitHub's runners took from 16 to 144 seconds, and
+# when it came late the services had started. Their work then ran beside the tests (a load of
+# 250 to 500 on three cores, against 30 to 80), and the couriers' app read a camera frame every
+# two to three seconds rather than several a second: its torn-label test, which waits 15 seconds
+# for the label, failed in four runs and passed in 8 seconds in two others. With the services
+# off in time, it passed in under 4.
+state="/private/var/tmp/com.apple.CoreSimulator.SimDevice.$udid"
+mkdir -p "$state"
+chmod 700 "$state"
+{
+  printf '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n'
+  printf '\t<key>%s</key>\n\t<true/>\n' "${services[@]}"
+  printf '</dict>\n</plist>\n'
+} > "$state/disabled.plist"
+
+xcrun simctl boot "$udid"
+xcrun simctl bootstatus "$udid" -b > /dev/null
+echo "$name ($udid) booted in $(($(date +%s) - started))s"
+
+# Whether the file held: every service is off as the boot ends. Where a simulator's launchd keeps
+# the file is Xcode's to change, and a boot that read none would do all that work unseen. Then
+# they are turned off as they were before the file: late, and said so.
+still=()
+off=$(xcrun simctl spawn "$udid" launchctl print-disabled user/501)
+for service in "${services[@]}"; do
+  grep -Fq "\"$service\" => disabled" <<< "$off" || still+=("$service")
+done
+if ((${#still[@]} == 0)); then
+  echo "services off before the boot (${#services[@]})"
+else
+  echo "::warning::${#still[@]} of the simulator's ${#services[@]} services were not off before its boot (${still[0]}...): $state/disabled.plist was not read. Turning them off now, after they started."
+  for service in "${still[@]}"; do
     (
       xcrun simctl spawn "$udid" launchctl disable "user/501/$service"
-      echo "$(($(date +%s) - started))" >> "$disabled"
       xcrun simctl spawn "$udid" launchctl bootout "user/501/$service" 2> /dev/null || true
     ) &
   done
   wait
-  # When the first was off too: a boot that runs on past it does its work regardless.
-  echo "services off in $(($(date +%s) - started))s (the first disabled at $(sort -n "$disabled" | head -1)s)"
-  rm -f "$disabled"
-) &
-off=$!
-xcrun simctl bootstatus "$udid" -b > /dev/null
-echo "$name ($udid) booted in $(($(date +%s) - started))s"
-wait "$off"
+  echo "services off in $(($(date +%s) - started))s, after the boot"
+fi
