@@ -29,7 +29,7 @@ import org.json.JSONObject;
  *
  * <p>axx talks to it over adb, a line of JSON a request and a line an answer, on the socket
  * {@link #SOCKET}. A request names a control as axx read it from the screen (its class, text,
- * description, resource ID and bounds) and what to do: "show" it, "scroll" it a page toward a
+ * description, resource ID and bounds, and which of several alike at one place it is) and what to do: "show" it, "scroll" it a page toward a
  * direction, or say "where" it is. The answer says whether the control was found, whether it took the action, and
  * whether anything moved.
  */
@@ -296,8 +296,9 @@ public class Scrolls extends AccessibilityService {
 
     /**
      * The control a request names: of its class, text, description and resource ID, the one
-     * whose place is nearest the bounds axx read. (The server axx reads the screen with cuts a
-     * control's bounds to the views it scrolls in, so they are near, not always the same.)
+     * whose place is nearest the bounds axx read, and of several there, the one axx says it is.
+     * (The server axx reads the screen with cuts a control's bounds to the views it scrolls in,
+     * so they are near, not always the same.)
      */
     private AccessibilityNodeInfo find(JSONObject req) {
         List<AccessibilityNodeInfo> roots = new ArrayList<>();
@@ -325,9 +326,13 @@ public class Scrolls extends AccessibilityService {
             }
             walk(root, all, 0);
         }
+        int nth = req.optInt("nth", -1);
+        int of = req.optInt("of");
         // By its text too, first; then without it, at the very place axx read: the server gives
         // a control with a range (a slider, a web page's number field) its number for a text.
         for (boolean byText : new boolean[] {true, false}) {
+            // Those alike that are nearest, in the screen's order: several, when they are at one place.
+            List<AccessibilityNodeInfo> nearest = new ArrayList<>();
             for (AccessibilityNodeInfo n : all) {
                 if (!same(req, "class", n.getClassName()) || (byText && !same(req, "text", n.getText()))
                         || !same(req, "desc", n.getContentDescription()) || !same(req, "id", n.getViewIdResourceName())) {
@@ -339,10 +344,24 @@ public class Scrolls extends AccessibilityService {
                     off = Math.abs((long) r.left - b.optInt(0)) + Math.abs((long) r.top - b.optInt(1))
                             + Math.abs((long) r.right - b.optInt(2)) + Math.abs((long) r.bottom - b.optInt(3));
                 }
-                if (off < bestOff && (byText || off <= 8)) {
+                if (!byText && off > 8) {
+                    continue;
+                }
+                if (off < bestOff) {
                     best = n;
                     bestOff = off;
+                    nearest.clear();
                 }
+                if (off == bestOff) {
+                    nearest.add(n);
+                }
+            }
+            // Several alike at one place, and axx said which of them it means, in the screen's
+            // order: that one, while the screen still has as many there. Out of view, a web page
+            // gives every control one place, cut to the screen's edge, so where they are does
+            // not tell them apart.
+            if (byText && nth >= 0 && nth < of && nearest.size() == of) {
+                return nearest.get(nth);
             }
             if (best != null || !req.has("text")) {
                 break;

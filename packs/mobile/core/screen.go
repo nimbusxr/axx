@@ -52,6 +52,11 @@ type Node struct {
 	Children []*Node
 	// Using and Value find the node through Appium.
 	Using, Value string
+	// Nth and Of say which of the screen's nodes alike it is, in the screen's order, where the
+	// screen has several of its class, text, label and ID at its place (a web page's answers
+	// "Yes" below the screen, which Android gives one place): the third of five is 2 of 5.
+	// Zero where it is the only one there, or the platform does not say.
+	Nth, Of int
 }
 
 // Name is what people call the node: its label, or else its text.
