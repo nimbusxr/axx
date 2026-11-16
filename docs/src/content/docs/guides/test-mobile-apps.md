@@ -237,6 +237,8 @@ That is iOS's page. On Android the same radio button is `xpath=//*[@text="Can th
 
 On Android, a page's number field (`<input type="number">`) is found by its label and filled like any other field. Chrome presents it as a slider-like control whose text is its label, so Axx taps it and types, as a person does. Android 15's web view does not say that the field takes a number, and there Axx knows the field by the label the page shows just before it. What it holds cannot be read back on every Android version: check what the page shows of the number, not the field's value.
 
+On Android, a page's text field that has a placeholder is found by its label too. While Axx's scroll service runs on the device, the web view tells more of its page, as it does for a screen reader: such a field's hint is its label and then its placeholder ("Who did you speak to? For example: a neighbour"). Axx takes the label the page shows just before the field for the field's name, so the step names the field the same way with the service and without it. A selector that names the hint itself (`@hint="…"`) has to give the whole hint, as the device has it.
+
 On iOS, the test framework cannot place its own tap on some of a page's controls, like a radio button past the page's first screen. Axx asks first, and taps such a control where it is on the screen, as a finger does. The step's log says when it did.
 
 ## Check what it shows

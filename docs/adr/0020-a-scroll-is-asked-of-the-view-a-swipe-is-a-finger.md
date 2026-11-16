@@ -101,6 +101,12 @@ lowest twelfth of the screen.
   switched on while it runs, and other accessibility services a device has on keep running
   during a run, where the server used to pause them. An app that asks whether accessibility is
   on was already told yes, by the server.
+- **An app can tell that a service runs, and a web view does.** With any accessibility service
+  running, Android's web view reports its page as it does to a screen reader, with more of it:
+  a text field's hint is its label and then its placeholder, where it was the label alone.
+  Found after 0.7.1, in which a page's field with a placeholder was no longer found by its
+  label. axx names such a field by the label the page shows before it, so a step names it the
+  same way either way; a selector on the raw hint sees what the device has.
 - **A file more in a release, and a key.** A release has the service to build and sign, and
   NimbusXR a key for it to keep (a keystore and its password, secrets of the release
   environment). A release cut without them signs with a key of its own and warns: axx installs

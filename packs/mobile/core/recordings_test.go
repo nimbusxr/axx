@@ -107,9 +107,13 @@ func TestOutlineShowsTheShownControls(t *testing.T) {
 	button := &Node{Role: RoleButton, Label: "Deliver", Displayed: true, Parent: root}
 	hidden := &Node{Role: RoleText, Text: "behind the keyboard", Parent: root}
 	box := &Node{Role: RoleCheckbox, Label: "Signed for", Displayed: true, Enabled: true, Checkable: true, Parent: root}
-	root.Children = []*Node{button, hidden, box}
-	got := outline(&Screen{Nodes: []*Node{root, button, hidden, box}})
-	want := "XCUIElementTypeApplication name=\"Couriers\"\n  button name=\"Deliver\" enabled=\"false\"\n  checkbox name=\"Signed for\" checked=\"false\"\n"
+	// A field with nothing in it is known by the hint it shows: the outline says it, so that a
+	// field a step did not find by name is not one with no name at all.
+	field := &Node{Role: RoleField, Hint: "Who did you speak to? For example: a neighbour", ID: "q19", Displayed: true, Enabled: true, Parent: root}
+	root.Children = []*Node{button, hidden, box, field}
+	got := outline(&Screen{Nodes: []*Node{root, button, hidden, box, field}})
+	want := "XCUIElementTypeApplication name=\"Couriers\"\n  button name=\"Deliver\" enabled=\"false\"\n  checkbox name=\"Signed for\" checked=\"false\"\n" +
+		"  field hint=\"Who did you speak to? For example: a neighbour\" id=\"q19\"\n"
 	if got != want {
 		t.Errorf("outline:\n%s\nwant:\n%s", got, want)
 	}
