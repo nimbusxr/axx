@@ -74,8 +74,23 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 	// or not. Android 15's says no field's input type, and puts what the field holds before
 	// the label ("3, How many parcels?"); there the page's own label, the text just before the
 	// field, says which part of the field's text is its name.
+	//
+	// A text field with a placeholder: its hint is its label alone while no accessibility service
+	// runs on the device, and its label and then its placeholder ("Who did you speak to? For
+	// example: a neighbour") once one does, as axx's scroll service does: a web view tells a
+	// service more of a page than it tells a test. The field is called by its label either way,
+	// which the page's own label, the text just before the field, gives.
 	for _, n := range s.Nodes {
-		if n.Class != "android.widget.EditText" || n.Hint != "" || n.Label != "" || n.Text == "" || !inWebView(n) {
+		if n.Class != "android.widget.EditText" || n.Label != "" || !inWebView(n) {
+			continue
+		}
+		if n.Hint != "" {
+			if label := before(n); label != "" && strings.HasPrefix(n.Hint, label+" ") {
+				n.Hint = label
+			}
+			continue
+		}
+		if n.Text == "" {
 			continue
 		}
 		label := before(n)
@@ -91,8 +106,8 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 	return s, nil
 }
 
-// before is the text of what comes just before a node in what holds it: a field's label, on a
-// web page that puts one before its field.
+// before is what comes just before a node in what holds it says: its text, or else its
+// description. On a web page that puts a label before its field, that is the field's label.
 func before(n *mobilecore.Node) string {
 	if n.Parent == nil {
 		return ""
@@ -102,7 +117,9 @@ func before(n *mobilecore.Node) string {
 		if c == n {
 			return prev
 		}
-		prev = c.Text
+		if prev = c.Text; prev == "" {
+			prev = c.Label
+		}
 	}
 	return ""
 }

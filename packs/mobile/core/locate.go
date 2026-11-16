@@ -137,7 +137,14 @@ func missing(app string, s *Screen, k kind, name string) error {
 	var names []string
 	for _, n := range s.Visible() {
 		if k.match(n, n.Merged()) || (k.noun == "field" && n.Role == RoleField) {
-			if m := n.Merged(); m != "" && !slices.Contains(names, m) {
+			m := n.Merged()
+			// A field is listed by what a step calls it: its label, or the hint it shows while
+			// empty. (Listed by nothing, or by what it holds, a field whose hint is not the
+			// name the step gave read as no field at all.)
+			if k.noun == "field" && clean(n.Label) == "" && clean(n.Hint) != "" {
+				m = clean(n.Hint)
+			}
+			if m != "" && !slices.Contains(names, m) {
 				names = append(names, m)
 			}
 		}

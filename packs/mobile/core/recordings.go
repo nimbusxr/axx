@@ -255,6 +255,9 @@ func outline(s *Screen) string {
 		if name := n.Name(); name != "" {
 			fmt.Fprintf(&b, " name=%q", name)
 		}
+		if hint := clean(n.Hint); n.Role == RoleField && hint != "" && hint != n.Name() {
+			fmt.Fprintf(&b, " hint=%q", hint)
+		}
 		if n.Role == RoleField && n.Text != "" && n.Text != n.Name() && !n.Password {
 			fmt.Fprintf(&b, " value=%q", clean(n.Text))
 		}

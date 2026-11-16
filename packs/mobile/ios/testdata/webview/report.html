@@ -61,7 +61,7 @@ const QUESTIONS = [
   { text: 'Can the parcel go to a neighbour?', choices: ['Yes', 'No'] },
   { text: 'Is the parcel back in the van?', choices: ['Yes', 'No'] },
   { text: 'Anything the depot should know?', type: 'long_text' },
-  { text: 'Who did you speak to?', type: 'text' },
+  { text: 'Who did you speak to?', type: 'text', placeholder: 'For example: a neighbour' },
   { text: 'How many parcels are still in the van?', type: 'number' },
   { text: 'What number can the depot call?', type: 'phone' },
 ]
@@ -92,7 +92,7 @@ function questionEl(q) {
   const input = q.type === 'long_text' ? h('textarea', { id, rows: 4 })
     : q.type === 'phone' ? h('input', { id, type: 'tel', autocomplete: 'tel', inputmode: 'tel' })
     : q.type === 'number' ? h('input', { id, type: 'number', min: 0 })
-    : h('input', { id, type: 'text' })
+    : h('input', { id, type: 'text', ...(q.placeholder ? { placeholder: q.placeholder } : {}) })
   input.setAttribute('aria-describedby', `${id}-error`)
   input.addEventListener('input', () => onAnswer(q.text, input.value))
   return [h('div', { class: 'field' }, h('label', { for: id }, q.text), input, error), error]

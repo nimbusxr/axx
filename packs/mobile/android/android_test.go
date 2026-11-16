@@ -1164,6 +1164,19 @@ func TestATapAndAFillScrollForAControlFurtherDown(t *testing.T) {
 		t.Errorf("the button the search reached late was not tapped: the app shows %s", late.Screen())
 	}
 
+	// A field that is there under another name is listed by the hint it shows, not left out: a
+	// step that called it otherwise reads what it is called.
+	named := appiumtest.Start(t, appiumtest.App{Screens: map[string]string{"bottom": bottom}, Start: "bottom"})
+	listed := mobilecore.SetActionTimeout(time.Second)
+	h = cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, named.URL)
+	h.OK("the courier app is launched")
+	err := h.Fails(`the "Who did you see?" field in the courier app is filled with "Mara Lindqvist"`, `No field named "Who did you see?" in the courier app; 1 fields:`)
+	listed()
+	if !strings.Contains(err.Error(), "Who did you speak to?") {
+		t.Errorf("the failure does not list the field by its hint: %v", err)
+	}
+
 	// A control that is nowhere is still a failure that says so, the screen scrolled back.
 	app := appiumtest.Start(t, appiumtest.App{
 		Screens: map[string]string{"top": top, "bottom": bottom},
@@ -1178,6 +1191,53 @@ func TestATapAndAFillScrollForAControlFurtherDown(t *testing.T) {
 	_ = h.Fails(`the "Cancel report" button is tapped in the courier app`, `No button named "Cancel report"`)
 	if app.Screen() != "top" {
 		t.Errorf("a control that is nowhere leaves the screen on %s", app.Screen())
+	}
+}
+
+// A web page's text field with a placeholder: a web view gives its label for a hint while no
+// accessibility service runs on the device, and its label and then its placeholder once one does,
+// as axx's scroll service does. The field is called by its label either way: the page's own label,
+// just before the field, says where the name ends. A field with no label before it keeps the
+// hint it came with, and so does a field of the app's own.
+func TestAWebPagesFieldWithAPlaceholderIsNamedByItsLabel(t *testing.T) {
+	page := func(inside string) string {
+		return `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy index="0" class="hierarchy" rotation="0" width="1080" height="2400">
+<android.widget.FrameLayout index="0" package="example.parcels.courier" class="android.widget.FrameLayout" text="" clickable="false" enabled="true" scrollable="false" bounds="[0,0][1080,2400]" displayed="true">
+` + inside + `
+</android.widget.FrameLayout></hierarchy>`
+	}
+	web := func(inside string) string {
+		return page(`<android.webkit.WebView index="0" package="example.parcels.courier" class="android.webkit.WebView" text="Report a delivery problem" clickable="false" enabled="true" scrollable="true" bounds="[0,0][1080,2400]" displayed="true"><android.view.View index="0" package="example.parcels.courier" class="android.view.View" text="" clickable="false" enabled="true" scrollable="false" bounds="[42,1400][1039,1700]" displayed="true">` + inside + `</android.view.View></android.webkit.WebView>`)
+	}
+	label := func(text, desc string) string {
+		return `<android.view.View index="0" package="example.parcels.courier" class="android.view.View" text="` + text + `" content-desc="` + desc + `" clickable="false" enabled="true" scrollable="false" bounds="[42,1454][1039,1519]" displayed="true"/>`
+	}
+	field := func(hint string) string {
+		return `<android.widget.EditText index="1" package="example.parcels.courier" class="android.widget.EditText" text="" resource-id="q19" clickable="true" enabled="true" scrollable="false" bounds="[42,1533][1039,1651]" displayed="true" hint="` + hint + `" input-type="1" showing-hint="false"/>`
+	}
+	const name, both = "Who did you speak to?", "Who did you speak to? For example: a neighbour"
+	for _, c := range []struct{ what, src, want string }{
+		{"the label and the placeholder, a service running", web(label(name, "") + field(both)), name},
+		{"the label alone, no service running", web(label(name, "") + field(name)), name},
+		{"a label the page describes and does not write", web(label("", name) + field(both)), name},
+		{"another text before the field", web(label("Step 3 of 4", "") + field(both)), both},
+		{"nothing before the field", web(field(both)), both},
+		{"a field of the app's own", page(label(name, "") + field(both)), both},
+	} {
+		s, err := parseSource(c.src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, n := range s.Visible() {
+			if n.Role == mobilecore.RoleField {
+				got = append(got, n.Hint)
+			}
+		}
+		if len(got) != 1 || got[0] != c.want {
+			t.Errorf("%s: the field is called %q, want %q", c.what, got, c.want)
+		}
 	}
 }
 
