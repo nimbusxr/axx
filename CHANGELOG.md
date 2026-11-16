@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.3](https://github.com/nimbusxr/axx/compare/v0.7.2...v0.7.3) (2026-11-16)
+
+
+### Bug Fixes
+
+* **mobile-android:** a web page is asked to show the control a selector found, not another alike out of view ([#356](https://github.com/nimbusxr/axx/issues/356)) ([b19898f](https://github.com/nimbusxr/axx/commit/b19898f61bf388cbb0a440b40b27d6f0a64a8db9))
+
 ## [0.7.2](https://github.com/nimbusxr/axx/compare/v0.7.1...v0.7.2) (2026-11-16)
 
 
