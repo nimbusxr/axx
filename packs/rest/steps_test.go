@@ -242,7 +242,11 @@ func TestFormEncoding(t *testing.T) {
 	h2.service("api", srv.URL, "")
 	h2.ok("a POST request to /echo")
 	h2.ok("a request payload using an application/problem+json empty content template")
-	h2.fails("the request payload property a is '1'", "Request content type is not supported for payload property validation: application/problem+json")
+	h2.ok("the request payload property a is '1'")
+	h2.ok("the request is executed")
+	if got := a.last(); got.Body != `{"a":1}` || got.Header.Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("sent %q as %q", got.Body, got.Header.Get("Content-Type"))
+	}
 
 	// An empty template is sent as an empty form.
 	h3 := newHarness(t)

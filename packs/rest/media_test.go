@@ -73,6 +73,37 @@ func TestAPayloadsMediaTypeIsAMediaType(t *testing.T) {
 	}
 }
 
+// The payload property steps edit a payload of any of JSON's media types, from
+// an empty template or a file.
+func TestAPayloadOfAnyJSONMediaTypeIsEdited(t *testing.T) {
+	a, srv := newAPI(t)
+	for _, mediaType := range []string{
+		"application/json", "text/json", "application/problem+json", "application/merge-patch+json",
+		"application/vnd.api+json", "application/merge-patch+json;charset=UTF-8", "Application/Merge-Patch+JSON",
+	} {
+		h := newHarness(t)
+		h.service("api", srv.URL, "")
+		h.ok("a PATCH request to /echo")
+		h.ok("a request payload using " + an(mediaType) + " empty content template")
+		h.ok("the request payload property recipient.postcode is '\"10115\"'")
+		h.ok("the request payload properties are:", []string{"weightGrams", "1200"})
+		h.ok("the request is executed")
+		if got := a.last(); got.Body != `{"recipient":{"postcode":"10115"},"weightGrams":1200}` || got.Header.Get("Content-Type") != mediaType {
+			t.Errorf("%s: sent %q as %q", mediaType, got.Body, got.Header.Get("Content-Type"))
+		}
+	}
+
+	h := newHarness(t)
+	h.service("api", srv.URL, "")
+	h.ok("a PATCH request to /echo")
+	h.ok("a request payload using an application/merge-patch+json requests/order-7731.json resource")
+	h.ok("the request payload property weightGrams is null")
+	h.ok("the request is executed")
+	if got := a.last(); !strings.Contains(got.Body, `"weightGrams":null`) || got.Header.Get("Content-Type") != "application/merge-patch+json" {
+		t.Errorf("sent %q as %q", got.Body, got.Header.Get("Content-Type"))
+	}
+}
+
 // The payload property steps edit JSON and forms: a payload of another media
 // type says so, and an empty template, a JSON object, is JSON's or a form's.
 func TestOnlyJSONAndFormPayloadsAreEdited(t *testing.T) {

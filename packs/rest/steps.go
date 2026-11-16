@@ -463,6 +463,8 @@ func requestSteps() []core.StepDef {
 				"A property the payload lacks is added; one inside an object the payload lacks creates the object: " +
 					"`recipient.name` in a payload without `recipient`. A path through an array (`items[2].sku`) needs the array.",
 				"`null` and `undefined` change a property the payload has.",
+				"The payload is JSON's, whatever its media type says of it (`application/json`, `text/json` or any `+json` type, like " +
+					"`application/merge-patch+json`), or a form's. Another media type's payload, like `text/plain`, is not edited.",
 				"`${env:…}` and `${sys:…}` expand inside the value, which stays text, whatever they expand to.",
 				"A payload step must come first.",
 			},
@@ -657,9 +659,7 @@ func modifyPayload(sc *core.Scenario, a core.Args, t target, fn func(doc any) er
 				" (e.g., 'Given a request payload using a(n) {mimeType} content example'" +
 				" or 'Given a request payload using a(n) {mimeType} empty content template').")
 		}
-		switch mediaTypeOf(r.MimeType) {
-		case core.MimeJSON, core.MimeTextJSON, core.MimeForm:
-		default:
+		if mt := mediaTypeOf(r.MimeType); !isJSONMediaType(mt) && mt != core.MimeForm {
 			return fmt.Errorf("Request content type is not supported for payload property validation: %s", r.MimeType) //nolint:staticcheck // user-facing message
 		}
 		doc, err := jsonx.Parse(*r.Payload)
