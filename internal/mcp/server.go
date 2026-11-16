@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	messages "github.com/cucumber/messages/go/v34"
+	messages "github.com/cucumber/messages/go/v35"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/nimbusxr/axx/core"

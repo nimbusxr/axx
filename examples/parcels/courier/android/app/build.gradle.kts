@@ -220,7 +220,7 @@ dependencies {
     implementation("com.google.ar:core:1.57.0")
     implementation("com.google.mlkit:object-detection:17.0.2")
     implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
-    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta5")
     implementation("com.google.mediapipe:tasks-audio:1.1.0")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     implementation("org.pytorch:pytorch_android_lite:2.1.0")

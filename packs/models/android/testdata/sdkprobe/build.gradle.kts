@@ -1,3 +1,10 @@
+// ML Kit GenAI Prompt 1.0.0-beta5 on is built with Kotlin 2.4, whose classes the Kotlin the Android
+// Gradle plugin brings (2.2) cannot read: the build names a Kotlin that can.
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21") }
+}
+
 plugins { id("com.android.application") version "9.5.1" }
 
 android {
@@ -20,7 +27,7 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:object-detection:17.0.2")
     implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
-    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
 }
