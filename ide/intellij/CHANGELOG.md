@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.11](https://github.com/nimbusxr/axx/compare/intellij-v0.3.10...intellij-v0.3.11) (2026-11-16)
+
+
+### Features
+
+* **host:** a sandboxed run's simulators, emulators and desktop apps are started by the axx host, each app once its person approved it ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+* **host:** axx doctor says what the axx host does for a project's packs ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+* **host:** the files a run names are read in the project's repository only ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+* **ide:** the editors ask about an app the axx host would start as the host's terminal does ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+
+
+### Bug Fixes
+
+* **desktop:** axx host runs under axx's launcher on a Mac ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+
 ## [0.3.10](https://github.com/nimbusxr/axx/compare/intellij-v0.3.9...intellij-v0.3.10) (2026-11-14)
 
 
