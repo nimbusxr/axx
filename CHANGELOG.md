@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2](https://github.com/nimbusxr/axx/compare/v0.7.1...v0.7.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* **mobile-android:** a web page's field with a placeholder is found by its label while the scroll service runs ([02b979e](https://github.com/nimbusxr/axx/commit/02b979ed1b881bbc0c9bf22ab9bc8ee59a73b4c8))
+* **mobile:** a step that does not find a field lists the fields the screen has by their hints ([02b979e](https://github.com/nimbusxr/axx/commit/02b979ed1b881bbc0c9bf22ab9bc8ee59a73b4c8))
+
 ## [0.7.1](https://github.com/nimbusxr/axx/compare/v0.7.0...v0.7.1) (2026-11-16)
 
 
