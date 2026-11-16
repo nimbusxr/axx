@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.7.1](https://github.com/nimbusxr/axx/compare/v0.7.0...v0.7.1) (2026-11-16)
+
+
+### Features
+
+* **host:** a sandboxed run's simulators, emulators and desktop apps are started by the axx host, each app once its person approved it ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+* **host:** axx doctor says what the axx host does for a project's packs ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+* **host:** the files a run names are read in the project's repository only ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+* **ide:** the editors ask about an app the axx host would start as the host's terminal does ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+* **mobile-android:** axx's scroll service has a view show a control or scroll a page, built and signed by each release ([900f364](https://github.com/nimbusxr/axx/commit/900f364d4c2767a8ad4ef2549f104ac784377397))
+* **mobile-ios:** a step asks XCTest to scroll to its control before it swipes ([900f364](https://github.com/nimbusxr/axx/commit/900f364d4c2767a8ad4ef2549f104ac784377397))
+* **mobile:** a step scrolls by asking the view, and swipes only where it cannot ([900f364](https://github.com/nimbusxr/axx/commit/900f364d4c2767a8ad4ef2549f104ac784377397))
+
+
+### Bug Fixes
+
+* a run in a sandbox reuses the services axx up keeps instead of waiting behind it, and runs of a project always take turns ([#342](https://github.com/nimbusxr/axx/issues/342)) ([791a3dc](https://github.com/nimbusxr/axx/commit/791a3dc73dc584321891d8068120b72cab6ba0c6))
+* **deps:** update all non-major dependencies ([#353](https://github.com/nimbusxr/axx/issues/353)) ([0b38b9f](https://github.com/nimbusxr/axx/commit/0b38b9f05aa831899eab778b9fa4c13ff1ee27e8))
+* **desktop:** axx host runs under axx's launcher on a Mac ([8bc144e](https://github.com/nimbusxr/axx/commit/8bc144ef2ae1b50a62f2a699ceea20b08f68b964))
+* **mobile-android:** a device is ready once it has unlocked its user ([900f364](https://github.com/nimbusxr/axx/commit/900f364d4c2767a8ad4ef2549f104ac784377397))
+* **mobile-android:** a page is asked of each scrolling view on the screen in turn ([1c730b3](https://github.com/nimbusxr/axx/commit/1c730b38d7367e6a76f35cba79dab2a5fe40f90d))
+* **mobile-android:** a scroll closes the keyboard and starts below the status bar ([722ecdb](https://github.com/nimbusxr/axx/commit/722ecdb5508e345e6a96eee8e2152aaaa3d32334))
+* **mobile-android:** a web page's number field is found by its label and typed into ([900f364](https://github.com/nimbusxr/axx/commit/900f364d4c2767a8ad4ef2549f104ac784377397))
+* **mobile-android:** Back is pressed only for a keyboard that shows, so a scroll no longer leaves the app's screen ([900f364](https://github.com/nimbusxr/axx/commit/900f364d4c2767a8ad4ef2549f104ac784377397))
+* **mobile-android:** the run's log says when the scroll service did not answer and the step swiped ([1c730b3](https://github.com/nimbusxr/axx/commit/1c730b38d7367e6a76f35cba79dab2a5fe40f90d))
+* **mobile-ios:** a control under a number pad is reached, the keyboard closed with the bar over it ([900f364](https://github.com/nimbusxr/axx/commit/900f364d4c2767a8ad4ef2549f104ac784377397))
+* **mobile-ios:** a tap lands on a web page's control that WebDriverAgent cannot place ([722ecdb](https://github.com/nimbusxr/axx/commit/722ecdb5508e345e6a96eee8e2152aaaa3d32334))
+* **mobile-ios:** a web view scrolls its page ([722ecdb](https://github.com/nimbusxr/axx/commit/722ecdb5508e345e6a96eee8e2152aaaa3d32334))
+* **mobile:** a control the step's search brings onto the screen after the step's time is up is still used ([1c730b3](https://github.com/nimbusxr/axx/commit/1c730b38d7367e6a76f35cba79dab2a5fe40f90d))
+* **mobile:** a row far down a list that makes its rows as it scrolls is reached on both phones ([900f364](https://github.com/nimbusxr/axx/commit/900f364d4c2767a8ad4ef2549f104ac784377397))
+* **mobile:** a tap or a fill scrolls for a control further down the screen, on Android and iOS, and the scroll step takes a selector ([722ecdb](https://github.com/nimbusxr/axx/commit/722ecdb5508e345e6a96eee8e2152aaaa3d32334))
+* **models-ios:** a stub reads a camera frame's pixels from its buffer, not through Core Image ([#352](https://github.com/nimbusxr/axx/issues/352)) ([2f9d2e8](https://github.com/nimbusxr/axx/commit/2f9d2e8c19a5f6d85a28db9a006dcd7262cba817))
+
 ## [0.7.0](https://github.com/nimbusxr/axx/compare/v0.6.13...v0.7.0) (2026-11-14)
 
 
