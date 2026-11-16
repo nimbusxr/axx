@@ -400,14 +400,17 @@ jobs:
       fail-fast: false
       matrix:
         # The Android pack's integration tests run one after another, each on an emulator, and the
-        # models-android pack's on one of their own: in nine parts of some 2.5 to 3.5 minutes each
-        # on these runners, after some 3 of setting up (no job runs past 10). With no tests to run,
-        # one part builds them, and keeps the couriers' app and the emulator's device for the rest.
-        # The hosted parts run four of the emulator's parts again through an axx host, in the
+        # models-android pack's on one of their own: in eleven parts of some 3 to 4.5 minutes each
+        # on these runners, after some 4 to 5 of setting up (no job runs past 10). A test on the
+        # emulator takes 1.5 to 2 minutes here, the torn label's 3 to 3.5: a part has two of them,
+        # or that one. With no tests to run, one part builds them, and keeps the couriers' app and
+        # the emulator's device for the rest.
+        # The hosted parts run five of the emulator's parts again through an axx host, in the
         # tests' process (AXX_TEST_HOSTED): the host's side of the pack leases the emulator and
         # starts the app, as for a run in an agent's sandbox. They are the parts with the model
-        # stubs and the camera (1), a whole delivery (2), documents (3) and notifications (6).
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "emulator-6", "models-1", "models-2", "models-3", "hosted-emulator-1", "hosted-emulator-2", "hosted-emulator-3", "hosted-emulator-6"]' || '["emulator-1"]') }}
+        # stubs and the camera (1), a whole delivery (2), documents (3), notifications (6) and
+        # the scrolls of a web page and of a long list (7).
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "emulator-6", "emulator-7", "emulator-8", "models-1", "models-2", "models-3", "hosted-emulator-1", "hosted-emulator-2", "hosted-emulator-3", "hosted-emulator-6", "hosted-emulator-7"]' || '["emulator-1"]') }}
     env:
       PART: ${{ matrix.part }}
       AXX_TEST_HOSTED: ${{ startsWith(matrix.part, 'hosted-') && '1' || '' }}
@@ -468,18 +471,22 @@ jobs:
       - if: needs.changes.outputs.tests == 'true' && contains(matrix.part, 'emulator-')
         run: |
           # The parts, by their tests' times here (gotestsum's slowest): the sixth runs the rest.
-          one='TestACourierReadsATornLabelOnAnEmulator|TestACourierFindsAParcelFarDownTheRoundOnAnEmulator|TestACourierAttachesADocumentFurtherDownThePickerOnAnEmulator'
-          two='TestCouriersOnAnEmulator|TestACourierScansALabelOnAnEmulator|TestACourierChecksTheVanInAWebViewOnAnEmulator'
+          one='TestACourierReadsATornLabelOnAnEmulator'
+          two='TestCouriersOnAnEmulator|TestACourierScansALabelOnAnEmulator'
           three='TestACourierAttachesADocumentOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
           four='TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierPhotographsAParcelAtTheDoorOnAnEmulator'
-          five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator|TestACourierReportsAProblemInAWebViewOnAnEmulator'
+          five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator'
+          seven='TestACourierChecksTheVanInAWebViewOnAnEmulator|TestACourierFindsAParcelFarDownTheRoundOnAnEmulator'
+          eight='TestACourierReportsAProblemInAWebViewOnAnEmulator|TestACourierAttachesADocumentFurtherDownThePickerOnAnEmulator'
           case "${PART#hosted-}" in
             emulator-1) select=(-run "^($one)\$") ;;
             emulator-2) select=(-run "^($two)\$") ;;
             emulator-3) select=(-run "^($three)\$") ;;
             emulator-4) select=(-run "^($four)\$") ;;
             emulator-5) select=(-run "^($five)\$") ;;
-            *) select=(-skip "^($one|$two|$three|$four|$five)\$") ;;
+            emulator-7) select=(-run "^($seven)\$") ;;
+            emulator-8) select=(-run "^($eight)\$") ;;
+            *) select=(-skip "^($one|$two|$three|$four|$five|$seven|$eight)\$") ;;
           esac
           GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/mobile/...
       # The models-android pack's tests, in three parts, on an emulator of the device's snapshot.
