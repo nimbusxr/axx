@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check the van</title>
+<style>
+:root { color-scheme: light; --ink: #2b2d31; --muted: #676b74; --line: #8b8f98; --primary: #3d70d6; --unit: 8px; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 1rem/1.5 system-ui, sans-serif; color: var(--ink); background: #fff; overflow-wrap: break-word; }
+#app { max-width: 42rem; margin: 0 auto; padding: calc(var(--unit) * 2); }
+h1 { font-size: 1.25rem; line-height: 1.3; margin: 0 0 0.5rem; }
+.van { margin: 0 0 1rem; color: var(--muted); }
+.field { border: 0; margin: 0 0 1.25rem; padding: 0; min-width: 0; }
+legend { display: block; font-weight: 600; margin-bottom: 0.35rem; padding: 0; }
+.option { display: flex; align-items: center; min-height: 44px; margin: calc(var(--unit) / 2) 0; border: 2px solid var(--line); border-radius: 8px; background: #fff; }
+.option:has(input:checked) { border-color: var(--ink); background: #f0f2f4; }
+.option label { flex: 1; cursor: pointer; padding: calc(var(--unit) * 1.25) var(--unit) calc(var(--unit) * 1.25) calc(var(--unit) * 0.5); }
+.option input { flex: none; width: 1.5rem; height: 1.5rem; margin: 0 0 0 calc(var(--unit) * 1.25); accent-color: var(--primary); cursor: pointer; }
+.option label:has(input) { display: flex; align-items: center; gap: var(--unit); padding-left: 0; }
+.btn { font: inherit; font-weight: 600; min-height: 44px; width: 100%; padding: 0.6rem 1.1rem; margin: 1rem 0; cursor: pointer; border: 2px solid var(--primary); border-radius: 8px; background: var(--primary); color: #fff; }
+</style>
+</head>
+<body>
+<main id="app">
+  <h1>Check the van</h1>
+  <p class="van">L-PX 4071 · before the round of Hanna Wolf</p>
+  <form class="check" novalidate></form>
+</main>
+<script>
+// A courier's check of the van before a round: one question after another, each answered Yes or No, four screens of them.
+// Every question has the same two answers, so nothing but its question tells one "No" from another. The first twelve have
+// an id each, with the label beside the button (label for). The last twelve are written inside their labels, as many pages
+// write them, and have none: only their order on the page tells them apart.
+const QUESTIONS = [
+  'Are the tyres in good condition?', 'Do all the lights work?', 'Are the mirrors whole?', 'Is the windscreen free of cracks?',
+  'Do the wipers work?', 'Do the brakes respond?', 'Does the horn work?', 'Is the seat belt in order?',
+  'Is the charge enough for the round?', 'Is the charging cable on board?', 'Do the doors lock?', 'Does the side door slide freely?',
+  'Is the cargo area clean?', 'Are the shelves fixed?', 'Is the load secured?', 'Is the hand truck on board?',
+  'Is the scanner charged?', 'Is the label printer loaded?', 'Is the first aid kit on board?', 'Is the fire extinguisher on board?',
+  'Is the warning triangle on board?', 'Is the high-visibility vest on board?', 'Are the vehicle papers on board?', 'Is there damage to report?',
+]
+const INSIDE_FROM = 12
+function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag)
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v))
+  for (const c of children) el.append(c)
+  return el
+}
+const answers = {}
+const form = document.querySelector('form.check')
+QUESTIONS.forEach((question, q) => {
+  const options = ['Yes', 'No'].map((answer, a) => {
+    const input = h('input', { type: 'radio', name: `q${q}`, value: answer })
+    input.addEventListener('change', () => { answers[question] = answer })
+    if (q >= INSIDE_FROM) return h('div', { class: 'option' }, h('label', {}, input, answer))
+    input.id = `q${q}-${a}`
+    return h('div', { class: 'option' }, input, h('label', { for: input.id }, answer))
+  })
+  form.append(h('fieldset', { class: 'field' }, h('legend', {}, question), ...options))
+})
+form.append(h('button', { type: 'submit', class: 'btn' }, 'Send check'))
+// Sending says which answers the check has, so a test reads what the page took.
+form.addEventListener('submit', (e) => {
+  e.preventDefault()
+  const given = QUESTIONS.filter((question) => answers[question]).map((question) => h('p', {}, `${question} ${answers[question]}`))
+  document.querySelector('#app').replaceChildren(h('h1', {}, 'Check sent'), ...given)
+  scrollTo(0, 0)
+})
+</script>
+</body>
+</html>

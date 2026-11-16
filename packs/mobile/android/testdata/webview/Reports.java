@@ -12,6 +12,6 @@ public class Reports extends Activity {
         WebView view = new WebView(this);
         view.getSettings().setJavaScriptEnabled(true);
         setContentView(view);
-        view.loadUrl("file:///android_asset/report.html");
+        view.loadUrl("file:///android_asset/page.html");
     }
 }

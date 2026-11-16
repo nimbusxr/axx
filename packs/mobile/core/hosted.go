@@ -693,6 +693,8 @@ type wireNode struct {
 	ByPoint   bool   `json:"byPoint,omitempty"`
 	Using     string `json:"using,omitempty"`
 	Value     string `json:"value,omitempty"`
+	Nth       int    `json:"nth,omitempty"`
+	Of        int    `json:"of,omitempty"`
 	// Parent is the place of the node's parent among the screen's nodes,
 	// -1 for one that has none.
 	Parent int `json:"parent"`
@@ -721,7 +723,7 @@ func wireNodes(nodes []*Node, size Rect) *wireScreen {
 			Role: n.Role, Class: n.Class, Text: n.Text, Label: n.Label, Hint: n.Hint, ID: n.ID,
 			Enabled: n.Enabled, Displayed: n.Displayed, Clickable: n.Clickable, Checkable: n.Checkable,
 			Checked: n.Checked, Scrolling: n.Scrolling, Selected: n.Selected, Password: n.Password,
-			Bounds: n.Bounds, ByPoint: n.ByPoint, Using: n.Using, Value: n.Value, Parent: parent,
+			Bounds: n.Bounds, ByPoint: n.ByPoint, Using: n.Using, Value: n.Value, Nth: n.Nth, Of: n.Of, Parent: parent,
 		}
 	}
 	return w
@@ -735,7 +737,7 @@ func (w *wireScreen) screen() *Screen {
 			Role: n.Role, Class: n.Class, Text: n.Text, Label: n.Label, Hint: n.Hint, ID: n.ID,
 			Enabled: n.Enabled, Displayed: n.Displayed, Clickable: n.Clickable, Checkable: n.Checkable,
 			Checked: n.Checked, Scrolling: n.Scrolling, Selected: n.Selected, Password: n.Password,
-			Bounds: n.Bounds, ByPoint: n.ByPoint, Using: n.Using, Value: n.Value,
+			Bounds: n.Bounds, ByPoint: n.ByPoint, Using: n.Using, Value: n.Value, Nth: n.Nth, Of: n.Of,
 		}
 	}
 	for i, n := range w.Nodes {

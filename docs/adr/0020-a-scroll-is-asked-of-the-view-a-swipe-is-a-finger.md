@@ -118,5 +118,10 @@ lowest twelfth of the screen.
 - **The driver's selectors see the whole screen.** With what is out of view listed, an
   `xpath=` selector matches controls out of view too. A step that uses one scrolls to it; a
   check asks whether it shows.
+- **Out of view, where a control is does not say which it is.** Android 17's web view gives
+  every control below the screen one place, cut to the screen's edge, and every one above it
+  another. So a control is told from those alike by its order on the screen: the step takes the
+  node its selector found by the driver's own ID for it, and tells the scroll service which of
+  several of one class, text, description and ID at that place it means.
 - **Appium's server stays.** axx still installs it and reads the screen through it. The scroll
   service is the first part of a driver of axx's own, should axx come to carry one.

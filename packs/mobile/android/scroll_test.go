@@ -179,6 +179,88 @@ func TestAControlOutOfViewIsShownByItsView(t *testing.T) {
 	}
 }
 
+// checkPage is a web page of questions, each answered Yes or No, all below the screen: the web
+// view gives every one of them the same place there, cut to the screen's edge. The first
+// question's answers have an ID each; the others' have none. Two fields at the page's end have
+// neither, and hold different texts.
+const checkPage = `<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy index="0" class="hierarchy" rotation="0" width="1080" height="2400">
+<android.widget.FrameLayout index="0" package="example.parcels.courier" class="android.widget.FrameLayout" text="" clickable="false" enabled="true" scrollable="false" bounds="[0,0][1080,2400]" displayed="true">
+<android.webkit.WebView index="0" package="example.parcels.courier" class="android.webkit.WebView" text="Check the van" clickable="false" enabled="true" scrollable="true" bounds="[0,0][1080,2400]" displayed="true">
+<android.view.View index="0" package="example.parcels.courier" class="android.view.View" text="Do the doors lock?" clickable="false" enabled="true" scrollable="false" bounds="[42,2400][1039,2400]" displayed="false">
+<android.widget.RadioButton index="0" package="example.parcels.courier" class="android.widget.RadioButton" text="Yes" resource-id="q10-0" checkable="true" clickable="true" enabled="true" scrollable="false" bounds="[70,2400][139,2400]" displayed="false"/>
+<android.widget.RadioButton index="1" package="example.parcels.courier" class="android.widget.RadioButton" text="No" resource-id="q10-1" checkable="true" clickable="true" enabled="true" scrollable="false" bounds="[70,2400][139,2400]" displayed="false"/>
+</android.view.View>
+<android.view.View index="1" package="example.parcels.courier" class="android.view.View" text="Is the cargo area clean?" clickable="false" enabled="true" scrollable="false" bounds="[42,2400][1039,2400]" displayed="false">
+<android.widget.RadioButton index="0" package="example.parcels.courier" class="android.widget.RadioButton" text="Yes" checkable="true" clickable="true" enabled="true" scrollable="false" bounds="[70,2400][139,2400]" displayed="false"/>
+<android.widget.RadioButton index="1" package="example.parcels.courier" class="android.widget.RadioButton" text="No" checkable="true" clickable="true" enabled="true" scrollable="false" bounds="[70,2400][139,2400]" displayed="false"/>
+</android.view.View>
+<android.view.View index="2" package="example.parcels.courier" class="android.view.View" text="Is the load secured?" clickable="false" enabled="true" scrollable="false" bounds="[42,2400][1039,2400]" displayed="false">
+<android.widget.RadioButton index="0" package="example.parcels.courier" class="android.widget.RadioButton" text="Yes" checkable="true" clickable="true" enabled="true" scrollable="false" bounds="[70,2400][139,2400]" displayed="false"/>
+<android.widget.RadioButton index="1" package="example.parcels.courier" class="android.widget.RadioButton" text="No" checkable="true" clickable="true" enabled="true" scrollable="false" bounds="[70,2400][139,2400]" displayed="false"/>
+</android.view.View>
+<android.widget.EditText index="3" package="example.parcels.courier" class="android.widget.EditText" text="L-PX 4071" clickable="true" enabled="true" scrollable="false" bounds="[42,2400][1039,2400]" displayed="false" hint="Which van?"/>
+<android.widget.EditText index="4" package="example.parcels.courier" class="android.widget.EditText" text="Hanna Wolf" clickable="true" enabled="true" scrollable="false" bounds="[42,2400][1039,2400]" displayed="false" hint="Who checked it?"/>
+</android.webkit.WebView>
+</android.widget.FrameLayout></hierarchy>`
+
+// The scroll service finds a control by what the screen's source gave of it, and where it is.
+// Several alike out of view are at one place on a web page: the request says which of them the
+// control is, in the screen's order, so the page shows that one, and not the first of them. One
+// that is the only one of its kind (it has an ID) is asked for as before. Fields are alike
+// without their texts, which are what they hold.
+func TestTheScrollServiceIsToldWhichOfSeveralAlikeAControlIs(t *testing.T) {
+	sv, in := standInScrolls(t, func(int, map[string]any) map[string]any {
+		return map[string]any{"found": true, "offered": true, "performed": true, "moved": true, "bounds": []int{70, 1168, 139, 1233}}
+	})
+	d := deviceShowing(t, sv, "", checkPage)
+	s, err := d.Screen(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer := func(question, text string) *mobilecore.Node {
+		for _, n := range s.Nodes {
+			if n.Text == text && n.Parent != nil && n.Parent.Text == question {
+				return n
+			}
+		}
+		t.Fatalf("the page has no %q under %q", text, question)
+		return nil
+	}
+	field := func(hint string) *mobilecore.Node {
+		for _, n := range s.Nodes {
+			if n.Hint == hint {
+				return n
+			}
+		}
+		t.Fatalf("the page has no field %q", hint)
+		return nil
+	}
+	for _, c := range []struct {
+		name    string
+		node    *mobilecore.Node
+		nth, of any
+		text    any
+	}{
+		{"the first question's No, which has an ID", answer("Do the doors lock?", "No"), nil, nil, "No"},
+		{"the second question's No", answer("Is the cargo area clean?", "No"), 0.0, 2.0, "No"},
+		{"the third question's No", answer("Is the load secured?", "No"), 1.0, 2.0, "No"},
+		{"the third question's Yes", answer("Is the load secured?", "Yes"), 1.0, 2.0, "Yes"},
+		{"the first field", field("Which van?"), 0.0, 2.0, nil},
+		{"the second field", field("Who checked it?"), 1.0, 2.0, nil},
+	} {
+		before := len(in.asked())
+		if !d.show(t.Context(), c.node) {
+			t.Errorf("%s is not shown", c.name)
+			continue
+		}
+		req := in.asked()[before]
+		if req["nth"] != c.nth || req["of"] != c.of || req["text"] != c.text {
+			t.Errorf("%s: the request says nth %v of %v, text %v; want %v of %v, text %v: %v", c.name, req["nth"], req["of"], req["text"], c.nth, c.of, c.text, req)
+		}
+	}
+}
+
 // A control its view shows under the keyboard is scrolled above it: the view is asked for a page
 // more. Where the view is at its end, the control is not shown, and the step closes the keyboard.
 // So it is where a page went back to the field being typed in, a moment after it showed the

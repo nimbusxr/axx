@@ -28,17 +28,37 @@ func (d *running) scrollService() *scrolls {
 	return d.dev.scrolls
 }
 
+// told is what the scroll service is told of a control to find it by, beside its place: its
+// class, description and resource ID, and its text. A field is found without its text, which is
+// what it holds, and which axx reads apart from its name (a web page's number field).
+type told struct {
+	class, desc, id, text string
+	texted                bool
+}
+
+func toldOf(n *mobilecore.Node) told {
+	t := told{class: n.Class, desc: n.Label, id: n.ID}
+	if n.Role != mobilecore.RoleField {
+		t.text, t.texted = n.Text, true
+	}
+	return t
+}
+
 // request is a request to the scroll service about a control, which the service finds by what the
-// screen's source gave of it: its class, description, resource ID and place, and its text. A
-// field is found without its text, which is what it holds, and which axx reads apart from its
-// name (a web page's number field).
+// screen's source gave of it, and where it is. Where the screen has several alike at one place,
+// the request says which of them it is, in the screen's order: out of view, a web page gives
+// them all one place, cut to the screen's edge.
 func request(n *mobilecore.Node, op string) map[string]any {
+	t := toldOf(n)
 	req := map[string]any{
-		"op": op, "class": n.Class, "desc": n.Label, "id": n.ID,
+		"op": op, "class": t.class, "desc": t.desc, "id": t.id,
 		"bounds": []int{int(n.Bounds.X), int(n.Bounds.Y), int(n.Bounds.X + n.Bounds.Width), int(n.Bounds.Y + n.Bounds.Height)},
 	}
-	if n.Role != mobilecore.RoleField {
-		req["text"] = n.Text
+	if t.texted {
+		req["text"] = t.text
+	}
+	if n.Of > 1 {
+		req["nth"], req["of"] = n.Nth, n.Of
 	}
 	return req
 }

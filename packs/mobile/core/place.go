@@ -72,7 +72,7 @@ func bringIntoView(ctx context.Context, d Device, el *appium.Element) error {
 		if err != nil {
 			return err
 		}
-		n := nodeAt(s, Rect{X: r.X, Y: r.Y, Width: r.Width, Height: r.Height})
+		n := nodeOf(ctx, d, s, el, Rect{X: r.X, Y: r.Y, Width: r.Width, Height: r.Height})
 		if n == nil {
 			select {
 			case <-ctx.Done():
@@ -109,13 +109,66 @@ func bringIntoView(ctx context.Context, d Device, el *appium.Element) error {
 	return ctx.Err()
 }
 
-// nodeAt is the screen's node at exactly that place, the innermost when several are, or nil.
-func nodeAt(s *Screen, r Rect) *Node {
-	var found *Node
+// nodeOf is the screen's node an element is: the one at the element's place. A screen can have
+// several nodes at one place. One inside another (a row and the text that fills it) is scrolled
+// to as the other is, and the innermost is taken. Nodes apart from each other are another matter:
+// a web page gives every control below the screen the same place, cut to the screen's edge, so
+// the answers "Yes" of five questions further down are all there, and the one taken for the
+// element is the one the page is asked to show. The driver tells those apart: it finds what a
+// locator matches in the screen's order, and gives an element the same ID each time it finds it.
+func nodeOf(ctx context.Context, d Device, s *Screen, el *appium.Element, r Rect) *Node {
+	var at []*Node
 	for _, n := range s.Nodes {
 		if n.Bounds == r && n.Using != "" {
-			found = n
+			at = append(at, n)
 		}
 	}
-	return found
+	if len(at) == 0 {
+		return nil
+	}
+	innermost := at[len(at)-1]
+	if nested(at) {
+		return innermost
+	}
+	asked := map[[2]string]bool{}
+	for _, n := range at {
+		locator := [2]string{n.Using, n.Value}
+		if asked[locator] {
+			continue
+		}
+		asked[locator] = true
+		// What the locator matches on this screen, in its order, and what the driver finds by
+		// it: the element is the one at its own place among them. A screen that changed in
+		// between has another count, and says nothing.
+		var alike []*Node
+		for _, m := range s.Nodes {
+			if m.Using == n.Using && m.Value == n.Value {
+				alike = append(alike, m)
+			}
+		}
+		els, err := d.Session().FindAll(ctx, n.Using, n.Value)
+		if err != nil || len(els) != len(alike) {
+			continue
+		}
+		for i, e := range els {
+			if e.ID == el.ID {
+				return alike[i]
+			}
+		}
+	}
+	return innermost
+}
+
+// nested is whether each of the nodes, in the screen's order, is inside the one before it.
+func nested(nodes []*Node) bool {
+	for i := 1; i < len(nodes); i++ {
+		inside := false
+		for p := nodes[i].Parent; p != nil && !inside; p = p.Parent {
+			inside = p == nodes[i-1]
+		}
+		if !inside {
+			return false
+		}
+	}
+	return true
 }

@@ -65,6 +65,27 @@ func parseSource(src string) (*mobilecore.Screen, error) {
 		n.Role = roleOf(n)
 		n.Value = strings.TrimSuffix(n.Value, "]") + shows(n) + "]"
 	}
+	// Which of several alike at one place each node is. Out of view, a web page gives every
+	// control one place, cut to the screen's edge (Android 17's web view): the "No" of one
+	// question and of the next are both there, and on a page that gives neither an ID, nothing
+	// the scroll service is told of a control tells them apart but their order.
+	type place struct {
+		told
+		bounds mobilecore.Rect
+	}
+	alike := map[place][]*mobilecore.Node{}
+	for _, n := range s.Nodes {
+		at := place{toldOf(n), n.Bounds}
+		alike[at] = append(alike[at], n)
+	}
+	for _, nodes := range alike {
+		if len(nodes) < 2 {
+			continue
+		}
+		for i, n := range nodes {
+			n.Nth, n.Of = i, len(nodes)
+		}
+	}
 	// A web page's number field (<input type="number">) comes with its label in its text and no
 	// hint: Chrome presents it as a control with a range, whose text is its name and whose
 	// number is the range's. A text field's label is its hint. So that text is what the field

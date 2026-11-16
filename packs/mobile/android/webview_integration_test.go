@@ -23,6 +23,12 @@ import (
 // longer than the screen. It is built with the SDK's own tools, as the test's emulator has them.
 func reportsAPK(t *testing.T) string {
 	t.Helper()
+	return pageAPK(t, filepath.Join("..", "ios", "testdata", "webview", "report.html"))
+}
+
+// pageAPK builds that app with a page of the test's for its web view to show.
+func pageAPK(t *testing.T, file string) string {
+	t.Helper()
 	home := os.Getenv("ANDROID_HOME")
 	if home == "" {
 		home = os.Getenv("ANDROID_SDK_ROOT")
@@ -48,11 +54,11 @@ func reportsAPK(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	page, err := os.ReadFile(filepath.Join("..", "ios", "testdata", "webview", "report.html"))
+	page, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(assets, "report.html"), page, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(assets, "page.html"), page, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	run("javac", "--release", "8", "-classpath", android, "-d", classes, filepath.Join("testdata", "webview", "Reports.java"))
@@ -158,6 +164,50 @@ func TestACourierReportsAProblemInAWebViewOnAnEmulator(t *testing.T) {
 		"Is the parcel back in the van? Yes", "Who did you speak to? Mara Lindqvist", "How many parcels are still in the van? 3",
 	} {
 		h.OK(`the reports app shows "` + answer + `"`)
+	}
+	if err := h.End("passed"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A courier checks the van before a round, in a form the app shows in a web view: twenty-four
+// questions, each answered Yes or No, four screens of them. A step taps an answer by a selector,
+// which finds it wherever it is on the page, and has the page show it. Out of view, every "No"
+// below the screen has the same place (the web view cuts it to the screen's edge), and so has
+// every one above it: the step takes the one the selector found, by what the driver says of it,
+// not by where it is, and the scroll service is told which of those alike it is. Taken by its
+// place, the page showed another question's answer, and scrolled past the one asked for.
+func TestACourierChecksTheVanInAWebViewOnAnEmulator(t *testing.T) {
+	device := avd(t)
+	app := pageAPK(t, filepath.Join("testdata", "webview", "check.html"))
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	logsOnFailure(t, h)
+	h.Start(&core.Plan{})
+	h.OK("the checks android app with the following properties:", [][]string{{"apk", app}, {"device", device}})
+	h.OK("the checks app is launched")
+	h.OK(`within 30s the checks app shows "Are the tyres in good condition?"`)
+	radio := func(question, answer string) string {
+		return `the 'xpath=//*[@text="` + question + `"]//android.widget.RadioButton[@text="` + answer + `"]' element is tapped in the checks app`
+	}
+	// What the first screen shows.
+	h.OK(radio("Are the tyres in good condition?", "Yes"))
+	// Below the screen, with five more questions after it, whose answers have its place.
+	h.OK(radio("Does the horn work?", "No"))
+	// Further down, where the page gives no answer an ID: six alike come before it.
+	h.OK(radio("Is the first aid kit on board?", "No"))
+	// Back up the page, past ten questions above the screen.
+	h.OK(radio("Do all the lights work?", "Yes"))
+	// The page's last question, and one five up from it, among those with no ID.
+	h.OK(radio("Is there damage to report?", "Yes"))
+	h.OK(radio("Is the label printer loaded?", "No"))
+	h.OK(`the "Send check" button is tapped in the checks app`)
+	h.OK(`within 10s the checks app shows "Check sent"`)
+	// What the page took: each answer is its own question's.
+	for _, answer := range []string{
+		"Are the tyres in good condition? Yes", "Do all the lights work? Yes", "Does the horn work? No",
+		"Is the label printer loaded? No", "Is the first aid kit on board? No", "Is there damage to report? Yes",
+	} {
+		h.OK(`the checks app shows "` + answer + `"`)
 	}
 	if err := h.End("passed"); err != nil {
 		t.Fatal(err)

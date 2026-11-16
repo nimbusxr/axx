@@ -469,7 +469,7 @@ jobs:
         run: |
           # The parts, by their tests' times here (gotestsum's slowest): the sixth runs the rest.
           one='TestACourierReadsATornLabelOnAnEmulator|TestACourierFindsAParcelFarDownTheRoundOnAnEmulator|TestACourierAttachesADocumentFurtherDownThePickerOnAnEmulator'
-          two='TestCouriersOnAnEmulator|TestACourierScansALabelOnAnEmulator'
+          two='TestCouriersOnAnEmulator|TestACourierScansALabelOnAnEmulator|TestACourierChecksTheVanInAWebViewOnAnEmulator'
           three='TestACourierAttachesADocumentOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
           four='TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierPhotographsAParcelAtTheDoorOnAnEmulator'
           five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator|TestACourierReportsAProblemInAWebViewOnAnEmulator'
