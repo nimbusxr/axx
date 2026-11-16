@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.4](https://github.com/nimbusxr/axx/compare/v0.7.3...v0.7.4) (2026-11-16)
+
+
+### Features
+
+* **rest:** a request payload can have any media type ([8ac090e](https://github.com/nimbusxr/axx/commit/8ac090e6b9641db86ee0373e817a08a446fa0d46))
+* **rest:** the payload property steps edit a payload of any JSON media type ([8ac090e](https://github.com/nimbusxr/axx/commit/8ac090e6b9641db86ee0373e817a08a446fa0d46))
+
+
+### Bug Fixes
+
+* **deps:** update Gherkin to v43 and Messages to v35 ([493c5ff](https://github.com/nimbusxr/axx/commit/493c5ff8401beda383ffaa7dc65567740c4e2bb8))
+
 ## [0.7.3](https://github.com/nimbusxr/axx/compare/v0.7.2...v0.7.3) (2026-11-16)
 
 
