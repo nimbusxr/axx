@@ -16,7 +16,7 @@ import (
 	"strings"
 	"sync"
 
-	messages "github.com/cucumber/messages/go/v34"
+	messages "github.com/cucumber/messages/go/v35"
 	tagexpr "github.com/cucumber/tag-expressions/go/v11"
 
 	"github.com/nimbusxr/axx/core"

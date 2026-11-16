@@ -27,8 +27,8 @@ require (
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/coder/websocket v1.8.15
 	github.com/cucumber/cucumber-expressions/go/v20 v20.2.0
-	github.com/cucumber/gherkin/go/v42 v42.0.1
-	github.com/cucumber/messages/go/v34 v34.2.1
+	github.com/cucumber/gherkin/go/v43 v43.0.0
+	github.com/cucumber/messages/go/v35 v35.0.0
 	github.com/cucumber/tag-expressions/go/v11 v11.2.0
 	github.com/dlclark/regexp2/v2 v2.13.0
 	github.com/ebitengine/purego v0.11.3

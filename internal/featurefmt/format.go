@@ -33,8 +33,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	gherkin "github.com/cucumber/gherkin/go/v42"
-	messages "github.com/cucumber/messages/go/v34"
+	gherkin "github.com/cucumber/gherkin/go/v43"
+	messages "github.com/cucumber/messages/go/v35"
 	"golang.org/x/text/width"
 
 	"github.com/nimbusxr/axx/internal/axxerr"

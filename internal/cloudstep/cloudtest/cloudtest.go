@@ -25,7 +25,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	messages "github.com/cucumber/messages/go/v34"
+	messages "github.com/cucumber/messages/go/v35"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/check"

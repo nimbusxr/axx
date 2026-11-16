@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	gherkin "github.com/cucumber/gherkin/go/v42"
-	messages "github.com/cucumber/messages/go/v34"
+	gherkin "github.com/cucumber/gherkin/go/v43"
+	messages "github.com/cucumber/messages/go/v35"
 	tagexpr "github.com/cucumber/tag-expressions/go/v11"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
