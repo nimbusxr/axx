@@ -123,6 +123,8 @@ axx upgrade --version 0.6.0    # that version: older ones too
 
 `axx upgrade` says what changed between the two versions, breaking changes first, and updates the agent skills of the project you are in and of your home directory, where they are installed. It talks to `api.github.com` and `github.com`, and `GITHUB_TOKEN`, if it is set, avoids GitHub's rate limit. What else it does depends on where you run it.
 
+An [axx host](/guides/run-from-a-sandbox/#the-host-follows-the-projects-version) that is running moves to the new version by itself, once no run is using it. You don't restart it.
+
 ### In a project that names its version
 
 It moves the [project](#keep-a-project-on-one-version). It downloads the release from GitHub into Axx's cache, moves the `axx:` line and checks the project on the new version with `axx validate` and `axx lint`. You commit the line, and everyone and CI follow it. If a check finds problems, it lists them, and `axx upgrade --version <the old one>` goes back.

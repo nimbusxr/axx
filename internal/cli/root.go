@@ -17,6 +17,7 @@ import (
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
+	"github.com/nimbusxr/axx/internal/host"
 )
 
 // Identity is the canonical one-liner used everywhere axx describes itself.
@@ -28,6 +29,11 @@ func Main(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	app := NewApp()
+	if dir := os.Getenv(envHostMoved); dir != "" {
+		// This process is an axx host that restarted on another version of
+		// axx: if it ends before it serves, its announcement goes with it.
+		defer host.Abandon(dir, os.Getpid())
+	}
 	remind := app.startUpgradeReminder(ctx, args)
 	code := Run(ctx, app, args)
 	remind(code)
@@ -59,6 +65,9 @@ func Run(ctx context.Context, app *App, args []string) int {
 	root.SetErr(app.Stderr)
 
 	err := root.ExecuteContext(ctx)
+	if app.afterCommand != nil {
+		err = app.afterCommand(err)
+	}
 	if err == nil {
 		return int(exitcode.OK)
 	}

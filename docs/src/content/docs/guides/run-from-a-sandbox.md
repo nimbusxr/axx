@@ -222,6 +222,58 @@ One limit is worth knowing. The host checks where a file is and then reads it, a
 - **A Mac's permissions are the host's.** `axx host` runs under axx's launcher, as a run does, so macOS asks once for the launcher ([Test desktop apps](/guides/test-desktop-apps/)).
 - **`axx doctor` in the sandbox** warns about what it cannot reach there, and says that the host does it. Run `axx doctor` in your own terminal for the machine's own answer.
 
+## The host follows the project's version
+
+You don't restart the host after an upgrade. The host runs on the version of Axx the project runs on, and moves by itself when that changes:
+
+- **The project [names its version](/guides/install/#keep-a-project-on-one-version).** The host follows the `axx:` line in `axx.yaml`, whoever changes it: `axx upgrade`, you, or the agent.
+- **The project names none.** The host follows the installed Axx, and moves when you upgrade it.
+
+It looks every few seconds. This is what it does when the version changed:
+
+1. It waits until no run is connected to it. Services that `axx up` keeps count as a run, so it waits for `axx down`.
+2. It gets the release, if this machine doesn't have it yet. If it can't, it says why and stays as it is.
+3. It restarts in the same terminal, or under the same editor, with the options you started it with. This takes about a second, and longer when the project's packs are built for the new version first.
+
+```console
+axx host: axx.yaml now names axx 0.8.0: restarting on it
+axx host: serving /Users/you/shop on 127.0.0.1:53188 (Ctrl-C stops it)
+  approved: axx.yaml's services: api, db; compose.yaml
+waiting for runs
+```
+
+A run that starts during the restart waits for the host, and says so. Your approvals stay as they were: the restarted host asks about a changed definition as any start does.
+
+### When it asks first
+
+A restart does what a start does. It builds the project's packs into the host again, and it runs the commands `axx.yaml` has before and after `axx host` ([command hooks](/guides/run-hooks/)). Both run on your machine, as you, outside the sandbox, and the agent can edit both. So the host restarts by itself only when all of this is as it was when you started it:
+
+- `axx-packs.yaml`, and the versions of the packs that are Go modules;
+- every file a pack of the project's own compiles;
+- the commands `axx.yaml` has around `axx host`, and the project files they run.
+
+If any of it changed, the host shows you what changed and asks. It also asks before it moves to an older version of Axx, because an older host lacks what later releases fixed.
+
+```console
+axx.yaml now names axx 0.8.0: the host would restart on it, and asks you first
+a restart builds the project's packs again and runs the commands axx.yaml has around `axx host`, on this machine and as you; they changed since the host started:
+  --- as the host started
+  +++ now
+  @@ -6,3 +6,3 @@
+   # the project's own packs, built into it: each file they compile, by its SHA-256
+   steps/go.mod 0b6a8d0e0f1c5a37
+  -steps/pack.go 5d41402abc4b2a76
+  +steps/pack.go 7d793037a0760186
+restart? [y/N]
+```
+
+- **`y`**: the host restarts with what it showed you.
+- **`n`**, or Enter: the host stays on its version until you restart it yourself. It asks again only when the version changes again.
+
+The host compares the files as it asks, and the restart reads them again a moment later. The comparison and the build are two moments.
+
+A host on Windows doesn't restart by itself. It says that the version changed, and you restart it.
+
 ## Start it from your editor
 
 The [VS Code extension and the IntelliJ plugin](/guides/set-up-your-editor/#the-axx-host) can start the host when you open the project, and stop it when you close it:
@@ -239,7 +291,7 @@ The [VS Code extension and the IntelliJ plugin](/guides/set-up-your-editor/#the-
 - `axx doctor` says when a host serves the project, and leaves the checks of the services' commands and of Docker to the machine the host runs on.
 - If the host stops during a run, the run loses its services ([`AXX-E0502`](/references/error-codes/#axx-e0502)). A host that was killed leaves `.axx/host.json` behind. Runs then warn that it doesn't answer, and start the services themselves.
 
-The host's errors are [`AXX-E0500` to `AXX-E0506`](/references/error-codes/#axx-host).
+The host's errors are [`AXX-E0500` to `AXX-E0508`](/references/error-codes/#axx-host).
 
 ## What your security team should know
 
@@ -249,4 +301,5 @@ The host's errors are [`AXX-E0500` to `AXX-E0506`](/references/error-codes/#axx-
 - Beyond the app, a run asks the host only for what a step does with a device or an app, from a fixed list. It names no program. The files it names must be in the project's repository, which the host settles as it starts, and it checks them after links are followed. The check and the read are two moments.
 - `.axx/host.json` holds a token, readable only by your user. The agent, which runs as you, reads it; other users' processes can't.
 - Approvals come only from you: from the host's terminal, or from the editor that started the host. Never through the port.
+- The host restarts by itself when the project's version of Axx changes, which the agent can cause by editing `axx.yaml`. A restart builds the project's packs and runs the commands around `axx host`, as you. The host does that without asking only when they are as they were when you started it, and only for a version that is no older ([above](#when-it-asks-first)). The release itself comes from GitHub, or from your mirror, checked against its checksums.
 - The app's code, which the agent writes, runs in containers on your machine, with what the approved compose file gives those containers. Containers can reach the network unless the compose file keeps them from it, for example with an `internal: true` network.

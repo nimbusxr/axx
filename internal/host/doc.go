@@ -23,4 +23,12 @@
 //
 // Nothing a run sends is run as a command: a run names services, and the
 // host runs what the approved definition says.
+//
+// The host stays on the axx its project runs on ([Follower]): when
+// axx.yaml names another version, or the installed axx was upgraded, it
+// restarts on that axx once no run is connected, and the runs that find it
+// restarting wait for it. A restart builds the project's packs and runs
+// its commands around `axx host`, as a start does, on this machine: the
+// host restarts by itself only while those are what it started with
+// ([Starts]) and the axx is no older, and asks the person otherwise.
 package host

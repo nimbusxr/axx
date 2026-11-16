@@ -69,6 +69,14 @@ the agent's sandbox, on this machine and as you: the host asks you about each ap
 first, with everything of its registration, and starts it once you said y. The
 approval is for what it shows you, not for one build of the app.
 
+The host stays on the version of axx the project runs on: the one axx.yaml names,
+else the installed axx. When that changes (axx upgrade, or an edit of the axx: line),
+the host restarts on it by itself once no run is connected, in the same terminal. A
+restart builds the project's packs again and runs the commands axx.yaml has around
+` + "`axx host`" + `, on this machine and as you: when any of that changed since you
+started the host, or the version is an older one, it asks you first. On Windows it
+tells you, and you restart it.
+
 With --ide, an editor that started the host asks instead: the host writes its
 events as lines of JSON and reads the editor's answers on its standard input.`,
 		Args: wrapArgs(cobra.NoArgs),
@@ -112,7 +120,12 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 				t := host.NewTerminal(os.Stdin, app.Stdout, app.color(), stdinIsTerminal())
 				events, approver = t.Event, t
 			}
+			follower := app.newHostFollower(&cf)
+			// What the host starts does not take itself for a restarting host.
+			_ = os.Unsetenv(envHostMoved)
+			_ = os.Unsetenv(envHostMovedTo)
 			srv, err := host.New(ctx, host.Options{
+				Follow:   follower,
 				Load:     config.LoadOptions{Path: app.Config, Profile: cf.profile, Properties: props, Settings: cf.settings},
 				Addr:     addr,
 				Approver: approver,
@@ -128,7 +141,25 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 			if err != nil {
 				return err
 			}
-			return srv.Serve(ctx)
+			if err := srv.Serve(ctx); err != nil {
+				return err
+			}
+			if n := srv.Moved(); n != nil {
+				// The project runs on another axx now: this process becomes
+				// the host on it, in the same terminal or editor, once the
+				// commands after `axx host` have run (the new host runs
+				// those before it again).
+				app.afterCommand = func(err error) error {
+					if err == nil {
+						err = follower.restart(srv.Dir(), n)
+						err = axxerr.Wrap(err, host.CodeNotListening, exitcode.Environment, "the axx host could not restart on axx %s", n.Version).
+							WithHint("start `axx host` again")
+					}
+					host.Abandon(srv.Dir(), os.Getpid())
+					return err
+				}
+			}
+			return nil
 		},
 	}
 	cf.register(cmd)

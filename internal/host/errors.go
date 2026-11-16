@@ -17,6 +17,9 @@ const (
 	CodeInterrupted  = "AXX-E0505"
 	CodeNotListening = "AXX-E0506"
 	CodeNotAnswered  = "AXX-E0507"
+	// CodeMoving: the host is restarting on another version of axx; the
+	// run waits for it to announce itself again.
+	CodeMoving = "AXX-E0508"
 )
 
 func hostErr(code, format string, args ...any) *axxerr.Error {

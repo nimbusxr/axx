@@ -62,6 +62,10 @@ type Options struct {
 	// pack's side that works with one (core.HostRun.Suite), and what closes
 	// it. Nil: the packs get none.
 	Suite func(cfg *config.Config) (*core.Suite, func(context.Context) error, error)
+	// Follow keeps the host on the axx the project runs on: it restarts on
+	// that axx once no run is connected (Serve returns, with Moved). Nil:
+	// the host stays on its own until the person restarts it.
+	Follow Follower
 }
 
 // Approver asks the person whether runs may start services by a changed
@@ -83,12 +87,17 @@ type Question struct {
 	// What is what a pack asks about, in words ("mobile-ios: the courier
 	// app"); "" for the services' definition.
 	What string
+	// Restart is the axx the host would restart on by itself, for a
+	// question about that: Approved is what the host started with of the
+	// project's own (Starts), Proposed what a restart would run now, What
+	// the restart in words and Command what names the axx.
+	Restart *Next
 }
 
 // Event is something that happened in the host, for its terminal or editor
 // (`axx host --ide` writes each one as a line of JSON).
 type Event struct {
-	// Event is serving, run, report, approval, answered or pack.
+	// Event is serving, run, report, approval, answered, pack or version.
 	Event string `json:"event"`
 
 	// serving: where the host listens, and the definition starting it
@@ -136,6 +145,13 @@ type Event struct {
 	// words: web-core's "started chromium".
 	Pack string `json:"pack,omitempty"`
 	Text string `json:"text,omitempty"`
+
+	// version: the project now runs on another axx (Version) than the host,
+	// and what the host does about it (State: waiting for its runs to end,
+	// restarting, or stays, with why in Text). After restarting, the same
+	// process serves again and says so (serving). An approval that asks
+	// about a restart has Version too.
+	Version string `json:"version,omitempty"`
 }
 
 // Run states.
@@ -181,6 +197,18 @@ type Server struct {
 	open    *question       // the question the person is asked, until they answer it
 	refused map[string]bool // the definitions they refused, refused again until the host restarts
 	events  sync.Mutex
+
+	// What following the project's axx needs (Options.Follow): what the
+	// host started with of the project's own, how many connections it
+	// serves and when the last one ended, and how often it looks.
+	started     string
+	connected   int
+	lastLeft    time.Time
+	left        chan struct{} // a connection ended
+	followEvery time.Duration
+	followQuiet time.Duration
+	followRetry time.Duration
+	moved       *Next
 }
 
 // question is a changed definition the person is asked about: open until
@@ -192,6 +220,7 @@ type question struct {
 	cancel   context.CancelCauseFunc
 	answered bool // done by their answer, ok
 	ok       bool
+	restart  bool // about a restart on another axx, not about the services
 }
 
 // Why a question is no longer asked.
@@ -224,6 +253,7 @@ func New(ctx context.Context, opts Options) (*Server, error) {
 	s := &Server{
 		opts: opts, dir: cfg.Dir, files: repository(cfg.Dir), env: opts.Env, log: logger, turn: make(chan struct{}, 1),
 		wait: time.Minute, serving: context.Background(), refused: map[string]bool{},
+		left: make(chan struct{}, 1), followEvery: followEvery, followQuiet: followQuiet, followRetry: followRetry,
 	}
 	path := opts.Approvals
 	switch path {
@@ -246,6 +276,13 @@ func New(ctx context.Context, opts Options) (*Server, error) {
 		}
 	default:
 		s.changed = true
+	}
+	if opts.Follow != nil {
+		// What this start runs of the project's own: a restart by itself
+		// runs the same, or asks.
+		if s.started, err = opts.Follow.Starts(); err != nil {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -328,8 +365,9 @@ func (s *Server) Serve(ctx context.Context) error {
 		return err
 	}
 	defer func() {
-		// Only its own: another host may have announced itself since.
-		if a, _ := Find(s.dir); a != nil && a.Token == s.token {
+		// Only its own: another host may have announced itself since. A
+		// host that restarts leaves it, saying so: runs wait for it.
+		if a, _ := Find(s.dir); a != nil && a.Token == s.token && s.moved == nil {
 			_ = os.Remove(file)
 		}
 	}()
@@ -345,6 +383,13 @@ func (s *Server) Serve(ctx context.Context) error {
 		// It changed since the person last approved one: ask now, while they
 		// are here, rather than when a run needs it.
 		s.ask(s.start, 0, "", "")
+	}
+
+	var move chan *Next
+	if s.opts.Follow != nil {
+		move = make(chan *Next)
+		s.lastLeft = time.Now()
+		go s.follow(serving, move)
 	}
 
 	var wg sync.WaitGroup
@@ -373,8 +418,50 @@ func (s *Server) Serve(ctx context.Context) error {
 				wg.Wait()
 				return ctx.Err()
 			}
-			wg.Go(func() { s.handle(ctx, c) })
+			s.mu.Lock()
+			s.connected++
+			s.mu.Unlock()
+			wg.Go(func() {
+				defer s.disconnected()
+				s.handle(ctx, c)
+			})
+		case n := <-move:
+			if connected, _ := s.idle(); connected > 0 {
+				continue // a run came since: the follower says so, and comes back
+			}
+			// Restart on it: say so where runs look for the host, stop
+			// answering, and tell the runs that connected meanwhile.
+			ann.Moving = &Moving{Version: n.Version, Since: time.Now().UTC()}
+			data, _ := json.MarshalIndent(ann, "", "  ")
+			if err := writeFileAtomic(file, data, 0o600); err != nil {
+				s.log.Warn("cannot announce the restart", "error", err)
+				continue
+			}
+			s.moved = n
+			_ = ln.Close()
+			moving := hostErr(CodeMoving, "the axx host is restarting on axx %s", n.Version).WithHint("run again in a moment")
+			for c := range conns {
+				_ = newLines(c).write(Message{Type: MsgError, Error: failure(moving)})
+				_ = c.Close()
+			}
+			wg.Wait()
+			stop(fmt.Errorf("the axx host restarts on axx %s", n.Version))
+			s.event(Event{Event: "version", State: VersionRestarting, Version: n.Version, Text: fmt.Sprintf("%s: restarting on it", n.why())})
+			return nil
 		}
+	}
+}
+
+// disconnected counts a connection that ended, and has the follower look:
+// the host may restart once the last one has.
+func (s *Server) disconnected() {
+	s.mu.Lock()
+	s.connected--
+	s.lastLeft = time.Now()
+	s.mu.Unlock()
+	select {
+	case s.left <- struct{}{}:
+	default:
 	}
 }
 
@@ -770,7 +857,9 @@ func (s *Server) ask(def *Definition, run int, command, what string) *question {
 		return s.open
 	}
 	ctx, cancel := context.WithCancelCause(s.serving)
-	if prev := s.open; prev != nil {
+	if prev := s.open; prev != nil && prev.restart {
+		prev.cancel(errAfterServices)
+	} else if prev != nil {
 		prev.cancel(errReplaced)
 	}
 	q := &question{text: def.Text, done: make(chan struct{}), cancel: cancel}

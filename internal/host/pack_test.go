@@ -134,6 +134,9 @@ func TestWhatFollowsTheRequestIsThePacks(t *testing.T) {
 func TestAPacksConnectionIsRefused(t *testing.T) {
 	f, _ := packFixture(t, service(t, t.TempDir(), "api", ""))
 	ann := *f.announcement(t)
+	// Announcements of the test's making, not read from the project: a run
+	// reads the project's again as it connects.
+	ann.dir = ""
 	var ae *axxerr.Error
 
 	bad := ann
