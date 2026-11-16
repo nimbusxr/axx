@@ -39,7 +39,7 @@ dependencies {
     implementation("com.atlassian.oai:openapi-request-validator-core:3.0.0")
     // The GraphQL mock: operations run against the mock's schema, and federation's _service and
     // _entities for subgraphs.
-    implementation("com.graphql-java:graphql-java:26.1")
+    implementation("com.graphql-java:graphql-java:26.2")
     implementation("com.apollographql.federation:federation-graphql-java-support:7.0.0")
     // The MCP mock validates tool arguments and stubbed results against the tools' JSON Schemas
     // (2020-12). The OpenAPI validator already brings this validator: it is named here because
@@ -50,7 +50,7 @@ dependencies {
 
     testImplementation("org.wiremock:wiremock-standalone:$wiremockVersion")
     // The official MCP and A2A Java SDKs read the MCP and A2A mocks' answers in the tests.
-    testImplementation("io.modelcontextprotocol.sdk:mcp:2.1.0")
+    testImplementation("io.modelcontextprotocol.sdk:mcp:2.2.0")
     testImplementation("org.a2aproject.sdk:a2a-java-sdk-client:1.5.1.Final")
     testImplementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-rest:1.5.1.Final")
     // Validates the MCP mock's answers against MCP's published JSON schemas in the tests: the
@@ -58,13 +58,13 @@ dependencies {
     testImplementation("com.networknt:json-schema-validator:3.0.9")
     // The providers' official SDKs read the model mock's answers in the tests, which point them at
     // WireMock: nothing reaches a provider.
-    testImplementation("com.openai:openai-java:4.101.0")
+    testImplementation("com.openai:openai-java:4.105.0")
     testImplementation("com.anthropic:anthropic-java:3.8.0")
     testImplementation("com.anthropic:anthropic-java-bedrock:3.8.0")
     testImplementation("com.anthropic:anthropic-java-vertex:3.8.0")
-    testImplementation("com.google.genai:google-genai:2.1.0")
-    testImplementation("software.amazon.awssdk:bedrockruntime:2.57.13")
-    testImplementation("software.amazon.awssdk:netty-nio-client:2.57.13")
+    testImplementation("com.google.genai:google-genai:2.3.0")
+    testImplementation("software.amazon.awssdk:bedrockruntime:2.59.1")
+    testImplementation("software.amazon.awssdk:netty-nio-client:2.59.1")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core:3.27.7")

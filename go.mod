@@ -26,10 +26,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.52.0
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/coder/websocket v1.8.15
-	github.com/cucumber/cucumber-expressions/go/v20 v20.1.0
+	github.com/cucumber/cucumber-expressions/go/v20 v20.2.0
 	github.com/cucumber/gherkin/go/v42 v42.0.1
 	github.com/cucumber/messages/go/v34 v34.2.1
-	github.com/cucumber/tag-expressions/go/v11 v11.0.1
+	github.com/cucumber/tag-expressions/go/v11 v11.2.0
 	github.com/dlclark/regexp2/v2 v2.13.0
 	github.com/ebitengine/purego v0.11.3
 	github.com/eclipse/paho.golang v0.23.0
@@ -41,20 +41,20 @@ require (
 	github.com/google/flatbuffers v25.12.19+incompatible
 	github.com/invopop/jsonschema v0.14.0
 	github.com/iskorotkov/avro/v2 v2.35.0
-	github.com/jackc/pgx/v5 v5.12.0
-	github.com/jacoelho/xsd v0.6.13
+	github.com/jackc/pgx/v5 v5.13.0
+	github.com/jacoelho/xsd v0.6.14
 	github.com/jezek/xgb v1.3.1
 	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
 	github.com/microsoft/go-mssqldb v1.11.2
-	github.com/moby/moby/api v1.56.1
+	github.com/moby/moby/api v1.57.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/mxschmitt/playwright-go v0.6401.0
 	github.com/nats-io/nats.go v1.55.0
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
 	github.com/pb33f/go-yaml v0.1.1
 	github.com/pb33f/jsonschema/v6 v6.0.3
-	github.com/pb33f/libopenapi v0.42.4
-	github.com/pb33f/libopenapi-validator v0.16.2
+	github.com/pb33f/libopenapi v0.42.5
+	github.com/pb33f/libopenapi-validator v0.16.3
 	github.com/qmuntal/gltf v0.29.0
 	github.com/rabbitmq/amqp091-go v1.16.0
 	github.com/redis/go-redis/v9 v9.23.0
@@ -72,14 +72,14 @@ require (
 	github.com/xuri/excelize/v2 v2.11.1
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
 	go.mongodb.org/mongo-driver/v2 v2.10.0
-	golang.org/x/crypto v0.58.0
+	golang.org/x/crypto v0.59.0
 	golang.org/x/image v0.48.0
 	golang.org/x/mod v0.43.0
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.50.0
 	golang.org/x/term v0.48.0
 	golang.org/x/text v0.44.0
-	google.golang.org/api v0.312.0
+	google.golang.org/api v0.315.0
 	google.golang.org/genproto v0.0.0-20261110000943-09e21b237f2c
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
