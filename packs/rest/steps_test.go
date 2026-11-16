@@ -409,7 +409,8 @@ func TestExamplePayloads(t *testing.T) {
 	h.ok("a POST request to /api/launches")
 	h.fails("a request payload using an application/json content example named 'Nope'", `No example with name "Nope" found for request content`)
 	h.fails("a request payload using a text/json content example", "No content type found for request to get example")
-	h.fails("a request payload using a text/xml content example", "Unsupported content type: text/xml")
+	h.fails("a request payload using a text/xml content example", "No content type found for request to get example")
+	h.fails("a request payload using an xml content example", "Not a media type: xml")
 }
 
 func TestExampleLookupErrors(t *testing.T) {

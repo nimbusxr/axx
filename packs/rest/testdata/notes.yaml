@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Delivery notes
+  version: "1"
+paths:
+  /echo:
+    post:
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+            examples:
+              Neighbour:
+                value: Leave it with the neighbour at number 9.
+              Reception:
+                value: |
+                  Hand it in at reception.
+                  Ask for a signature.
+          text/csv:
+            schema:
+              type: string
+            example: "reference,postcode\nPX-7731,10115\n"
+      responses:
+        "200":
+          description: The request, as it arrived.
+          content:
+            application/json:
+              schema:
+                type: object

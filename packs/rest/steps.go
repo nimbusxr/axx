@@ -386,12 +386,18 @@ func requestSteps() []core.StepDef {
 			doc: "Start the request payload from an empty JSON object, `{}`, for the payload property steps to fill.",
 			details: []string{
 				"It needs no OpenAPI specification.",
+				"The media type is JSON's (`application/json`, `text/json` or any `+json` type) or `application/x-www-form-urlencoded`: " +
+					"another, like `text/plain`, has no empty template, and starts from a file or an example.",
 				"With `application/x-www-form-urlencoded`, the properties are sent form-encoded, and nested objects and arrays as JSON text.",
 				"A request takes one payload step.",
 			},
 			example:      "Given a request payload using an application/json empty content template",
 			namedExample: "Given a request payload using an application/json empty content template for request on parcels",
 			run: func(sc *core.Scenario, a core.Args, t target) error {
+				if mt := mediaTypeOf(a.String(0)); !isJSONMediaType(mt) && mt != core.MimeForm {
+					return fmt.Errorf("an empty content template is an empty JSON object, which %s does not carry: start the payload from a file "+
+						"(the `a request payload using a(n) {mimeType} {filepath} resource` step) or from an example of the OpenAPI specification", a.String(0))
+				}
 				return withRequest(sc, a, t, func(r *Request) error {
 					return setPayload(r, a.String(0), "{}")
 				})
@@ -405,6 +411,7 @@ func requestSteps() []core.StepDef {
 				"With `named '<name>'` it is the example of that name; without, the first example in document order, " +
 					"or the media type's single `example`.",
 				"The example is looked up under the operation that matches the request's method and path, for the media type.",
+				"The media type is any the operation declares: a text example, of `text/plain` say, is sent as its text.",
 				"An example with an `externalValue` is read relative to the specification.",
 				"The service needs its `openapi` property, and the request must be added first.",
 				"A request takes one payload step.",
@@ -419,7 +426,9 @@ func requestSteps() []core.StepDef {
 			doc: "Start the request payload from a file of the project, such as a fixture factory's output: it is sent with the media type.",
 			details: []string{
 				"The file is found like other files steps name: relative to the `resources` directories, or to axx.yaml's directory.",
-				"It is sent as it is, and a JSON payload can then be changed with the payload property steps. " +
+				"The media type is any: `application/json`, `text/plain`, `application/xml`, `text/csv`, `application/pdf`. " +
+					"The file is sent as it is, byte for byte, whatever the media type.",
+				"A JSON payload can then be changed with the payload property steps. " +
 					"With `application/x-www-form-urlencoded`, the file is a JSON object whose properties are sent form-encoded.",
 				"It needs no OpenAPI specification.",
 				"A request takes one payload step.",
@@ -648,7 +657,7 @@ func modifyPayload(sc *core.Scenario, a core.Args, t target, fn func(doc any) er
 				" (e.g., 'Given a request payload using a(n) {mimeType} content example'" +
 				" or 'Given a request payload using a(n) {mimeType} empty content template').")
 		}
-		switch r.MimeType {
+		switch mediaTypeOf(r.MimeType) {
 		case core.MimeJSON, core.MimeTextJSON, core.MimeForm:
 		default:
 			return fmt.Errorf("Request content type is not supported for payload property validation: %s", r.MimeType) //nolint:staticcheck // user-facing message

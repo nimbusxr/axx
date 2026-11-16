@@ -2,11 +2,14 @@ package core
 
 import (
 	"fmt"
+	"mime"
 	"strconv"
+	"strings"
 	"time"
 )
 
-// Supported MIME types for request/response payload steps.
+// Media types the payload steps treat in a way of their own: JSON's, whose
+// payloads the payload property steps edit, and a form's, sent form-encoded.
 const (
 	MimeJSON        = "application/json"
 	MimeTextJSON    = "text/json"
@@ -14,8 +17,17 @@ const (
 	MimeForm        = "application/x-www-form-urlencoded"
 )
 
-// SupportedMimeTypes lists the values {mimeType} accepts, in docs order.
-var SupportedMimeTypes = []string{MimeJSON, MimeTextJSON, MimeProblemJSON, MimeForm}
+// MediaType checks that s is a media type a payload can have, like
+// application/json, text/plain or text/plain;charset=UTF-8, and returns it as
+// written: a type and a subtype, with no wildcard.
+func MediaType(s string) (string, error) {
+	mt, _, err := mime.ParseMediaType(s)
+	kind, sub, slash := strings.Cut(mt, "/")
+	if err != nil || !slash || kind == "" || sub == "" || strings.Contains(mt, "*") {
+		return "", fmt.Errorf("Not a media type: %s (a media type is a type and a subtype, like application/json or text/plain)", s) //nolint:staticcheck // user-facing message
+	}
+	return s, nil
+}
 
 // ParamsPack returns the "core" pack: the parameter types every pack builds on,
 // {ordinal}, {pattern}, {mimeType}, {duration}, {filepath} and {path}. It is always
@@ -54,16 +66,10 @@ func (paramsPack) Manifest() Manifest {
 			{
 				Name:     "mimeType",
 				Regexps:  []string{`([^\s]+)`},
-				Doc:      "a content type",
-				Values:   SupportedMimeTypes,
-				Examples: []string{"application/json"},
+				Doc:      "a media type, with no spaces: any that has a type and a subtype",
+				Examples: []string{"application/json", "application/x-www-form-urlencoded", "text/plain"},
 				Transform: func(_ *Scenario, match string, _ []*string) (any, error) {
-					for _, m := range SupportedMimeTypes {
-						if m == match {
-							return m, nil
-						}
-					}
-					return nil, fmt.Errorf("Unsupported content type: %s", match) //nolint:staticcheck // user-facing message
+					return MediaType(match)
 				},
 			},
 			{

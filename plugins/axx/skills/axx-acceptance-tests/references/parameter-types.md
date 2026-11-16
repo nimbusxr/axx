@@ -22,7 +22,7 @@
 | `{int}` | a whole number |  | `200`, `3` | cucumber |
 | `{integer}` | an integer, in a step's text without quotes: `is 2500` says what `is '2500'` says |  | `2500` | rest |
 | `{long}` | a whole number, however large |  | `9007199254740993` | cucumber |
-| `{mimeType}` | a content type | `application/json`, `text/json`, `application/problem+json`, `application/x-www-form-urlencoded` | `application/json` | core |
+| `{mimeType}` | a media type, with no spaces: any that has a type and a subtype |  | `application/json`, `application/x-www-form-urlencoded`, `text/plain` | core |
 | `{mockedService}` | the name of a mocked service the scenario registered |  | `addresses` | mock |
 | `{mongoService}` | the name of a MongoDB database registered in the scenario |  | `tracking-db` | mongo |
 | `{ordinal}` | a position, counting from 1; an optional ordinal left out is the first |  | `1st`, `2nd`, `3rd` | core |
