@@ -124,7 +124,7 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 	var body []byte
 	if payload != nil {
 		text := *payload
-		if mimeType == core.MimeForm {
+		if mediaTypeOf(mimeType) == core.MimeForm {
 			if text, err = jvalue.FormURLEncode(text); err != nil {
 				return fmt.Errorf("could not form-encode the request payload, which must be a JSON object whose properties are the form's fields: %w", err)
 			}

@@ -242,7 +242,11 @@ func TestFormEncoding(t *testing.T) {
 	h2.service("api", srv.URL, "")
 	h2.ok("a POST request to /echo")
 	h2.ok("a request payload using an application/problem+json empty content template")
-	h2.fails("the request payload property a is '1'", "Request content type is not supported for payload property validation: application/problem+json")
+	h2.ok("the request payload property a is '1'")
+	h2.ok("the request is executed")
+	if got := a.last(); got.Body != `{"a":1}` || got.Header.Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("sent %q as %q", got.Body, got.Header.Get("Content-Type"))
+	}
 
 	// An empty template is sent as an empty form.
 	h3 := newHarness(t)
@@ -409,7 +413,8 @@ func TestExamplePayloads(t *testing.T) {
 	h.ok("a POST request to /api/launches")
 	h.fails("a request payload using an application/json content example named 'Nope'", `No example with name "Nope" found for request content`)
 	h.fails("a request payload using a text/json content example", "No content type found for request to get example")
-	h.fails("a request payload using a text/xml content example", "Unsupported content type: text/xml")
+	h.fails("a request payload using a text/xml content example", "No content type found for request to get example")
+	h.fails("a request payload using an xml content example", "Not a media type: xml")
 }
 
 func TestExampleLookupErrors(t *testing.T) {

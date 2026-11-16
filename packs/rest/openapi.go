@@ -400,7 +400,7 @@ func (s *spec) mediaType(method, path, contentType string) (*v3.MediaType, error
 	}
 	// Tolerate parameters on the declared media type (application/json;charset=UTF-8).
 	for c := op.RequestBody.Content.First(); c != nil; c = c.Next() {
-		if mediaTypeOf(c.Key()) == contentType && c.Value() != nil {
+		if mediaTypeOf(c.Key()) == mediaTypeOf(contentType) && c.Value() != nil {
 			return c.Value(), nil
 		}
 	}
