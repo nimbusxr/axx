@@ -10,7 +10,7 @@
 # (keep WIREMOCK_VERSION in sync with build.gradle.kts).
 
 # The jar is platform-independent: build it once on the build host, even for multi-arch images.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk@sha256:83f4a7fc27df94dcc7b8de04d14cbbba8da14406f921e966969c3b09000aa507 AS build
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk@sha256:b8705e936964c228dfce359e63dbf08f6c69cb380ed1d576b1f6b1064f15567d AS build
 ARG VERSION=0.1.0-SNAPSHOT
 WORKDIR /src
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
