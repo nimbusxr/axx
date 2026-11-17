@@ -23,6 +23,7 @@ import (
 	"github.com/nimbusxr/axx/internal/engine"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/host"
+	"github.com/nimbusxr/axx/internal/progress"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
@@ -120,6 +121,10 @@ events as lines of JSON and reads the editor's answers on its standard input.`,
 				t := host.NewTerminal(os.Stdin, app.Stdout, app.color(), stdinIsTerminal())
 				events, approver = t.Event, t
 			}
+			// While it serves, the host writes what its runs do, and asks its
+			// questions, in this terminal: a release it downloads to restart on
+			// says so in plain lines, never in one it rewrites.
+			app.reporter = progress.New(app.Stderr, progress.Options{})
 			follower := app.newHostFollower(&cf)
 			// What the host starts does not take itself for a restarting host.
 			_ = os.Unsetenv(envHostMoved)
