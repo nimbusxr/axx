@@ -203,7 +203,14 @@ func (a *App) docsSite(ctx context.Context, from string) (dir, v string, cleanup
 	if err != nil {
 		return "", "", nil, err
 	}
-	dir, err = docsite.Release(ctx, selfupdate.New(), info.Version, filepath.Join(base, "axx", "docs"))
+	cache, client := filepath.Join(base, "axx", "docs"), selfupdate.New()
+	if !docsite.IsSite(filepath.Join(cache, info.Version)) {
+		// The first time: the archive is downloaded and unpacked.
+		step := a.step(fmt.Sprintf("axx: downloading axx %s's docs (once; kept for later)", info.Version), "downloading axx "+info.Version+"'s docs")
+		defer step.Done()
+		client.Progress = step.Bytes
+	}
+	dir, err = docsite.Release(ctx, client, info.Version, cache)
 	if err != nil {
 		return "", "", nil, noDocs(info.Version, err)
 	}

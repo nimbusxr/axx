@@ -217,7 +217,7 @@ func (a *App) upgradeInstalled(ctx context.Context, env *upgradeEnv, target stri
 	}
 
 	res := &UpgradeResult{From: env.current, Path: env.exe, Method: string(env.method)}
-	releases, listErr := env.client.Releases(ctx)
+	releases, listErr := a.releases(ctx, env)
 	tag, to, err := upgradeTarget(releases, listErr, target)
 	if err != nil {
 		return nil, err
@@ -261,7 +261,7 @@ func (a *App) upgradeProject(ctx context.Context, env *upgradeEnv, pin config.Pi
 		return axxerr.New(codeBadVersion, exitcode.Usage, "a project cannot run on the nightly: it changes every night").
 			WithHint("name a release, or take the `axx:` line out of %s and install the nightly with `axx upgrade --version nightly`", pin.File)
 	}
-	releases, listErr := env.client.Releases(ctx)
+	releases, listErr := a.releases(ctx, env)
 	_, to, err := upgradeTarget(releases, listErr, target)
 	if err != nil {
 		return err
@@ -308,7 +308,10 @@ func (a *App) upgradeProject(ctx context.Context, env *upgradeEnv, pin config.Pi
 // their project. The project has moved whatever it finds: `axx upgrade --version`
 // goes back.
 func (a *App) checkOnNewVersion(ctx context.Context, bin, to string, res *UpgradeResult) {
-	fmt.Fprintf(a.Stderr, "checking this project on axx %s\n", to)
+	// The first of them prepares the project's packs for the new version,
+	// which can take a minute.
+	step := a.step(fmt.Sprintf("checking this project on axx %s", to), "checking this project on axx "+to)
+	defer step.Done()
 	for _, name := range []string{"validate", "lint"} {
 		args := []string{name, "--compact"}
 		if a.Config != "" {
@@ -344,6 +347,24 @@ func (a *App) bringInstalledAlong(ctx context.Context, env *upgradeEnv, target, 
 	if installed.Upgraded {
 		a.upgradeSkills(ctx, env.invoked, res, false, true)
 	}
+}
+
+// releases reads the list of axx's releases, saying so when GitHub takes a
+// while to answer.
+func (a *App) releases(ctx context.Context, env *upgradeEnv) ([]selfupdate.Release, error) {
+	step := a.stepIfSlow("reading axx's releases on GitHub", "reading axx's releases on GitHub")
+	defer step.Done()
+	return env.client.Releases(ctx)
+}
+
+// fetchRelease downloads a platform's archive of a release into dir, checked
+// and unpacked, saying that it does (line, short) and how far it is.
+func (a *App) fetchRelease(ctx context.Context, env *upgradeEnv, tag, dir, line, short string) (*selfupdate.Fetched, error) {
+	step := a.step(line, short)
+	defer step.Done()
+	client := *env.client
+	client.Progress = step.Bytes
+	return client.Fetch(ctx, tag, runtime.GOOS, runtime.GOARCH, dir)
 }
 
 // upgradeTarget is the tag and the version to go to.
@@ -384,8 +405,7 @@ func (a *App) replaceSelf(ctx context.Context, env *upgradeEnv, tag string, res 
 		return upgradeFailed(upgradeReportHint, "cannot make a temporary directory next to %s: %v", env.exe, err)
 	}
 	defer os.RemoveAll(tmp)
-	fmt.Fprintf(a.Stderr, "downloading axx %s\n", res.To)
-	fetched, err := env.client.Fetch(ctx, tag, runtime.GOOS, runtime.GOARCH, tmp)
+	fetched, err := a.fetchRelease(ctx, env, tag, tmp, "downloading axx "+res.To, "downloading axx "+res.To)
 	switch {
 	case errors.Is(err, selfupdate.ErrNotFound):
 		return axxerr.New(codeCannotUpgrade, exitcode.Usage, "axx has no release %s for %s/%s", res.To, runtime.GOOS, runtime.GOARCH).
@@ -397,7 +417,10 @@ func (a *App) replaceSelf(ctx context.Context, env *upgradeEnv, tag string, res 
 	}
 	fmt.Fprintln(a.Stderr, "checksum verified")
 	if tag != selfupdate.Nightly && env.attest != nil {
-		if could, ok := env.attest(ctx, fetched.Archive); could && ok {
+		step := a.stepIfSlow("verifying the build's provenance with gh", "verifying the build's provenance")
+		could, ok := env.attest(ctx, fetched.Archive)
+		step.Done()
+		if could && ok {
 			fmt.Fprintln(a.Stderr, "build provenance verified (gh attestation)")
 		} else if could {
 			fmt.Fprintln(a.Stderr, "note: could not verify build provenance with gh (continuing; checksum matched)")

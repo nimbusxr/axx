@@ -69,6 +69,9 @@ type Client struct {
 	Downloads string // where releases' files are, without a trailing slash
 	Token     string
 	HTTP      *http.Client
+	// Progress, when set, is told how far the download of a release's file
+	// is: done of total bytes (total 0 or less when the server does not say).
+	Progress func(done, total int64)
 }
 
 // New is a Client of GitHub, with GITHUB_TOKEN if it is set.
@@ -375,10 +378,29 @@ func (c *Client) download(ctx context.Context, url, path string) (string, error)
 	}
 	defer f.Close()
 	h := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(f, h), io.LimitReader(resp.Body, maxArchiveBytes)); err != nil {
+	body := io.LimitReader(resp.Body, maxArchiveBytes)
+	if c.Progress != nil {
+		body = &counted{r: body, total: resp.ContentLength, tell: c.Progress}
+	}
+	if _, err := io.Copy(io.MultiWriter(f, h), body); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), f.Close()
+}
+
+// counted tells how much of a download has been read.
+type counted struct {
+	r     io.Reader
+	n     int64
+	total int64
+	tell  func(done, total int64)
+}
+
+func (c *counted) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += int64(n)
+	c.tell(c.n, c.total)
+	return n, err
 }
 
 func unpack(archive, member, dst string) error {

@@ -222,13 +222,12 @@ func (a *App) downloadRelease(ctx context.Context, env *upgradeEnv, v, announce 
 	if isRegularFile(bin) {
 		return bin, nil
 	}
-	fmt.Fprintln(a.Stderr, announce)
 	tmp, err := os.MkdirTemp(dir, ".download-")
 	if err != nil {
 		return "", err
 	}
 	defer os.RemoveAll(tmp)
-	fetched, err := env.client.Fetch(ctx, "v"+v, runtime.GOOS, runtime.GOARCH, tmp)
+	fetched, err := a.fetchRelease(ctx, env, "v"+v, tmp, announce, "downloading axx "+v)
 	switch {
 	case errors.Is(err, selfupdate.ErrNotFound):
 		return "", axxerr.New(codeBadVersion, exitcode.Usage, "axx has no release %s for %s/%s", v, runtime.GOOS, runtime.GOARCH).

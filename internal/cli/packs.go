@@ -155,7 +155,7 @@ func (a *App) prepareProjectPacks(ctx context.Context) error {
 		return err
 	}
 	res, err := packbuild.Ensure(ctx, packbuild.Options{
-		ProjectDir: dir, Entries: entries, Lock: lock, AxxVersion: info.Version, AxxSource: source, Log: a.Stderr,
+		ProjectDir: dir, Entries: entries, Lock: lock, AxxVersion: info.Version, AxxSource: source, Log: a.report(),
 	})
 	if err != nil {
 		return err

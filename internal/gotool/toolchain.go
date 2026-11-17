@@ -18,6 +18,7 @@ import (
 	"golang.org/x/mod/module"
 
 	"github.com/nimbusxr/axx/internal/mirror"
+	"github.com/nimbusxr/axx/internal/progress"
 )
 
 // The Go axx downloads is a Go release as the go command downloads one when a
@@ -50,7 +51,10 @@ func managed(ctx context.Context, o Options) (string, error) {
 	if st, err := os.Stat(goBin); err == nil && st.Mode().IsRegular() {
 		return goBin, nil
 	}
-	fmt.Fprintln(o.Log, "axx: setting up (once)")
+	// Go itself, downloaded and unpacked: the line says so while it does
+	// (o.Log may be a Reporter).
+	step := progress.On(o.Log).Start("axx: setting up (once)", "setting up")
+	defer step.Done()
 	if err := os.MkdirAll(o.CacheDir, 0o755); err != nil {
 		return "", err
 	}

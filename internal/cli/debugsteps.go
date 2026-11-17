@@ -21,6 +21,7 @@ import (
 	"github.com/nimbusxr/axx/internal/gotool"
 	"github.com/nimbusxr/axx/internal/packbuild"
 	"github.com/nimbusxr/axx/internal/packset"
+	"github.com/nimbusxr/axx/internal/progress"
 	"github.com/nimbusxr/axx/internal/version"
 )
 
@@ -77,7 +78,7 @@ func (a *App) debugSteps(ctx context.Context, f *runFlags) error {
 		return err
 	}
 	res, err := packbuild.Ensure(ctx, packbuild.Options{
-		ProjectDir: dir, Entries: entries, Lock: lock, AxxVersion: info.Version, AxxSource: source, Log: a.Stderr, Debug: true,
+		ProjectDir: dir, Entries: entries, Lock: lock, AxxVersion: info.Version, AxxSource: source, Log: a.report(), Debug: true,
 	})
 	if err != nil {
 		return err
@@ -212,7 +213,7 @@ func (a *App) findDelve(ctx context.Context) (string, error) {
 	if p := os.Getenv("AXX_DLV"); p != "" {
 		return p, nil
 	}
-	own, err := prepareDelve(ctx, a.Stderr)
+	own, err := prepareDelve(ctx, a.report())
 	if err == nil {
 		return own, nil
 	}
@@ -242,7 +243,8 @@ func prepareDelve(ctx context.Context, log io.Writer) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Fprintf(log, "axx: preparing Delve %s, Go's debugger (once; cached for later runs)\n", delveVersion)
+	step := progress.On(log).Start(fmt.Sprintf("axx: preparing Delve %s, Go's debugger (once; cached for later runs)", delveVersion), "preparing Delve")
+	defer step.Done()
 	cmd := exec.CommandContext(ctx, tc.Go, "install", "github.com/go-delve/delve/cmd/dlv@"+delveVersion)
 	cmd.Env = append(slices.Clip(tc.Env), "GOBIN="+dir)
 	var out bytes.Buffer

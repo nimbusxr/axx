@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/lifecycle"
+	"github.com/nimbusxr/axx/internal/progress"
 )
 
 // EnvelopeSchemaVersion is the version of the --json output envelope.
@@ -78,7 +81,53 @@ type App struct {
 	// args are axx's arguments, as the command line gave them: a pack that
 	// relaunches a command (core.Relauncher) runs it again with them.
 	args []string
+	// reporter says what axx is doing while a step takes time (report).
+	reporter *progress.Reporter
 }
+
+// report is where axx says what it is doing while a step takes time: on
+// its standard error. A person at a terminal sees a step's line live; an
+// agent, CI, a pipe and --json get plain lines, and one each half minute
+// for a step that goes on (internal/progress).
+func (a *App) report() *progress.Reporter {
+	if a.reporter == nil {
+		opts := progress.Options{}
+		if f, ok := a.Stderr.(*os.File); ok && !a.JSON && a.livesAtATerminal() && term.IsTerminal(int(f.Fd())) {
+			fd := int(f.Fd())
+			opts.Live = true
+			opts.Width = func() int {
+				w, _, _ := term.GetSize(fd)
+				return w
+			}
+			// The old Windows console has no braille.
+			opts.ASCII = runtime.GOOS == "windows" && a.getenv("WT_SESSION") == ""
+		}
+		a.reporter = progress.New(a.Stderr, opts)
+	}
+	return a.reporter
+}
+
+// livesAtATerminal is whether what runs axx may be a person: not an agent,
+// not CI, not a terminal that cannot rewrite a line.
+func (a *App) livesAtATerminal() bool {
+	if a.getenv("CI") != "" || a.getenv("TERM") == "dumb" {
+		return false
+	}
+	for _, k := range agentEnvVars {
+		if a.getenv(k) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// step says that axx begins something that can take a while (line, as it
+// stays on the screen; short, the few words of "axx: still ..."). Done ends it.
+func (a *App) step(line, short string) *progress.Step { return a.report().Start(line, short) }
+
+// stepIfSlow is step for what is quick most times: it says nothing unless
+// it goes on for a second.
+func (a *App) stepIfSlow(line, short string) *progress.Step { return a.report().IfSlow(line, short) }
 
 // NewApp returns an App bound to the process's standard streams.
 func NewApp() *App {

@@ -26,6 +26,8 @@ Every command accepts `--json` and then prints exactly one JSON document on stdo
 
 The process [exit code](/references/error-codes/#exit-codes) is the same with or without `--json`.
 
+The envelope is all that a command writes to standard output. What Axx says while a step takes time, such as `axx: preparing rest, sql (once; cached for later runs)` or `axx: still preparing rest, sql (30s)`, goes to standard error, as plain lines.
+
 ## Errors
 
 ```json
