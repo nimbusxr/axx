@@ -194,7 +194,11 @@ func reexec(bin string) error {
 	if launcher == "" {
 		launcher = info.Version
 	}
-	return execBinary(bin, withEnv(withEnv(os.Environ(), envPackBuild, "1"), version.EnvLauncher, launcher))
+	env := withEnv(withEnv(os.Environ(), envPackBuild, "1"), version.EnvLauncher, launcher)
+	if p := launcherPath(info); p != "" {
+		env = withEnv(env, envLauncherPath, p)
+	}
+	return execBinary(bin, env)
 }
 
 // withEnv is env with key set to value, in place of any it has.

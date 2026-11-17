@@ -80,7 +80,12 @@ func peekArgs(args []string) peekedArgs {
 // handOver replaces this process with a release of axx. It is a variable so that
 // tests can see it asked for.
 var handOver = func(bin string) error {
-	return execBinary(bin, withEnv(os.Environ(), version.EnvLauncher, version.Get().Version))
+	info := version.Get()
+	env := withEnv(os.Environ(), version.EnvLauncher, info.Version)
+	if p := launcherPath(info); p != "" {
+		env = withEnv(env, envLauncherPath, p)
+	}
+	return execBinary(bin, env)
 }
 
 // useProjectVersion hands over to the version of axx the project names, before

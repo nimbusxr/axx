@@ -156,6 +156,7 @@ While the host runs:
 - The runs the host serves that the editor didn't start, such as the agent's, show in the test results as they run, named after the run (`axx host: run 4 (axx run --compact)`): a tab of the Run tool window in IntelliJ IDEA, and a test run of their own in VS Code's Testing view. In IntelliJ IDEA the Run tool window comes forward for them without taking the focus; to keep the window you're watching in front, uncheck **Bring the Run window forward when the axx host starts a run** in *Settings | Tools | axx*.
 - Your own runs from the editor go through the host too, and take their turn with the agent's. In IntelliJ IDEA, a run that has waited a while for another says which run has the services, such as an agent's `axx up` that keeps them until `axx down`, with **Restart axx Host**, which stops that run's services.
 - The status bar shows what the host is doing: ready, a run's services starting or running, waiting for your approval, or already running in a terminal. A host you started in a terminal serves the editor's runs too, and asks there.
+- The host [moves to the project's version of Axx by itself](/guides/run-from-a-sandbox/#the-host-follows-the-projects-version) when that changes. When it has to ask you first, it asks as it does for an approval.
 - The host's log is in the **axx host** output channel in VS Code, and in IntelliJ IDEA's log (*Help | Show Log in Finder/Explorer*).
 
 ## Projects and their packs

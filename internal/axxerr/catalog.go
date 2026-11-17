@@ -293,6 +293,10 @@ func init() {
 		"The services' definition changed since the person running the axx host approved one, and they did not answer within a minute whether runs may start it. The question stays open where the host runs: the next run with the same definition has their answer.",
 		"Tell the person running the host; run again once they answered.")
 
+	add("AXX-E0508", env, "The axx host is restarting",
+		"The axx host is restarting on the version of axx the project now runs on (axx.yaml's `axx:` line changed, or the installed axx was upgraded). A run waits for the host to serve again; an axx from before hosts restarted by themselves reports this instead.",
+		"Run again in a moment.")
+
 	add("AXX-E0600", u, "Unknown reporter",
 		"`--format` or `run.reporters` names a reporter that does not exist.",
 		"Use one of: pretty, progress, compact, junit, messages, cucumber-json, html, agent, teamcity.")

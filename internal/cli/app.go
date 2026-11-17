@@ -83,6 +83,10 @@ type App struct {
 	args []string
 	// reporter says what axx is doing while a step takes time (report).
 	reporter *progress.Reporter
+	// afterCommand runs once the command and its hooks have ended, with
+	// the error they ended with, and gives the one axx ends with: the axx
+	// host becomes another version of axx there, after its after hooks.
+	afterCommand func(err error) error
 }
 
 // report is where axx says what it is doing while a step takes time: on
