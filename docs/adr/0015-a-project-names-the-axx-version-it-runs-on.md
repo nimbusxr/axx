@@ -51,6 +51,28 @@ list of releases is read at most once a day in the background, with no credentia
 wrong stays silent. `AXX_NO_UPGRADE_REMINDER` turns it off; it never runs for CI, an agent or `--json`.
 `axx doctor` says the same from what the reminder last read.
 
+### The axx host follows it
+
+A host started before an upgrade kept running the old version until someone restarted it, and a run
+of another version than its host is refused when their protocols differ. The host now runs on what a
+start would run on: the version the project names, else the installed axx. It looks every few
+seconds, and once no run is connected it gets the release and replaces its own process with it (the
+same terminal or editor, the same options). Runs that find it restarting wait for its next
+announcement.
+
+A restart is a start: it builds the project's packs and runs the project's command hooks around
+`axx host`, outside the sandbox and as the person. The agent can edit those, and by editing the
+`axx:` line it would choose when they run. So the host restarts by itself only when what a start runs
+of the project's own is what it started with (`axx-packs.yaml`, the module packs' versions, the files
+its own packs compile, the hooks of `axx host` and the files they run), and only onto a version that
+is no older. Otherwise it asks the person, where it asks about the services. Following only the
+person's own `axx upgrade` was considered and dropped: a version line changed by hand or by the
+agent is as much the project's version.
+
+The comparison is made by the running host, and the new axx reads the files again as it builds: two
+moments, as with the files a service's command runs. A host on Windows, whose process cannot be
+replaced, says that the version changed and is restarted by hand.
+
 ## Alternatives considered
 
 - **The installed axx builds the named version.** It already builds a project's copy from the axx

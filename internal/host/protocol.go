@@ -29,6 +29,33 @@ type Announcement struct {
 	PID     int       `json:"pid"`
 	Version string    `json:"version"`
 	Started time.Time `json:"started"`
+	// Moving is set while the host restarts on another version of axx: it
+	// no longer answers at Addr, and announces itself again once it serves.
+	// Runs that find it so wait for that.
+	Moving *Moving `json:"moving,omitempty"`
+
+	// dir is the project it was found in: a run reads the announcement
+	// there again each time it connects, since a host that restarted has
+	// another address and token.
+	dir string
+}
+
+// Moving says that a host is restarting on another version of axx.
+type Moving struct {
+	Version string    `json:"version"`
+	Since   time.Time `json:"since"`
+}
+
+// moveWait is how long a host may take to announce itself again: its axx
+// may be downloaded and its packs built first. After that, it is gone.
+var moveWait = 3 * time.Minute
+
+// restarting is the restart a waits for, if it still does.
+func (a *Announcement) restarting() *Moving {
+	if a.Moving == nil || time.Since(a.Moving.Since) > moveWait {
+		return nil
+	}
+	return a.Moving
 }
 
 // AnnouncementFile is where the host serving the project in dir announces
@@ -50,6 +77,7 @@ func Find(dir string) (*Announcement, error) {
 	if err := json.Unmarshal(b, &a); err != nil || a.Addr == "" || a.Token == "" {
 		return nil, nil //nolint:nilerr // half written, or not a host's: no host
 	}
+	a.dir = dir
 	return &a, nil
 }
 

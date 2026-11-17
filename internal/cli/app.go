@@ -78,6 +78,10 @@ type App struct {
 	// args are axx's arguments, as the command line gave them: a pack that
 	// relaunches a command (core.Relauncher) runs it again with them.
 	args []string
+	// afterCommand runs once the command and its hooks have ended, with
+	// the error they ended with, and gives the one axx ends with: the axx
+	// host becomes another version of axx there, after its after hooks.
+	afterCommand func(err error) error
 }
 
 // NewApp returns an App bound to the process's standard streams.

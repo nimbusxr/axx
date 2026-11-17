@@ -249,7 +249,11 @@ the skills instead: `axx skills install`.
   whose sandbox keeps it from Docker. Runs find it in `.axx/host.json` and ask it for their services over a
   loopback port (`axx run`, `axx up`'s supervisor, the MCP session's `steps_try`); it starts only a definition
   the person approved (`Define`: axx.yaml's services, what their compose projects resolve to, the files their
-  commands run), asking in its terminal or the editor that started it (`--ide`), never over the port.
+  commands run), asking in its terminal or the editor that started it (`--ide`), never over the port. It
+  stays on the axx the project runs on (`follow.go`, `internal/cli/hostfollow.go`): it restarts on the version
+  axx.yaml names, or on an upgraded installed axx, once no run is connected, and asks first when what a start
+  runs of the project's own changed since it started (`Starts`: its packs and the hooks of `axx host`) or the
+  version is older. Keep it so: whatever a start of the host reads from the project and runs joins `Starts`.
   A command tells that `axx up`'s supervisor runs by the lock it holds (`lifecycle.UpLock`, `filelock.Held`),
   never by signalling its process: a sandbox refuses the signal (macOS) or hides the process (Linux). Keep
   it so for anything one command must tell of another across a sandbox.

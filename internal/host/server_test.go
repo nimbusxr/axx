@@ -105,6 +105,10 @@ type fixture struct {
 	packs map[string]core.HostServer
 	// suite makes the suites packs' sides work with (Options.Suite).
 	suite func(cfg *config.Config) (*core.Suite, func(context.Context) error, error)
+	// follow keeps the host on the project's axx (Options.Follow).
+	follow Follower
+	// returned closes when the host's Serve returned.
+	returned chan struct{}
 }
 
 func service(t *testing.T, dir, name, extra string) string {
@@ -151,14 +155,22 @@ func (f *fixture) start(t *testing.T) {
 		Launch:    f.launch,
 		Packs:     f.packs,
 		Suite:     f.suite,
+		Follow:    f.follow,
+		Version:   "1.0.0",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	srv.followEvery, srv.followQuiet = 10*time.Millisecond, 50*time.Millisecond
 	f.srv = srv
 	ctx, cancel := context.WithCancel(context.Background())
 	served := make(chan error, 1)
-	go func() { served <- srv.Serve(ctx) }()
+	returned := make(chan struct{})
+	f.returned = returned
+	go func() {
+		served <- srv.Serve(ctx)
+		close(returned)
+	}()
 	// Once: a test that starts the host again leaves two cleanups to stop it.
 	f.stop = sync.OnceFunc(func() {
 		cancel()
@@ -518,6 +530,9 @@ func TestARunStopsWaitingForAnAnswer(t *testing.T) {
 func TestRefusals(t *testing.T) {
 	f := newFixture(t, "")
 	ann := *f.announcement(t)
+	// Announcements of the test's making, not read from the project: a run
+	// reads the project's again as it connects.
+	ann.dir = ""
 	bad := ann
 	bad.Token = "not-the-token"
 	_, err := Open(context.Background(), &bad, Request{}, io.Discard, io.Discard)

@@ -98,14 +98,31 @@ func (t *Terminal) Approve(ctx context.Context, q Question) (bool, error) {
 			head += ", which changed since you last approved it"
 		}
 	}
+	prompt := "approve? [y/N] "
+	if q.Restart != nil {
+		// The host's own: a restart on another axx, which it does by itself
+		// unless what a start runs of the project changed, or the axx is older.
+		head = fmt.Sprintf("%s: the host would restart on it, and asks you first", q.Restart.why())
+		prompt = "restart? [y/N] "
+	}
 	out := []string{"", head}
 	shown := Diff(q.Approved, q.Proposed.Text)
-	if q.What != "" && q.Approved == "" {
+	switch {
+	case q.Restart != nil && q.Approved == q.Proposed.Text:
+		shown = ""
+	case q.Restart != nil:
+		out = append(out, "a restart builds the project's packs again and runs the commands axx.yaml has around `axx host`, on this machine and as you; they changed since the host started:")
+		shown = strings.Replace(shown, "--- approved\n+++ proposed\n", "--- as the host started\n+++ now\n", 1)
+	}
+	if q.What != "" && q.Approved == "" && q.Restart == nil {
 		// A pack's first question has nothing to compare with: what it
 		// would start, as it is, without the line that names it again.
 		shown = strings.TrimPrefix(q.Proposed.Text, q.What+"\n")
 	}
 	for _, line := range strings.Split(strings.TrimSuffix(shown, "\n"), "\n") {
+		if shown == "" {
+			break
+		}
 		switch {
 		case t.color && strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
 			line = "\x1b[32m" + line + "\x1b[0m"
@@ -125,7 +142,7 @@ func (t *Terminal) Approve(ctx context.Context, q Question) (bool, error) {
 	}
 	t.println(out...)
 	t.drain()
-	t.ask("approve? [y/N] ")
+	t.ask(prompt)
 	for {
 		select {
 		case <-ctx.Done():
@@ -220,6 +237,8 @@ func (t *Terminal) Event(e Event) {
 		}
 	case "pack":
 		t.println(fmt.Sprintf("%s: %s (%s)", e.Pack, e.Text, e.Command))
+	case "version":
+		t.println("axx host: " + e.Text)
 	}
 }
 
@@ -290,13 +309,17 @@ func (a *IDE) Approve(ctx context.Context, q Question) (bool, error) {
 	}
 	a.next++
 	id := a.next
+	version := ""
+	if q.Restart != nil {
+		version = q.Restart.Version
+	}
 	ch := make(chan bool, 1)
 	a.pending[id] = ch
 	a.mu.Unlock()
 	a.events(Event{
 		Event: "approval", ID: id, Run: q.Run, Command: q.Command,
 		Approved: q.Approved, Proposed: q.Proposed.Text, Diff: Diff(q.Approved, q.Proposed.Text), Warnings: q.Proposed.Warnings,
-		Text: q.What,
+		Text: q.What, Version: version,
 	})
 	select {
 	case ok := <-ch:
