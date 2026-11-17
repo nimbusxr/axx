@@ -220,6 +220,12 @@ the skills instead: `axx skills install`.
   match it whatever the plugin's release; until then, and when axx can't give them, they use copies they bundle: IntelliJ's from
   the copy `go generate` keeps in its folder, VS Code's (never published) copied at its build. Keep `axx schema --kind <k> --out`
   working in every release: an editor asks every axx a project may run on.
+- `internal/progress`: what axx says while a step takes time. A step starts with one line on standard error
+  (`App.step`, or `progress.On(log).Start` where code is handed a writer), which a person at a terminal sees live
+  (how long, how far a download is) and everything else as plain lines, with `axx: still ...` each half minute
+  (an agent, CI, a pipe, `--json`: `App.report` decides). What is quick most times says nothing unless it takes
+  a second (`IfSlow`). Keep it so: whatever can take more than a second starts a step, nothing else rewrites a
+  line, and no step wraps a child that writes to the terminal itself.
 - `internal/selfupdate` (`axx upgrade`): axx's releases on GitHub, what changed between two, and replacing the running axx
   with a release's, checked against its checksums, as `scripts/install.sh` and `install.ps1` do.
 - `internal/mirror`: where axx and its packs download other projects' files, from their sites or an organization's mirrors

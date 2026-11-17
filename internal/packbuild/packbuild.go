@@ -34,6 +34,7 @@ import (
 	"github.com/nimbusxr/axx/internal/filelock"
 	"github.com/nimbusxr/axx/internal/gotool"
 	"github.com/nimbusxr/axx/internal/packset"
+	"github.com/nimbusxr/axx/internal/progress"
 )
 
 // Error codes.
@@ -158,14 +159,17 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 	for _, e := range o.Entries {
 		names = append(names, e.Raw)
 	}
+	// Downloading the packs' modules and building them takes a while the
+	// first time: the line says so while it does (o.Log may be a Reporter).
+	what := "preparing " + strings.Join(names, ", ")
 	switch {
 	case o.Debug:
-		fmt.Fprintln(o.Log, "axx: preparing a build for debugging (once; cached for later runs)")
+		what = "preparing a build for debugging"
 	case len(names) == 0:
-		fmt.Fprintln(o.Log, "axx: preparing (once; cached for later runs)")
-	default:
-		fmt.Fprintf(o.Log, "axx: preparing %s (once; cached for later runs)\n", strings.Join(names, ", "))
+		what = "preparing"
 	}
+	step := progress.On(o.Log).Start("axx: "+what+" (once; cached for later runs)", what)
+	defer step.Done()
 	start := time.Now()
 
 	if err := os.WriteFile(filepath.Join(src, "go.mod"), goMod(o, locals), 0o644); err != nil {
@@ -223,6 +227,7 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 	if err := os.Rename(tmp, bin); err != nil {
 		return nil, err
 	}
+	step.Done()
 	fmt.Fprintf(o.Log, "axx: ready in %s\n", time.Since(start).Round(100*time.Millisecond))
 	return &Result{Binary: bin, Lock: lock}, nil
 }

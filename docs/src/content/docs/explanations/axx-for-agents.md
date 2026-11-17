@@ -27,6 +27,13 @@ Agents invent plausible step text, and Gherkin punishes near-misses. Axx makes t
 
 When Axx detects an agent and its output is not a terminal, it switches to compact output: failures and one summary line. A green run of a thousand scenarios costs one line of context. Details are one call away (`axx run --json`, or the `failure_context` MCP tool). Lookups are short in compact output too: `axx steps show` gives a step's documentation and first example, `axx pack show` a pack's first paragraph, with its steps when the project lacks it, and `axx schema` the outline of its keys. `--full` gives the rest.
 
+Some steps take a while: downloading a release or the docs, preparing a project's packs the first time, checking a project after an upgrade. Axx says what it is doing in one line as each starts. What comes after depends on who reads:
+
+- **A person at a terminal** sees that line live, with a mark that turns, the time it has taken, and how far a download is. When the step ends, the line is left as it started.
+- **An agent, CI, a pipe or `--json`** gets nothing that rewrites a line. A step that goes on says so once every half minute, in a short line such as `axx: still preparing rest, sql (1m30s)`. A two-minute step costs four lines, and neither the agent nor a harness that ends a silent command takes Axx for stuck.
+
+All of it goes to standard error, so a command's result on standard output stays clean.
+
 ## Stay in sync with the installed version
 
 Documentation drifts; binaries do not. The MCP server, `axx steps`, the skills and the reference pages on this site are all generated from the binary (ADR 0005), so an agent that asks the tool gets answers for the version in the repository, including that project's custom packs.

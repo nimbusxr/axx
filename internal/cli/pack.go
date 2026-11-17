@@ -375,7 +375,7 @@ or, without one, the latest.`,
 			}
 			info := version.Get()
 			res, err := packbuild.Ensure(cmd.Context(), packbuild.Options{
-				ProjectDir: dir, Entries: entries, Lock: lock, AxxVersion: info.Version, AxxSource: axxSource(info), Log: app.Stderr,
+				ProjectDir: dir, Entries: entries, Lock: lock, AxxVersion: info.Version, AxxSource: axxSource(info), Log: app.report(),
 			})
 			if err != nil {
 				return err
