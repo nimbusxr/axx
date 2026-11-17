@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.5](https://github.com/nimbusxr/axx/compare/v0.7.4...v0.7.5) (2026-11-17)
+
+
+### Features
+
+* axx says what it is doing while a step takes time ([#363](https://github.com/nimbusxr/axx/issues/363)) ([57d00cf](https://github.com/nimbusxr/axx/commit/57d00cf47367e9fb5e8542af5965bba7a8d71b31))
+* **host:** the axx host restarts by itself on the version of axx the project runs on ([#361](https://github.com/nimbusxr/axx/issues/361)) ([3f3a12d](https://github.com/nimbusxr/axx/commit/3f3a12d416729631ee0327a95bf423d65be26247))
+
 ## [0.7.4](https://github.com/nimbusxr/axx/compare/v0.7.3...v0.7.4) (2026-11-16)
 
 
