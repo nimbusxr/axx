@@ -36,6 +36,13 @@
     },
     {
       "customType": "regex",
+      "description": "The Oracle the sql pack's integration tests run, pinned by its digest: its tag is given to each new Oracle release, and one may answer the driver another way (23.26.4 did, for VECTOR columns). A new digest merges when those tests pass on it.",
+      "managerFilePatterns": ["/^packs/sql/oracle_integration_test\\.go$/"],
+      "matchStrings": ["const oracleImage = \"(?<depName>[^:\"@]+):(?<currentValue>[^\"@]+)@(?<currentDigest>sha256:[a-f0-9]+)\""],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "description": "The Delve axx builds for --debug-steps. It must support the Go release axx is built with.",
       "managerFilePatterns": ["/^internal/cli/debugsteps\\.go$/"],
       "matchStrings": ["const delveVersion = \"(?<currentValue>[^\"]+)\""],

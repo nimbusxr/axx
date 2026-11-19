@@ -31,6 +31,9 @@ type Service struct {
 	triggers   []*Trigger
 	lockConn   *dbsql.Conn
 	lockTx     *dbsql.Tx
+	// oracleColumns are the names of each table's columns, in its order, as the
+	// catalog last gave them with their types (oracleColumnTypes).
+	oracleColumns sync.Map
 }
 
 // Selection is a materialized query result (like DbUnit's ITable).

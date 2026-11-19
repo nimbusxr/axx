@@ -142,11 +142,12 @@ func (svc *Service) oracleColumnTypes(ctx context.Context, tbl string) (map[stri
 	schema, name := splitTable(tbl)
 	owner, table := svc.schemaExpr(schema), "UPPER("+d.Literal(name)+")"
 	for range 8 { // a synonym of a synonym, and never round and round
-		types, err := svc.oracleCatalogColumns(ctx, owner, table)
+		types, columns, err := svc.oracleCatalogColumns(ctx, owner, table)
 		if err != nil {
 			return nil, &columnTypesError{err}
 		}
 		if len(types) > 0 {
+			svc.oracleColumns.Store(strings.ToLower(tbl), columns)
 			return types, nil
 		}
 		var targetOwner, target string
@@ -164,20 +165,24 @@ func (svc *Service) oracleColumnTypes(ctx context.Context, tbl string) (map[stri
 	return nil, nil
 }
 
-func (svc *Service) oracleCatalogColumns(ctx context.Context, owner, table string) (map[string]string, error) {
+// oracleCatalogColumns is what the catalog says of a table's columns: their types by
+// their names in lower case, and their names in the table's order.
+func (svc *Service) oracleCatalogColumns(ctx context.Context, owner, table string) (map[string]string, []string, error) {
 	rows, err := svc.DB.QueryContext(ctx, "SELECT column_name, data_type, data_precision, data_scale FROM all_tab_columns WHERE owner = "+
-		owner+" AND table_name = "+table)
+		owner+" AND table_name = "+table+" ORDER BY column_id")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 	types := map[string]string{}
+	var columns []string
 	for rows.Next() {
 		var column, dataType string
 		var precision, scale dbsql.NullInt64
 		if err := rows.Scan(&column, &dataType, &precision, &scale); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		columns = append(columns, column)
 		if dataType == "NUMBER" && scale.Valid {
 			size := "*"
 			if precision.Valid {
@@ -188,10 +193,10 @@ func (svc *Service) oracleCatalogColumns(ctx context.Context, owner, table strin
 		types[strings.ToLower(column)] = dataType
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := rows.Close(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for column, dataType := range types {
 		if dataType != "VECTOR" {
@@ -205,7 +210,34 @@ func (svc *Service) oracleCatalogColumns(ctx context.Context, owner, table strin
 			types[column] = info.String
 		}
 	}
-	return types, nil
+	return types, columns, nil
+}
+
+// oracleSelectList is what a selection of the table asks for: every column, and a
+// VECTOR as its text, with the format of its numbers before it (oracleVector). The
+// driver reads a VECTOR column's description wrong as of Oracle 23.26.4
+// (sijms/go-ora#797 says what the server sends there), and so loses its place in
+// everything the server says after it ("invalid size for GetInt64"): asked for as
+// text, a vector is a CLOB to the driver, whatever the server's release.
+func (svc *Service) oracleSelectList(tbl string, types map[string]string) string {
+	vectors := false
+	for _, typeName := range types {
+		vectors = vectors || strings.HasPrefix(typeName, "VECTOR")
+	}
+	names, _ := svc.oracleColumns.Load(strings.ToLower(tbl))
+	columns, _ := names.([]string)
+	if !vectors || len(columns) == 0 {
+		return "*"
+	}
+	list := make([]string, len(columns))
+	for i, column := range columns {
+		name := `"` + strings.ReplaceAll(column, `"`, `""`) + `"`
+		list[i] = name
+		if strings.HasPrefix(types[strings.ToLower(column)], "VECTOR") {
+			list[i] = "VECTOR_DIMENSION_FORMAT(" + name + ") || FROM_VECTOR(" + name + " RETURNING CLOB) AS " + name
+		}
+	}
+	return strings.Join(list, ", ")
 }
 
 // oracleReaders are what turns the values of a result's columns, by their places in
@@ -226,7 +258,7 @@ func (svc *Service) oracleReaders(types map[string]string, cols []string) map[in
 		case oracleBinary(typeName):
 			out[i] = oracleHex
 		case strings.HasPrefix(typeName, "VECTOR"):
-			out[i] = oracleVector(typeName)
+			out[i] = oracleVector
 		case typeName == "XMLTYPE":
 			out[i] = oracleXML
 		case !known:
@@ -270,33 +302,39 @@ func oracleHex(v any) any {
 }
 
 // oracleVector is a VECTOR as the JSON array Oracle writes one as, of its numbers'
-// types. The driver gives a slice of floats, which reads as `[1 2 3]`, an INT8's as its
-// bytes, and a BINARY's as that array's text.
-func oracleVector(typeName string) func(any) any {
-	return func(v any) any {
-		var numbers []string
-		switch x := v.(type) {
-		case []float32:
-			for _, n := range x {
-				numbers = append(numbers, storedJSON(n))
-			}
-		case []float64:
-			for _, n := range x {
-				numbers = append(numbers, storedJSON(n))
-			}
-		case string:
-			if !strings.Contains(typeName, "INT8") {
-				return x
-			}
-			for _, b := range []byte(x) {
-				numbers = append(numbers, strconv.Itoa(int(int8(b))))
-			}
-		default:
-			return v
-		}
-		return "[" + strings.Join(numbers, ",") + "]"
+// types: [1.0,2.0,3.0] for floats, [1,-2] for an INT8's. It reads what
+// oracleSelectList asks for: the format of the vector's numbers, and the vector as
+// Oracle's text, which writes a float as 1.0E+000 and a float of 32 bits to nine
+// digits (1.00000001E-001 for 0.1). A sparse vector keeps Oracle's form: its length,
+// its places and its numbers.
+func oracleVector(v any) any {
+	text, ok := v.(string)
+	if !ok {
+		return v
 	}
+	i := strings.IndexByte(text, '[')
+	if i < 0 {
+		return v
+	}
+	bits := 64
+	if text[:i] == "FLOAT32" {
+		bits = 32
+	}
+	return oracleVectorFloat.ReplaceAllStringFunc(text[i:], func(number string) string {
+		f, err := strconv.ParseFloat(number, bits)
+		if err != nil {
+			return number
+		}
+		if bits == 32 {
+			return storedJSON(float32(f))
+		}
+		return storedJSON(f)
+	})
 }
+
+// oracleVectorFloat is a float in Oracle's text of a vector: a whole number, of an
+// INT8 vector or of a sparse one's places, has no fraction and no exponent.
+var oracleVectorFloat = regexp.MustCompile(`-?[0-9]+(?:\.[0-9]+(?:[Ee][+-]?[0-9]+)?|[Ee][+-]?[0-9]+)`)
 
 // float32Decimal is the number as it was written, and not float32's nearest in a
 // float64: 0.1, not 0.10000000149011612.
