@@ -122,7 +122,7 @@ func TestDb2(t *testing.T) {
 	}
 	db := db2ForTest(t, url, user, password)
 	t.Cleanup(func() {
-		for _, table := range []string{"pickups", "seeded", "always_id", depot + ".shelves"} {
+		for _, table := range []string{"pickups", "seeded", "always_id", "trigger_parcels", depot + ".shelves"} {
 			_, _ = db.Exec("DROP TABLE " + table)
 		}
 		_, _ = admin.Exec("DROP SCHEMA " + schema + " RESTRICT")
@@ -141,7 +141,13 @@ func TestDb2(t *testing.T) {
 			planned_at TIMESTAMP, created_at TIMESTAMP, details CLOB(1M), photo BLOB(1M), stamp VARCHAR(8) FOR BIT DATA)`,
 		`CREATE TABLE always_id (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, reference VARCHAR(40))`,
 		`CREATE TABLE ` + depot + `.shelves (code VARCHAR(10) NOT NULL PRIMARY KEY, parcels INT)`,
+		`CREATE TABLE trigger_parcels (id BIGINT GENERATED ALWAYS AS IDENTITY, reference VARCHAR(40) NOT NULL PRIMARY KEY, status VARCHAR(20), kilos DECIMAL(10,2))`,
 	} {
+		if _, err := db.Exec(s); err != nil {
+			t.Fatalf("%s: %v", s, err)
+		}
+	}
+	for _, s := range triggerRows("trigger_parcels") {
 		if _, err := db.Exec(s); err != nil {
 			t.Fatalf("%s: %v", s, err)
 		}
@@ -320,7 +326,7 @@ func TestDb2(t *testing.T) {
 		for _, c := range []struct{ seed, want string }{
 			{"seeded:\n  - id: 7001\n    reference: PX-DB2-1\n", "a row with that key is already there"},
 			{"seeded:\n  - no_such_column: PX-DB2-3\n", "seeded has the columns ID, REFERENCE"},
-			{"seedd:\n  - reference: PX-DB2-3\n", "has the tables ALWAYS_ID, PICKUPS, SEEDED"},
+			{"seedd:\n  - reference: PX-DB2-3\n", "has the tables ALWAYS_ID, PICKUPS, SEEDED, TRIGGER_PARCELS"},
 			{depot + ".shelfs:\n  - code: A-2\n", "the schema " + depot + " has the tables SHELVES"},
 			{"always_id:\n  - id: 41\n    reference: PX-DB2-ALWAYS\n", "Db2 lets no row set a GENERATED ALWAYS column"},
 		} {
@@ -426,10 +432,130 @@ func TestDb2(t *testing.T) {
 		}
 	})
 
-	t.Run("triggers are another database's", func(t *testing.T) {
-		err := h.step("a before insert trigger on the pickups table will raise an 23505 exception 1 time where:", []string{"reference", "PX-DB2-T1"})
-		if err == nil || !strings.Contains(err.Error(), "PostgreSQL") {
-			t.Errorf("a trigger on Db2: %v", err)
+	t.Run("triggers", func(t *testing.T) {
+		insert := func(ref string) error {
+			_, err := db.Exec("INSERT INTO trigger_parcels (reference, status, kilos) VALUES ('" + ref + "', 'REGISTERED', 1.5)")
+			return err
+		}
+		stored := func(ref string) int {
+			t.Helper()
+			var n int
+			if err := db.QueryRow("SELECT COUNT(*) FROM trigger_parcels WHERE reference = '" + ref + "'").Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			return n
+		}
+		// Db2 gives the state the trigger raised, with its own code for an
+		// error a trigger raises.
+		raised := func(what string, err error, state string) {
+			t.Helper()
+			var e *db2.Error
+			if !errors.As(err, &e) || e.SQLState != state || e.Code != -438 || !strings.Contains(e.Message, "axx simulated exception (sqlState: "+state+")") {
+				t.Errorf("%s: %v, want SQL0438N with SQLSTATE %s", what, err, state)
+			}
+		}
+
+		h.ok("a before insert trigger on the trigger_parcels table will raise a 40001 exception 1 time where:", []string{"reference", "PX-DB2-T1"})
+		raised("the first insert", insert("PX-DB2-T1"), "40001")
+		if err := insert("PX-DB2-T1"); err != nil {
+			t.Errorf("the second insert: %v", err)
+		}
+		if err := insert("PX-DB2-OTHER"); err != nil {
+			t.Errorf("a row it does not match: %v", err)
+		}
+		h.ok("the before insert trigger on the trigger_parcels table was raised 1 time")
+		if err := h.step("the before insert trigger on the trigger_parcels table was raised 2 times"); err == nil {
+			t.Error("a wrong count passed")
+		}
+
+		// A state with letters, in lower case as a feature may write it, and
+		// every matching insert.
+		h.ok("a 2nd ordered before insert trigger on the trigger_parcels table will raise a 57p01 exception where:",
+			[]string{"reference", "PX-DB2-T2"}, []string{"status", "REGISTERED"})
+		for range 2 {
+			raised("an insert it always refuses", insert("PX-DB2-T2"), "57P01")
+		}
+		if n := stored("PX-DB2-T2"); n != 0 {
+			t.Errorf("the failed insert stored %d rows", n)
+		}
+		h.ok("the 2nd ordered before insert trigger on the trigger_parcels table was raised 2 times")
+
+		// The row stays, and the insert fails: a write that succeeded and reported a failure.
+		h.ok("a 3rd ordered before insert trigger on the trigger_parcels table will insert and raise a 08006 exception where:", []string{"reference", "PX-DB2-T3"})
+		raised("insert and raise", insert("PX-DB2-T3"), "08006")
+		if n := stored("PX-DB2-T3"); n != 1 {
+			t.Errorf("insert and raise stored %d rows, want 1", n)
+		}
+		// Again: a key the row has already is no other failure.
+		raised("insert and raise, once more", insert("PX-DB2-T3"), "08006")
+		h.ok("the 3rd ordered before insert trigger on the trigger_parcels table was raised 2 times")
+
+		// Only that many are kept and refused; the one after them is an insert like any other.
+		h.ok("a 4th ordered before insert trigger on the trigger_parcels table will insert and raise a 40001 exception 1 time where:", []string{"reference", "PX-DB2-T4"})
+		raised("the first, kept", insert("PX-DB2-T4"), "40001")
+		if n := stored("PX-DB2-T4"); n != 1 {
+			t.Errorf("the first stored %d rows, want 1", n)
+		}
+		if err := insert("PX-DB2-T4"); err == nil || db2Code(err) != -803 {
+			t.Errorf("the second, of a key the table has: %v", err)
+		}
+		h.ok("the 4th ordered before insert trigger on the trigger_parcels table was raised 1 time")
+
+		for _, c := range []struct {
+			code string
+			rows []string
+			want string
+		}{
+			{"ORA-20001", []string{"reference", "PX-DB2-T5"}, "is an Oracle error"},
+			{"01000", []string{"reference", "PX-DB2-T5"}, "fails nothing on Db2"},
+			{"00000", []string{"reference", "PX-DB2-T5"}, "fails nothing on Db2"},
+			{"40001", []string{"kilos", "2"}, "write 2.0"},
+			{"40001", []string{"no_such_column", "1"}, "before insert trigger"},
+		} {
+			err := h.step(fmt.Sprintf("a before insert trigger on the trigger_parcels table will raise a %s exception where:", c.code), c.rows)
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Errorf("%s %v: %v, want %s", c.code, c.rows, err, c.want)
+			}
+		}
+
+		if err := mustService(t, h).dropTriggers(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if left := db2Leftovers(t, db); left != 0 {
+			t.Errorf("%d of the triggers' objects left", left)
+		}
+		if err := insert("PX-DB2-T5"); err != nil {
+			t.Errorf("after the triggers: %v", err)
 		}
 	})
+
+	t.Run("update and delete triggers", func(t *testing.T) {
+		updateAndDeleteTriggers(t, h, db, "trigger_parcels", "40001")
+		if left := db2Leftovers(t, db); left != 0 {
+			t.Errorf("%d of the triggers' objects left", left)
+		}
+	})
+
+	t.Run("JSONB is another database's", func(t *testing.T) {
+		err := h.step("a selection of rows is retrieved from the pickups table where the details jsonb column contains:", []string{"zone", "DE-1"})
+		if err == nil || !strings.Contains(err.Error(), "PostgreSQL") {
+			t.Errorf("JSONB containment on Db2: %v", err)
+		}
+	})
+}
+
+// db2Leftovers counts what triggers' steps make, in the test's schema:
+// triggers, procedures, variables and sequences.
+func db2Leftovers(t *testing.T, db *dbsql.DB) int {
+	t.Helper()
+	var n int
+	if err := db.QueryRow(`SELECT
+		(SELECT COUNT(*) FROM syscat.triggers WHERE trigschema = CURRENT SCHEMA AND trigname LIKE 'AXX\_%' ESCAPE '\') +
+		(SELECT COUNT(*) FROM syscat.routines WHERE routineschema = CURRENT SCHEMA AND routinename LIKE 'AXX\_%' ESCAPE '\') +
+		(SELECT COUNT(*) FROM syscat.variables WHERE varschema = CURRENT SCHEMA AND varname LIKE 'AXX\_%' ESCAPE '\') +
+		(SELECT COUNT(*) FROM syscat.sequences WHERE seqschema = CURRENT SCHEMA AND seqname LIKE 'AXX\_%' ESCAPE '\')
+		FROM sysibm.sysdummy1`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
 }

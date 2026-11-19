@@ -181,7 +181,7 @@ func TestUpdateAndDeleteTriggersPostgres(t *testing.T) {
 	}
 }
 
-// Only PostgreSQL and Oracle have them, and the others say so.
+// Only PostgreSQL, Oracle and Db2 have them, and the others say so.
 func TestUpdateAndDeleteTriggersOnlyWhereThereAreSome(t *testing.T) {
 	path := t.TempDir() + "/parcels.db"
 	exec(t, "sqlite", path, "CREATE TABLE parcels (reference TEXT PRIMARY KEY)")
@@ -189,7 +189,7 @@ func TestUpdateAndDeleteTriggersOnlyWhereThereAreSome(t *testing.T) {
 	h.db("sqlite:" + path)
 	for _, kind := range []string{"update", "delete"} {
 		err := h.step("a before "+kind+" trigger on the parcels table will raise a 40001 exception where:", []string{"reference", "PX-1"})
-		if err == nil || !strings.Contains(err.Error(), "Only PostgreSQL and Oracle") {
+		if err == nil || !strings.Contains(err.Error(), "Only PostgreSQL, Oracle and Db2") {
 			t.Errorf("a before %s trigger on SQLite: %v", kind, err)
 		}
 	}

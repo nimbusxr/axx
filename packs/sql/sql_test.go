@@ -378,6 +378,26 @@ func TestDb2Values(t *testing.T) {
 	if db2Code(&db2.Error{Code: -420}) != -420 || db2Code(errors.New("another")) != 0 || !db2Conversions[-420] {
 		t.Error("Db2's code of an error")
 	}
+	// The SQLSTATE a trigger raises.
+	for code, want := range map[string]string{
+		"40001": "40001", "57p01": "57P01", "ORA-20001": "is an Oracle error", "4000": "is no SQLSTATE", "40 01": "is no SQLSTATE",
+		"00000": "fails nothing on Db2", "01004": "fails nothing on Db2", "02000": "fails nothing on Db2",
+	} {
+		got, err := db2State(code)
+		if err != nil {
+			got = err.Error()
+		}
+		if !strings.Contains(got, want) {
+			t.Errorf("%s: %s, want %s", code, got, want)
+		}
+	}
+	tr := &Trigger{Function: "AXX_P_1A2B", RaisedSequence: "AXX_R_1A2B"}
+	if got := db2Variable(tr); got != "AXX_V_1A2B" {
+		t.Errorf("the trigger's variable is %s", got)
+	}
+	if got, want := db2RaisedQuery(tr), "SELECT INT(nextcachefirstvalue) - 1 FROM syscat.sequences WHERE seqschema = CURRENT SCHEMA AND seqname = 'AXX_R_1A2B'"; got != want {
+		t.Errorf("the count is asked\n %s\nwant\n %s", got, want)
+	}
 }
 
 // What H2 is given for a JSON column says it is JSON, and for a column of bytes that

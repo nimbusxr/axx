@@ -1,6 +1,6 @@
 // Package sql provides database steps: services, seeds, selections (with
 // polling and JSONB containment), JSON column assertions, row locks and
-// trigger fault injection, before a row's insert, update or delete (PostgreSQL and Oracle).
+// trigger fault injection, before a row's insert, update or delete (PostgreSQL, Oracle and Db2).
 package sql
 
 import (
@@ -38,7 +38,7 @@ func (pack) Manifest() core.Manifest {
 		Name:      "sql",
 		Namespace: "sql",
 		Doc: "Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and " +
-			"trigger fault injection); Oracle has all of it but JSONB; MySQL/MariaDB, SQL Server, Db2 and H2 support seeds, selections, row counts and locks, " +
+			"trigger fault injection); Oracle and Db2 have all of it but JSONB; MySQL/MariaDB, SQL Server and H2 support seeds, selections, row counts and locks, " +
 			"and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.",
 		Params: []core.ParamType{
 			{
