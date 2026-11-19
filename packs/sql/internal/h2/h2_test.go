@@ -2,11 +2,18 @@ package h2
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"database/sql"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"math"
+	"math/big"
 	"net"
 	"os"
 	"path/filepath"
@@ -157,6 +164,8 @@ type server struct {
 		zone          string
 	}
 	lobReads int
+	// tls makes it a server started with -tcpSSL.
+	tls *tls.Config
 }
 
 func (s *server) serve(nc net.Conn) {
@@ -249,6 +258,9 @@ func (s *server) start(cfg Config) *sql.DB {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		s.t.Fatal(err)
+	}
+	if s.tls != nil {
+		l = tls.NewListener(l, s.tls)
 	}
 	s.t.Cleanup(func() { _ = l.Close() })
 	go func() {
@@ -564,5 +576,49 @@ func TestAnotherVersion(t *testing.T) {
 	db := s.start(Config{Database: "mem:parcels", User: "sa"})
 	if err := db.PingContext(context.Background()); err == nil || !strings.Contains(err.Error(), "version 22") {
 		t.Errorf("version 22: %v", err)
+	}
+}
+
+// A server's certificate is held to what the machine trusts and to the server's
+// name, as H2's own client holds it: H2's built-in certificate, which every H2
+// server shows unless it is given another, is no one's to trust.
+func TestTLS(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "parcels-db"},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}, DNSNames: []string{"parcels-db"},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(cert)
+	one := map[string]func(*wire){"SELECT 1": func(w *wire) {
+		w.writeInt(1)
+		w.writeLong(1)
+		writeColumn(w, 21, "1", func() { w.writeInt(valInteger) })
+		w.writeByte(1)
+		w.writeInt(valInteger)
+		w.writeInt(1)
+	}}
+	served := &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}}, MinVersion: tls.VersionTLS12}
+
+	s := &server{t: t, version: 21, results: one, tls: served}
+	if err := s.start(Config{Database: "mem:parcels", User: "sa", TLS: true, RootCAs: roots}).PingContext(context.Background()); err != nil {
+		t.Errorf("a certificate the client trusts: %v", err)
+	}
+	s = &server{t: t, version: 21, results: one, tls: served}
+	err = s.start(Config{Database: "mem:parcels", User: "sa", TLS: true}).PingContext(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "is not one this machine trusts") || !strings.Contains(err.Error(), "javax.net.ssl.keyStore") {
+		t.Errorf("a certificate no one vouches for: %v", err)
 	}
 }

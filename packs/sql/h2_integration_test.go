@@ -5,6 +5,7 @@ package sql
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/x509"
 	dbsql "database/sql"
 	"encoding/hex"
 	"errors"
@@ -84,7 +85,7 @@ func h2Jar(t *testing.T, version, sum string) string {
 }
 
 // h2Container runs H2's jar in a container that has Java, in the databases' zone.
-func h2Container(t *testing.T, jar string, port, ready string, cmd []string, modify func(*testcontainers.ContainerRequest)) (host, mapped string) {
+func h2Container(t *testing.T, jar string, port, ready string, cmd []string, modify func(*testcontainers.ContainerRequest)) (host, mapped string, c testcontainers.Container) {
 	t.Helper()
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
@@ -116,7 +117,7 @@ func h2Container(t *testing.T, jar string, port, ready string, cmd []string, mod
 	if err != nil {
 		t.Fatal(err)
 	}
-	return host, p.Port()
+	return host, p.Port(), c
 }
 
 // h2Server starts a real H2 server of a release, with a database in its memory,
@@ -127,7 +128,7 @@ func h2Server(t *testing.T, version, sum, scheme string) (url string) {
 	if scheme == "ssl" {
 		cmd = append(cmd, "-tcpSSL")
 	}
-	host, port := h2Container(t, h2Jar(t, version, sum), "9092", "TCP server running", cmd, nil)
+	host, port, _ := h2Container(t, h2Jar(t, version, sum), "9092", "TCP server running", cmd, nil)
 	return fmt.Sprintf("jdbc:h2:%s://%s:%s/mem:parcels;DB_CLOSE_DELAY=-1", scheme, host, port)
 }
 
@@ -471,23 +472,62 @@ depot.shelves:
 	}
 }
 
-// A server started with -tcpSSL is reached over TLS (jdbc:h2:ssl:).
+// A server started with -tcpSSL is reached over TLS (jdbc:h2:ssl:), when its
+// certificate is one the machine trusts. H2's built-in certificate, which a server
+// shows unless it is given another, is not: H2's own client refuses it too.
 func TestH2OverTLS(t *testing.T) {
 	release := h2Releases[len(h2Releases)-1]
-	url := h2Server(t, release.version, release.sum, "ssl")
-	db := h2ForTest(t, url)
-	if _, err := db.Exec("CREATE TABLE parcels (reference VARCHAR(40) PRIMARY KEY, kilos DECIMAL(10,2))"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec("INSERT INTO parcels VALUES ('PX-TLS-1', 2.50)"); err != nil {
-		t.Fatal(err)
-	}
-	h := newHarness(t)
-	h.ok("a parcels-db database with the following properties:", []string{"url", url}, []string{"user", "sa"}, []string{"password", ""})
-	h.ok("a selection of rows is retrieved from the parcels table where:", []string{"reference", "PX-TLS-1"}, []string{"kilos", "2.5"})
-	if all := mustService(t, h).Selections(); len(all[len(all)-1].Rows) != 1 {
-		t.Errorf("the row: %v", all[len(all)-1].Rows)
-	}
+
+	t.Run("H2's built-in certificate is refused", func(t *testing.T) {
+		url := h2Server(t, release.version, release.sum, "ssl")
+		h := newHarness(t)
+		h.ok("a parcels-db database with the following properties:", []string{"url", url}, []string{"user", "sa"}, []string{"password", ""})
+		err := h.step("a selection of rows is retrieved from the parcels table where:", []string{"reference", "PX-TLS-1"})
+		if err == nil || !strings.Contains(err.Error(), "is not one this machine trusts") {
+			t.Errorf("a server with H2's built-in certificate: %v", err)
+		}
+	})
+
+	t.Run("a certificate of the server's own is trusted by who trusts it", func(t *testing.T) {
+		const store = "-keystore /tmp/h2.p12 -storetype PKCS12 -storepass parcels-store -alias h2"
+		host, port, c := h2Container(t, h2Jar(t, release.version, release.sum), "9092", "TCP server running", []string{
+			"sh", "-c",
+			"keytool -genkeypair -keyalg RSA -keysize 2048 -validity 2 -dname CN=parcels-db -ext SAN=dns:localhost,ip:127.0.0.1 " + store +
+				" && keytool -exportcert -rfc -file /tmp/h2.pem " + store +
+				" && exec java -Djavax.net.ssl.keyStore=/tmp/h2.p12 -Djavax.net.ssl.keyStorePassword=parcels-store" +
+				" -cp /h2.jar org.h2.tools.Server -tcp -tcpSSL -tcpAllowOthers -ifNotExists",
+		}, nil)
+		r, err := c.CopyFileFromContainer(context.Background(), "/tmp/h2.pem")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Close()
+		pem, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(pem) {
+			t.Fatalf("the server's certificate: %s", pem)
+		}
+		cfg, err := h2.ParseURL(fmt.Sprintf("jdbc:h2:ssl://%s:%s/mem:parcels;DB_CLOSE_DELAY=-1", host, port), "sa", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg.RootCAs = roots
+		db := dbsql.OpenDB(h2.NewConnector(cfg))
+		defer db.Close()
+		if _, err := db.Exec("CREATE TABLE parcels (reference VARCHAR(40) PRIMARY KEY, kilos DECIMAL(10,2))"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec("INSERT INTO parcels VALUES ('PX-TLS-1', 2.50)"); err != nil {
+			t.Fatal(err)
+		}
+		var kilos string
+		if err := db.QueryRow("SELECT kilos FROM parcels WHERE reference = 'PX-TLS-1'").Scan(&kilos); err != nil || kilos != "2.50" {
+			t.Errorf("over TLS: %q, %v", kilos, err)
+		}
+	})
 }
 
 // A service that opens a file database for itself with AUTO_SERVER=TRUE listens for
@@ -507,7 +547,7 @@ func TestH2AutoServer(t *testing.T) {
 	port := strconv.Itoa(l.Addr().(*net.TCPAddr).Port)
 	_ = l.Close()
 	// The service: H2's own shell, which has the database open for as long as it runs.
-	h2Container(t, h2Jar(t, release.version, release.sum), port, "Welcome to H2 Shell",
+	_, _, _ = h2Container(t, h2Jar(t, release.version, release.sum), port, "Welcome to H2 Shell",
 		[]string{"java", "-cp", "/h2.jar", "org.h2.tools.Shell", "-url", "jdbc:h2:file:/data/parcels;AUTO_SERVER=TRUE;AUTO_SERVER_PORT=" + port, "-user", "sa", "-password", ""},
 		func(req *testcontainers.ContainerRequest) {
 			req.ConfigModifier = func(c *mobycontainer.Config) { c.OpenStdin, c.Tty = true, true }

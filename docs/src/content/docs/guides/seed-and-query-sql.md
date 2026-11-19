@@ -213,7 +213,7 @@ Given a parcels-db database with the following properties:
   | password |                                        |
 ```
 
-A server started with `-tcpSSL` has a `jdbc:h2:ssl://` URL.
+A server started with `-tcpSSL` has a `jdbc:h2:ssl://` URL. axx holds its certificate to what the machine trusts, as H2's own client does. An H2 server shows H2's built-in certificate, the same for everyone, unless it is started with one of its own (`javax.net.ssl.keyStore`), and neither client accepts the built-in one.
 
 ### The service opens a file database itself
 

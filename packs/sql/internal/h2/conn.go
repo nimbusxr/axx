@@ -14,6 +14,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"database/sql/driver"
 	"encoding/binary"
 	"encoding/hex"
@@ -65,6 +66,9 @@ type Config struct {
 	Addr string
 	// TLS is for a server started with -tcpSSL (jdbc:h2:ssl:).
 	TLS bool
+	// RootCAs are the authorities a server's certificate is held to: the
+	// machine's when nil.
+	RootCAs *x509.CertPool
 	// Database is the database's name as the server knows it: a path under
 	// its base directory, or mem:name.
 	Database string
@@ -164,9 +168,16 @@ func dial(ctx context.Context, cfg Config) (net.Conn, error) {
 	var nc net.Conn
 	var err error
 	if cfg.TLS {
-		// H2's server makes its own certificate when it starts, as its own
-		// client expects: there is no authority to hold it to.
-		nc, err = (&tls.Dialer{NetDialer: &d, Config: &tls.Config{InsecureSkipVerify: true}}).DialContext(ctx, "tcp", addr) //nolint:gosec // see above
+		// The server's certificate is held to what this machine trusts, and to
+		// the server's name, as any TLS client holds one.
+		host, _, _ := net.SplitHostPort(addr)
+		nc, err = (&tls.Dialer{NetDialer: &d, Config: &tls.Config{ServerName: host, RootCAs: cfg.RootCAs, MinVersion: tls.VersionTLS12}}).DialContext(ctx, "tcp", addr)
+		var refused *tls.CertificateVerificationError
+		if errors.As(err, &refused) {
+			return nil, fmt.Errorf("h2: the certificate of the server at %s is not one this machine trusts: %w. "+
+				"An H2 server shows H2's built-in certificate, the same for everyone, which H2's own client refuses too, "+
+				"unless it is started with a certificate of its own (javax.net.ssl.keyStore)", addr, err)
+		}
 	} else {
 		nc, err = d.DialContext(ctx, "tcp", addr)
 	}
