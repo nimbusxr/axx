@@ -59,6 +59,9 @@ func (svc *Service) columnTypes(ctx context.Context, tbl string) (map[string]str
 			types[name] = svc.postgresTypeName(ctx, t)
 		}
 	}
+	if svc.Target.Dialect.Name == db2db.Name {
+		svc.db2Booleans(ctx, tbl, types)
+	}
 	return types, nil
 }
 
@@ -90,12 +93,12 @@ func (svc *Service) postgresTypeName(ctx context.Context, t string) string {
 // singlePrecision says a column holds a float of 32 bits, whose value a number of 64
 // bits is not: 0.1 in one is 0.10000000149011612 in the other, so `= 0.1` finds nothing
 // (PostgreSQL's, MySQL's and MariaDB's way of comparing them) and it reads as that
-// (PostgreSQL's driver's, SQL Server's and H2's). SQLite's REAL has 64.
+// (PostgreSQL's driver's, SQL Server's, H2's and Db2's). SQLite's REAL has 64.
 func (d Dialect) singlePrecision(typeName string) bool {
 	switch {
 	case d.Postgres:
 		return typeName == "FLOAT4"
-	case d.Name == sqlserver.Name, d.Name == h2db.Name:
+	case d.Name == sqlserver.Name, d.Name == h2db.Name, d.Name == db2db.Name:
 		return typeName == "REAL"
 	case d.Name == mysql.Name:
 		return normalizeType(typeName) == "FLOAT"
@@ -123,6 +126,10 @@ func (svc *Service) comparisons(types map[string]string) func(left, column strin
 			// JSON as JSON, and bytes in hex.
 			return left + " = " + h2Value(typeName, d.Value(v))
 		}
+		if d.Name == db2db.Name {
+			// Bytes in hex.
+			return left + " = " + db2Value(typeName, d.Value(v))
+		}
 		return left + " = " + d.Value(v)
 	}
 }
@@ -137,7 +144,7 @@ func (d Dialect) readers(types []*dbsql.ColumnType) map[int]func(any) any {
 			out[i] = singlePrecisionValue
 		case d.Name == sqlserver.Name && name == "UNIQUEIDENTIFIER":
 			out[i] = sqlServerUUID
-		case d.Name == h2db.Name && h2Binary(name):
+		case d.Name == h2db.Name && h2Binary(name), d.Name == db2db.Name && db2Binary(name):
 			out[i] = oracleHex
 		}
 	}
@@ -249,7 +256,7 @@ func keepStored(sel *Selection, conditions []untypedCondition) {
 }
 
 // charTypes pad what they hold with blanks up to their size.
-var charTypes = []string{"CHAR", "BPCHAR", "NCHAR", "CHARACTER", "NATIONAL CHARACTER", "NATIONAL CHAR"}
+var charTypes = []string{"CHAR", "BPCHAR", "NCHAR", "CHARACTER", "NATIONAL CHARACTER", "NATIONAL CHAR", "GRAPHIC"}
 
 // The forms a date or a time takes in a check, with an offset or without.
 var (
@@ -322,7 +329,7 @@ func (d Dialect) zoneless(typeName string) bool {
 	switch {
 	case d.Oracle:
 		return name == "DATE" || name == "TIMESTAMP"
-	case d.Postgres, d.Name == h2db.Name:
+	case d.Postgres, d.Name == h2db.Name, d.Name == db2db.Name:
 		return name == "DATE" || name == "TIME" || name == "TIMESTAMP"
 	case d.Name == mysql.Name:
 		return name == "DATE" || name == "TIME" || name == "DATETIME" || name == "TIMESTAMP"
@@ -509,6 +516,9 @@ func keepContaining(sel *Selection, column string, pairs []core.Pair) {
 //   - axx's H2 client (internal/h2): the standard's names, as H2 writes them
 //     (CHARACTER VARYING, CHARACTER LARGE OBJECT, NUMERIC, DOUBLE PRECISION,
 //     TIMESTAMP WITH TIME ZONE), without their sizes.
+//   - axx's Db2 client (internal/db2): Db2's names without their sizes
+//     (INTEGER, DECIMAL, DECFLOAT, VARCHAR, VARCHAR FOR BIT DATA, GRAPHIC, CLOB,
+//     DBCLOB, XML), and BOOLEAN by the catalog (db2Booleans).
 func (d Dialect) columnKind(typeName string) (columntype.Kind, bool) {
 	if d.Oracle {
 		if kind, known, isNumber := oracleNumberKind(typeName); isNumber {
@@ -568,6 +578,7 @@ var columnKinds = func() map[string]columntype.Kind {
 	add(columntype.Boolean, "BOOL", "BOOLEAN")
 	add(columntype.Text, "CHAR", "VARCHAR", "VARCHAR2", "NCHAR", "NVARCHAR", "NVARCHAR2", "BPCHAR", "CHARACTER", "CHARACTER VARYING",
 		"VARYING CHARACTER", "NATIONAL CHARACTER", "NATIONAL CHAR", "NATIVE CHARACTER", "TEXT", "NTEXT", "TINYTEXT", "MEDIUMTEXT",
-		"LONGTEXT", "CITEXT", "NAME", "CLOB", "NCLOB", "LONG", "CHARACTER LARGE OBJECT", "VARCHAR_IGNORECASE")
+		"LONGTEXT", "CITEXT", "NAME", "CLOB", "NCLOB", "LONG", "CHARACTER LARGE OBJECT", "VARCHAR_IGNORECASE",
+		"GRAPHIC", "VARGRAPHIC", "DBCLOB")
 	return m
 }()

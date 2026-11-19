@@ -26,6 +26,8 @@ func (svc *Service) databaseNow(ctx context.Context) (time.Time, error) {
 		q = "SELECT DATE_FORMAT(NOW(6), '%Y-%m-%d %H:%i:%s.%f'), TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(6), NOW(6))"
 	case d.Name == sqlserver.Name:
 		q = "SELECT CONVERT(varchar(26), SYSDATETIME(), 121), DATEPART(TZOFFSET, SYSDATETIMEOFFSET())"
+	case d.Name == db2db.Name:
+		q = db2Now
 	default:
 		return time.Now(), nil
 	}

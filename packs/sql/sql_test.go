@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/columntype"
+	"github.com/nimbusxr/axx/packs/sql/internal/db2"
 )
 
 func TestResolve(t *testing.T) {
@@ -38,8 +41,8 @@ func TestResolve(t *testing.T) {
 	if tgt.Port != "15432" || tgt.Database != "space" {
 		t.Errorf("postgres target: %+v", tgt)
 	}
-	if _, err := Resolve("jdbc:db2://x:50000/parcels", "u", "p"); err == nil {
-		t.Error("unsupported URL must error")
+	if _, err := Resolve("jdbc:nosuchdb://x:50000/parcels", "u", "p"); err == nil || !strings.Contains(err.Error(), "jdbc:db2") {
+		t.Errorf("an unsupported URL: %v", err)
 	}
 	for _, c := range []struct{ url, part string }{
 		{"jdbc:oracle:thin:@//db.test:1522/FREEPDB1", "db.test:1522/FREEPDB1"},
@@ -309,6 +312,71 @@ func TestResolveH2(t *testing.T) {
 	}
 	if _, err := Resolve("jdbc:h2:tcp://localhost", "sa", ""); err == nil || strings.Contains(err.Error(), "AUTO_SERVER") {
 		t.Errorf("a URL with no database: %v", err)
+	}
+}
+
+func TestResolveDb2(t *testing.T) {
+	tgt, err := Resolve("jdbc:db2://localhost:50000/parcels:currentSchema=DEPOT;sslConnection=true;", "app", "secret")
+	if err != nil || tgt.Dialect.Name != "db2" || tgt.Db2 == nil || tgt.Db2.Addr != "localhost:50000" || tgt.Db2.Database != "parcels" ||
+		tgt.Db2.Schema != "DEPOT" || !tgt.Db2.TLS || tgt.Db2.User != "app" || tgt.Db2.Password != "secret" {
+		t.Errorf("%+v, %v", tgt, err)
+	}
+	// Each user of a database has a pool of its own.
+	other, _ := Resolve("jdbc:db2://localhost:50000/parcels:currentSchema=DEPOT;sslConnection=true;", "clerk", "secret")
+	if other.DSN == tgt.DSN {
+		t.Error("two users share a pool")
+	}
+	if tgt, err := Resolve("db2://db.test/PARCELS", "app", "secret"); err != nil || tgt.Db2.Addr != "db.test:50000" {
+		t.Errorf("%+v, %v", tgt, err)
+	}
+	for url, want := range map[string]string{
+		"jdbc:db2://localhost:50000": "names no database",
+		"jdbc:db2:parcels":           "is not a URL of a Db2 server",
+		"jdbc:db2://localhost:50000/parcels:securityMechanism=11;": "securityMechanism=11 is not one this client speaks",
+	} {
+		if _, err := Resolve(url, "app", "secret"); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v, want %s", url, err, want)
+		}
+	}
+}
+
+// What Db2 is given for a column of bytes says it is hex: Db2 reads a plain string
+// as its own bytes, or refuses it.
+func TestDb2Values(t *testing.T) {
+	for _, c := range []struct{ typ, literal, want string }{
+		{"BLOB", "'CAFE'", "BX'CAFE'"},
+		{"VARBINARY", "'cafe'", "BX'cafe'"},
+		{"BINARY", "'ABC'", "'ABC'"},
+		{"VARCHAR FOR BIT DATA", "'00FF'", "BX'00FF'"},
+		{"CHAR FOR BIT DATA", "'not hex'", "'not hex'"},
+		{"VARCHAR", "'CAFE'", "'CAFE'"},
+		{"BLOB", "NULL", "NULL"},
+		{"INTEGER", "7", "7"},
+	} {
+		if got := db2Value(c.typ, c.literal); got != c.want {
+			t.Errorf("%s %s: %s, want %s", c.typ, c.literal, got, c.want)
+		}
+	}
+	if got := db2SeedValue(map[string]string{"photo": "BLOB"}, "PHOTO", "'CAFE'"); got != "BX'CAFE'" {
+		t.Errorf("a seed's bytes: %s", got)
+	}
+	// The types Db2's client names, as the pack classes them.
+	for typ, kind := range map[string]columntype.Kind{
+		"INTEGER": columntype.Integer, "SMALLINT": columntype.Integer, "BIGINT": columntype.Integer, "DECIMAL": columntype.Decimal,
+		"DECFLOAT": columntype.Decimal, "DOUBLE": columntype.Decimal, "REAL": columntype.Decimal, "BOOLEAN": columntype.Boolean,
+		"CHAR": columntype.Text, "VARCHAR": columntype.Text, "CLOB": columntype.Text, "GRAPHIC": columntype.Text, "VARGRAPHIC": columntype.Text,
+		"DBCLOB": columntype.Text, "DATE": columntype.Other, "TIMESTAMP": columntype.Other, "XML": columntype.Other, "BLOB": columntype.Other,
+		"VARCHAR FOR BIT DATA": columntype.Other,
+	} {
+		if got, known := db2db.columnKind(typ); got != kind || !known {
+			t.Errorf("%s is of kind %v, want %v", typ, got, kind)
+		}
+	}
+	if !db2db.singlePrecision("REAL") || db2db.singlePrecision("DOUBLE") || !db2db.zoneless("TIMESTAMP") || db2db.holdsMoment("TIMESTAMP") {
+		t.Error("a REAL is of 32 bits, and a TIMESTAMP has no zone")
+	}
+	if db2Code(&db2.Error{Code: -420}) != -420 || db2Code(errors.New("another")) != 0 || !db2Conversions[-420] {
+		t.Error("Db2's code of an error")
 	}
 }
 

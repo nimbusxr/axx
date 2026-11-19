@@ -64,6 +64,27 @@ func TestSeedErrorsNameTheColumnsAndTables(t *testing.T) {
 			t.Errorf("not a duplicate key: %s", msg)
 		}
 	}
+	// Db2's errors, as its messages word them, and the catalog a hint asks.
+	for msg, pattern := range map[string]interface{ MatchString(string) bool }{
+		`db2: SQL0803N  An error or warning occurred.  One or more values in the INSERT statement ... constrains table "APP.SEEDED" from having duplicate values for the index key.`: duplicateKey,
+		`db2: SQL0204N  "APP.SEEDD" is an undefined name.`:                                                 unknownTable,
+		`db2: SQL0206N  "NO_SUCH_COLUMN" is not valid in the context where it is used.`:                    unknownColumn,
+		`db2: SQL0798N  A value cannot be specified for column "ID" which is defined as GENERATED ALWAYS.`: alwaysIdentity,
+	} {
+		if !pattern.MatchString(msg) {
+			t.Errorf("not recognized: %s", msg)
+		}
+	}
+	onDb2 := &Service{Target: Target{Dialect: db2db}}
+	for got, want := range map[string]string{
+		onDb2.columnsQuery("", "seeded"):       "SELECT colname FROM syscat.columns WHERE tabschema = CURRENT SCHEMA AND tabname = UPPER('seeded') ORDER BY colno",
+		onDb2.columnsQuery("depot", "shelves"): "SELECT colname FROM syscat.columns WHERE tabschema = UPPER('depot') AND tabname = UPPER('shelves') ORDER BY colno",
+		onDb2.tablesQuery("depot"):             "SELECT tabname FROM syscat.tables WHERE tabschema = UPPER('depot') AND type = 'T' ORDER BY tabname",
+	} {
+		if got != want {
+			t.Errorf("Db2's catalog is asked\n %s\nwant\n %s", got, want)
+		}
+	}
 	// Any other refusal is left as the database words it.
 	err = seed("scans:\n  - id: null\n")
 	if err == nil || strings.Contains(err.Error(), "; ") {

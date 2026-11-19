@@ -14,6 +14,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/sql/internal/db2"
 	"github.com/nimbusxr/axx/packs/sql/internal/h2"
 )
 
@@ -47,6 +48,9 @@ var (
 	sqlserver = Dialect{Name: "sqlserver", Driver: "sqlserver", ForUpdateHint: " WITH (UPDLOCK, ROWLOCK)", BitBooleans: true}
 	oracle    = Dialect{Name: "oracle", Driver: "oracle", ForUpdate: " FOR UPDATE WAIT 10", BitBooleans: true, Oracle: true, TimeOffset: true}
 	h2db      = Dialect{Name: "h2", Driver: "h2", ForUpdate: " FOR UPDATE"}
+	// Db2 lets go of a row's lock as its cursor moves on, unless the query
+	// asks it to keep them until the transaction ends.
+	db2db = Dialect{Name: "db2", Driver: "db2", ForUpdate: " WITH RS USE AND KEEP EXCLUSIVE LOCKS"}
 )
 
 // Target is a resolved connection target.
@@ -57,6 +61,8 @@ type Target struct {
 	Host, Port, Database string
 	// H2 is how to reach an H2 database, which has no DSN: its client is axx's own.
 	H2 *h2.Config
+	// Db2 is how to reach a Db2 database, whose client is axx's own too.
+	Db2 *db2.Config
 }
 
 // Resolve converts a JDBC URL (as used in feature files) or a native URL into
@@ -75,11 +81,13 @@ func Resolve(rawURL, user, password string) (Target, error) {
 		return resolveOracle(u, user, password)
 	case strings.HasPrefix(lower, "jdbc:h2:"), strings.HasPrefix(lower, "h2:"):
 		return resolveH2(u, user, password)
+	case strings.HasPrefix(lower, "jdbc:db2:"), strings.HasPrefix(lower, "db2://"):
+		return resolveDb2(u, user, password)
 	case strings.HasPrefix(lower, "jdbc:sqlite:"), strings.HasPrefix(lower, "sqlite:"), strings.HasPrefix(lower, "file:"):
 		path := strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(u, "jdbc:"), "sqlite:"), "//")
 		return Target{Dialect: sqlite, DSN: path}, nil
 	}
-	return Target{}, fmt.Errorf("unsupported database URL %q (supported: jdbc:postgresql, jdbc:mysql, jdbc:mariadb, jdbc:sqlserver, jdbc:oracle, jdbc:h2, jdbc:sqlite, or native postgres://, mysql://, sqlserver://, oracle:// URLs)", rawURL)
+	return Target{}, fmt.Errorf("unsupported database URL %q (supported: jdbc:postgresql, jdbc:mysql, jdbc:mariadb, jdbc:sqlserver, jdbc:oracle, jdbc:db2, jdbc:h2, jdbc:sqlite, or native postgres://, mysql://, sqlserver://, oracle://, db2:// URLs)", rawURL)
 }
 
 func resolvePostgres(raw, user, password string) (Target, error) {

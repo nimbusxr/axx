@@ -236,11 +236,11 @@ jobs:
         # and TorchScript's (PyTorch) have parts of their own; ONNX's, the longest (7.5 minutes),
         # are in two: transformers.js's, and the rest; and safetensors' Whisper transcriptions in
         # transformers (6 minutes) are in two: the English ones, and the rest with the other
-        # formats of p to s. The packs' tests are in four: the SQL pack's (4.7 minutes, Oracle's
-        # 1.9), internal/packbuild's two builds of axx with packs, one after the other (4.4
-        # minutes, and 2.5 with its other test), and the rest (3 minutes on the runner's four
-        # processors).
-        part: [packs, packs-sql, packbuild, packbuild-up, models-a-d, models-e-f, models-gguf, models-h-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-safetensors-en, models-t, models-torchscript, models-u-z]
+        # formats of p to s. The packs' tests are in five: the SQL pack's (4.7 minutes, Oracle's
+        # 1.9), its Db2 tests, whose image is 7 GB to pull, internal/packbuild's two builds of
+        # axx with packs, one after the other (4.4 minutes, and 2.5 with its other test), and the
+        # rest (3 minutes on the runner's four processors).
+        part: [packs, packs-sql, packs-sql-db2, packbuild, packbuild-up, models-a-d, models-e-f, models-gguf, models-h-k, models-l-m, models-n-o, models-onnx-js, models-p-s, models-safetensors-en, models-t, models-torchscript, models-u-z]
     env:
       PART: ${{ matrix.part }}
     steps:
@@ -278,7 +278,7 @@ jobs:
           models=$(go list ./packs/models/... | grep -v /packs/models/web)
           case "$PART" in
             packs) mapfile -t packages < <(go list ./packs/... ./internal/engine/... | grep -v -e /packs/web -e /packs/mobile -e /packs/models/ -e '/packs/sql$') ;;
-            packs-sql) packages=(./packs/sql) ;;
+            packs-sql | packs-sql-db2) packages=(./packs/sql) ;;
             packbuild | packbuild-up) packages=(./internal/packbuild) ;;
             models-a-d) mapfile -t packages < <(grep -v -E '/format/[e-z]' <<< "$models") ;;
             models-e-f) mapfile -t packages < <(grep -E '/format/[e-f]' <<< "$models") ;;
@@ -316,6 +316,8 @@ jobs:
             models-p-s) select=(-skip '^TestTransformersTranscribesAsTheStubSays$/English') ;;
             packbuild-up) select=(-run '^TestUpRunDownWithPacks$') ;;
             packbuild) select=(-skip '^TestUpRunDownWithPacks$') ;;
+            packs-sql-db2) select=(-run '^TestDb2') ;;
+            packs-sql) select=(-skip '^TestDb2') ;;
             *) select=(-skip '^TestWebLLM') ;;
           esac
           GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${parallel[@]}" "${select[@]}" "${packages[@]}"
