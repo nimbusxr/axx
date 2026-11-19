@@ -216,8 +216,9 @@ The URL is the one IBM's JDBC driver takes, so you can give axx the URL the serv
 | `currentSchema` | The schema of a table named without one. Without it, that is the schema named after the user. |
 | `sslConnection=true` | Connects with TLS, to the port the server speaks TLS on. |
 | `sslCertLocation` | A file of certificates, in PEM, that the server's certificate is held to. Without it, that is the certificates the machine trusts. |
+| `securityMechanism` | How the user is proved: `3`, a user and a password as they are; `7`, the password encrypted; `9`, the user and the password encrypted. Without it, axx takes the way the server takes. |
 
-The other properties are for IBM's driver, and axx leaves them alone, but for one: a `securityMechanism` other than `3`, a user and a password as they are, is one axx does not speak, and the step says so.
+The other properties are for IBM's driver, and axx leaves them alone. A `securityMechanism` other than those three is one axx does not speak, and the step says so.
 
 ### Start Db2 for your tests
 
@@ -327,7 +328,8 @@ No setting makes a start short: most of it is Db2 starting, not the database bei
 
 ### Db2's own ways
 
-- **A user and a password.** axx logs in with a user and a password, as IBM's JDBC driver does by default. They travel as they are, so use `sslConnection=true` where the network is not yours. A server that takes only passwords encrypted its own way (`AUTHENTICATION SERVER_ENCRYPT`), Kerberos or a plug-in is not one axx can log in to, and the step says so.
+- **A user and a password.** axx logs in with a user and a password, as IBM's JDBC driver does by default. They travel as they are to a server that takes them so, and encrypted to one that does not (`AUTHENTICATION SERVER_ENCRYPT`), with no setting. That encryption is DRDA's own, of DES, which IBM's documentation says is not for a network that is not secure: where the network is not yours, use `sslConnection=true`.
+- **What axx does not log in with.** A server that takes passwords encrypted with AES only (`ALTERNATE_AUTH_ENC AES_ONLY`), Kerberos or a plug-in is not one axx can log in to, and the step says so. Under the encryption, a user and a password are in EBCDIC, so one with a character outside ASCII needs a server that takes it as it is.
 - **Names are in upper case.** Db2 folds a name that is not quoted to upper case, so a message names `PARCELS` and `REFERENCE`. Write names in a feature in either case.
 - **Errors are Db2's own.** A step that Db2 refuses shows Db2's message, like `SQL0204N  "DEPOT.SHELFS" is an undefined name.`
 - **Bytes are written in hex.** A `BINARY`, `VARBINARY` or `BLOB` column, and a `CHAR` or `VARCHAR` column `FOR BIT DATA`, takes and reads as `DEADBEEF`.

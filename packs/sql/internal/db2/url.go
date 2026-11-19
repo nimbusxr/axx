@@ -15,10 +15,10 @@ import (
 //
 // It reads the properties that say where the database is and how to reach
 // it: currentSchema, sslConnection and sslCertLocation (a file of the
-// certificates, in PEM, a TLS server's own is held to). It refuses a
-// securityMechanism other than a user and a password as they are, which is
-// the one this client speaks, and leaves the other properties to the driver
-// they are for.
+// certificates, in PEM, a TLS server's own is held to) and securityMechanism,
+// of which it speaks three: a user and a password as they are (3), and
+// encrypted (7 and 9). It refuses any other, and leaves the other properties
+// to the driver they are for.
 func ParseURL(raw, user, password string) (Config, error) {
 	rest, ok := strings.CutPrefix(raw, "jdbc:")
 	if !ok {
@@ -68,8 +68,15 @@ func ParseURL(raw, user, password string) (Config, error) {
 				return Config{}, fmt.Errorf("db2: sslCertLocation's file %s holds no certificate in PEM", value)
 			}
 		case "securitymechanism":
-			if value != "3" {
-				return Config{}, fmt.Errorf("db2: securityMechanism=%s is not one this client speaks: it sends a user and a password as they are (3), over TLS when the URL says sslConnection=true", value)
+			switch value {
+			case "3":
+				cfg.Mechanism = secUserPassword
+			case "7":
+				cfg.Mechanism = secEncryptedPassword
+			case "9":
+				cfg.Mechanism = secEncryptedUserPassword
+			default:
+				return Config{}, fmt.Errorf("db2: securityMechanism=%s is not one this client speaks: it sends a user and a password as they are (3) or encrypted (7, the password, and 9, the user too)", value)
 			}
 		}
 	}

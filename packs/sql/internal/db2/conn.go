@@ -63,6 +63,11 @@ type Config struct {
 	// Schema is the schema names without one are looked up in
 	// (currentSchema): the user's own when empty.
 	Schema string
+	// Mechanism is how the user is proved (securityMechanism): 3, a user and
+	// a password as they are; 7, the password encrypted; 9, both encrypted.
+	// When 0, it is as they are for a server that takes them so, and
+	// encrypted for one that does not.
+	Mechanism int
 }
 
 // Connector opens connections to one database.
@@ -301,37 +306,83 @@ func (c *conn) logIn() error {
 	var rdbnam buf
 	rdbnam.padded(database, 18, c.space())
 
-	var sec buf
-	sec.param16(cpSECMEC, secUserPassword)
-	sec.param(cpRDBNAM, rdbnam.b)
-	if err := c.write(chain([]part{command(cpACCSEC, &sec)})); err != nil {
-		return err
-	}
-	items, err := c.read()
-	if err != nil {
-		return err
-	}
-	for _, it := range items {
-		if it.cp != cpACCSECRD {
-			if err := c.refusal(it); err != nil {
-				return err
-			}
-			continue
-		}
-		ps, err := params(it.data)
+	// The server says which ways it takes a user by: as they are when it
+	// takes them so, and otherwise encrypted, the user too when it can be. A
+	// URL that names a way gets that one.
+	mechanism := c.cfg.Mechanism
+	if mechanism == 0 || mechanism == secUserPassword {
+		offered, _, err := c.accessSecurity(secUserPassword, rdbnam.b, nil)
 		if err != nil {
 			return err
 		}
-		if mechs := ps[cpSECMEC]; !offers(mechs, secUserPassword) {
-			return fmt.Errorf("db2: the server takes a user and a password only encrypted its own way (security mechanisms %s), which this client does not speak: connect over TLS to a server whose AUTHENTICATION is SERVER", mechanisms(mechs))
+		switch {
+		case offers(offered, secUserPassword):
+			mechanism = secUserPassword
+		case mechanism == secUserPassword:
+			return fmt.Errorf("db2: the server does not take a user and a password as they are, which the URL's securityMechanism=3 asks for (it offers the security mechanisms %s)", mechanisms(offered))
+		default:
+			for _, m := range encrypted {
+				if offers(offered, m) {
+					mechanism = m
+					break
+				}
+			}
+			if mechanism == 0 {
+				return fmt.Errorf("db2: the server takes a user in none of the ways this client speaks, a user and a password as they are or encrypted (it offers the security mechanisms %s)", mechanisms(offered))
+			}
 		}
 	}
-
 	var chk buf
-	chk.param16(cpSECMEC, secUserPassword)
-	chk.param(cpRDBNAM, rdbnam.b)
-	chk.param(cpUSRID, user)
-	chk.param(cpPASSWORD, password)
+	if mechanism == secUserPassword {
+		chk.param16(cpSECMEC, mechanism)
+		chk.param(cpRDBNAM, rdbnam.b)
+		chk.param(cpUSRID, user)
+		chk.param(cpPASSWORD, password)
+	} else {
+		ours, err := newAgreement()
+		if err != nil {
+			return err
+		}
+		accepted, theirs, err := c.accessSecurity(mechanism, rdbnam.b, ours.public())
+		if err != nil {
+			return err
+		}
+		if !offers(accepted, mechanism) {
+			return fmt.Errorf("db2: the server does not take security mechanism %d (it offers %s)", mechanism, mechanisms(accepted))
+		}
+		if len(theirs) == 0 {
+			// It takes the mechanism and gives no key for the standard's cipher.
+			return errors.New("db2: the server takes a password encrypted with another cipher than the one this client speaks, the standard's DES (a Db2 whose ALTERNATE_AUTH_ENC is AES_ONLY): connect over TLS to a server that takes a user and a password as they are")
+		}
+		key, err := ours.key(theirs)
+		if err != nil {
+			return err
+		}
+		// Under the cipher, a user and a password are in EBCDIC, whatever
+		// names travel in.
+		who, ok := toEBCDIC(c.cfg.User)
+		word, ok2 := toEBCDIC(c.cfg.Password)
+		if !ok || !ok2 {
+			return errors.New("db2: the server takes a user and a password encrypted, in EBCDIC, where this one has a character with no place: connect over TLS to a server that takes them as they are")
+		}
+		from := token(mechanism, who, theirs)
+		secret, err := encrypt(key, from, word)
+		if err != nil {
+			return err
+		}
+		chk.param16(cpSECMEC, mechanism)
+		chk.param(cpRDBNAM, rdbnam.b)
+		if mechanism == secEncryptedUserPassword {
+			hidden, err := encrypt(key, from, who)
+			if err != nil {
+				return err
+			}
+			chk.param(cpSECTKN, hidden)
+		} else {
+			chk.param(cpUSRID, user)
+		}
+		chk.param(cpSECTKN, secret)
+	}
 
 	var acc buf
 	acc.param(cpRDBNAM, rdbnam.b)
@@ -349,7 +400,7 @@ func (c *conn) logIn() error {
 	if err := c.write(chain([]part{command(cpSECCHK, &chk)}, []part{command(cpACCRDB, &acc)})); err != nil {
 		return err
 	}
-	items, err = c.read()
+	items, err := c.read()
 	if err != nil {
 		return err
 	}
@@ -396,6 +447,45 @@ func (c *conn) logIn() error {
 		return fmt.Errorf("%w: it did not say the database is open", errProtocol)
 	}
 	return nil
+}
+
+// encrypted are the security mechanisms this client speaks for a server
+// that takes no password as it is, the one it would rather have first: the
+// user encrypted too.
+var encrypted = []int{secEncryptedUserPassword, secEncryptedPassword}
+
+// accessSecurity asks the server to take a user by a security mechanism,
+// with this side's key for one that encrypts, and gives the mechanisms the
+// server answers with (the one asked for when it takes it, and otherwise
+// those it takes) and its own key.
+func (c *conn) accessSecurity(mechanism int, rdbnam, key []byte) (mechs, serverKey []byte, err error) {
+	var sec buf
+	sec.param16(cpSECMEC, mechanism)
+	sec.param(cpRDBNAM, rdbnam)
+	if key != nil {
+		sec.param(cpSECTKN, key)
+	}
+	if err := c.write(chain([]part{command(cpACCSEC, &sec)})); err != nil {
+		return nil, nil, err
+	}
+	items, err := c.read()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, it := range items {
+		if it.cp != cpACCSECRD {
+			if err := c.refusal(it); err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
+		ps, err := params(it.data)
+		if err != nil {
+			return nil, nil, err
+		}
+		mechs, serverKey = ps[cpSECMEC], ps[cpSECTKN]
+	}
+	return mechs, serverKey, nil
 }
 
 func ccsid(b []byte) int {

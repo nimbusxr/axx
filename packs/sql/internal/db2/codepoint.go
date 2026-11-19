@@ -108,7 +108,9 @@ const (
 	mgrUNICODEMGR = 0x1C08
 
 	// Ways to prove a user.
-	secUserPassword = 3 // a user and a password, as they are
+	secUserPassword          = 3 // a user and a password, as they are
+	secEncryptedPassword     = 7 // a user, and a password encrypted
+	secEncryptedUserPassword = 9 // both encrypted
 
 	// Why a user was refused (SECCHKCD).
 	secOK              = 0x00

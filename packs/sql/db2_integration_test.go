@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,12 +32,21 @@ const (
 	db2Startup = 8 * time.Minute
 )
 
+var (
+	db2Once      sync.Once
+	db2URL       string
+	db2Container testcontainers.Container
+	// db2Failed is why the package's Db2 did not start, and db2Missing why
+	// there is no Docker to start it with.
+	db2Failed, db2Missing string
+)
+
 // db2Server is a Db2 with a parcels database, and how to log in to it: the
 // one AXX_DB2_TEST_URL names, with AXX_DB2_TEST_USER and the password in the
-// file AXX_DB2_TEST_PASSWORD_FILE names, or one this starts, which takes a
-// minute or two. The image's first start archives logs and tunes Db2 to the
-// machine unless it is told not to (ARCHIVE_LOGS, AUTOCONFIG), and each takes
-// minutes a test's database has no use for.
+// file AXX_DB2_TEST_PASSWORD_FILE names, or one container for the package,
+// which takes a minute or two to start. The image's first start archives
+// logs and tunes Db2 to the machine unless it is told not to (ARCHIVE_LOGS,
+// AUTOCONFIG), which a test's database has no use for.
 func db2Server(t *testing.T) (url, user, password string) {
 	t.Helper()
 	if url := os.Getenv("AXX_DB2_TEST_URL"); url != "" {
@@ -46,51 +56,57 @@ func db2Server(t *testing.T) (url, user, password string) {
 		}
 		return url, os.Getenv("AXX_DB2_TEST_USER"), strings.TrimSpace(string(pw))
 	}
-	ctx := context.Background()
-	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: testcontainers.ContainerRequest{
-			Image: db2Image, ExposedPorts: []string{"50000/tcp"}, Privileged: true,
-			Env: map[string]string{
-				"LICENSE": "accept", "DB2INST1_PASSWORD": db2Password, "DBNAME": "parcels",
-				"AUTOCONFIG": "false", "ARCHIVE_LOGS": "false", "TZ": databaseZone,
+	db2Once.Do(func() {
+		ctx := context.Background()
+		c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+			ContainerRequest: testcontainers.ContainerRequest{
+				Image: db2Image, ExposedPorts: []string{"50000/tcp"}, Privileged: true,
+				Env: map[string]string{
+					"LICENSE": "accept", "DB2INST1_PASSWORD": db2Password, "DBNAME": "parcels",
+					"AUTOCONFIG": "false", "ARCHIVE_LOGS": "false", "TZ": databaseZone,
+				},
+				// Each wait has a minute of its own unless it is given more.
+				WaitingFor: wait.ForAll(
+					wait.ForLog("Setup has completed").WithStartupTimeout(db2Startup),
+					wait.ForListeningPort("50000/tcp").WithStartupTimeout(db2Startup),
+				).WithDeadline(db2Startup),
 			},
-			// Each wait has a minute of its own unless it is given more.
-			WaitingFor: wait.ForAll(
-				wait.ForLog("Setup has completed").WithStartupTimeout(db2Startup),
-				wait.ForListeningPort("50000/tcp").WithStartupTimeout(db2Startup),
-			).WithDeadline(db2Startup),
-		},
-		Started: true,
-	})
-	if c != nil {
-		t.Cleanup(func() { _ = c.Terminate(ctx) })
-	}
-	if err != nil && c != nil {
-		// Not a machine without Docker: a container that started and did not
-		// get ready, or stopped. Skipped, the test would prove nothing.
-		said := "no log"
-		if logs, lerr := c.Logs(ctx); lerr == nil {
-			b, _ := io.ReadAll(logs)
-			_ = logs.Close()
-			if len(b) > 3000 {
-				b = b[len(b)-3000:]
+			Started: true,
+		})
+		switch {
+		case err != nil && c != nil:
+			// Not a machine without Docker: a container that started and did
+			// not get ready, or stopped. Skipped, the tests would prove nothing.
+			said := "no log"
+			if logs, lerr := c.Logs(ctx); lerr == nil {
+				b, _ := io.ReadAll(logs)
+				_ = logs.Close()
+				if len(b) > 3000 {
+					b = b[len(b)-3000:]
+				}
+				said = string(b)
 			}
-			said = string(b)
+			_ = c.Terminate(ctx)
+			db2Failed = fmt.Sprintf("Db2 did not get ready: %v\nthe end of its log:\n%s", err, said)
+		case err != nil:
+			db2Missing = fmt.Sprintf("%s unavailable: %v", db2Image, err)
+		default:
+			host, herr := c.Host(ctx)
+			port, perr := c.MappedPort(ctx, "50000/tcp")
+			if herr != nil || perr != nil {
+				db2Failed = fmt.Sprintf("Db2's address: %v, %v", herr, perr)
+				return
+			}
+			db2Container, db2URL = c, fmt.Sprintf("jdbc:db2://%s:%s/parcels", host, port.Port())
 		}
-		t.Fatalf("Db2 did not get ready: %v\nthe end of its log:\n%s", err, said)
+	})
+	if db2Failed != "" {
+		t.Fatal(db2Failed)
 	}
-	if err != nil {
-		t.Skipf("%s unavailable: %v", db2Image, err)
+	if db2Missing != "" {
+		t.Skip(db2Missing)
 	}
-	host, err := c.Host(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	port, err := c.MappedPort(ctx, "50000/tcp")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return fmt.Sprintf("jdbc:db2://%s:%s/parcels", host, port.Port()), db2User, db2Password
+	return db2URL, db2User, db2Password
 }
 
 func db2ForTest(t *testing.T, url, user, password string) *dbsql.DB {
@@ -558,4 +574,60 @@ func db2Leftovers(t *testing.T, db *dbsql.DB) int {
 		t.Fatal(err)
 	}
 	return n
+}
+
+// A Db2 that takes no password as it is (AUTHENTICATION SERVER_ENCRYPT) is
+// logged in to with the user and the password encrypted, whether the URL
+// names the way or leaves it to axx.
+func TestDb2EncryptedPasswords(t *testing.T) {
+	server, user, password := db2Server(t)
+	if db2Container == nil {
+		t.Skip("this changes how the server takes a user: it needs the Db2 the tests start, not one of AXX_DB2_TEST_URL")
+	}
+	who := func(url, password string) (string, error) {
+		t.Helper()
+		var name string
+		err := db2ForTest(t, url, user, password).QueryRow("VALUES CURRENT USER").Scan(&name)
+		return strings.TrimSpace(name), err
+	}
+	// A Db2 that takes a password as it is takes it no other way, and says
+	// which ways it does.
+	if name, err := who(server+":securityMechanism=3;", password); err != nil || name != "DB2INST1" {
+		t.Errorf("securityMechanism=3 on a Db2 that takes a password as it is: %q, %v", name, err)
+	}
+	for _, mechanism := range []string{"7", "9"} {
+		_, err := who(server+":securityMechanism="+mechanism+";", password)
+		if err == nil || !strings.Contains(err.Error(), "the server does not take security mechanism "+mechanism+" (it offers 3") {
+			t.Errorf("securityMechanism=%s on a Db2 that takes a password as it is: %v", mechanism, err)
+		}
+	}
+
+	ctx := context.Background()
+	code, out, err := db2Container.Exec(ctx, []string{
+		"su", "-", db2User, "-c",
+		"db2 update dbm cfg using AUTHENTICATION SERVER_ENCRYPT && db2stop force && db2start && db2 activate db parcels",
+	})
+	if err != nil || code != 0 {
+		said, _ := io.ReadAll(out)
+		t.Fatalf("setting AUTHENTICATION SERVER_ENCRYPT: exit %d, %v\n%s", code, err, said)
+	}
+
+	// The steps, with the URL a feature would have: axx finds the way itself.
+	h := newHarness(t)
+	h.ok("a parcels-db database with the following properties:", []string{"url", server}, []string{"user", user}, []string{"password", password})
+	h.ok("a selection of rows is retrieved from the sysibm.sysdummy1 table where:", []string{"ibmreqd", "Y"})
+	if rows := len(mustService(t, h).Selections()[0].Rows); rows != 1 {
+		t.Errorf("%d rows selected, want 1", rows)
+	}
+	for _, mechanism := range []string{"7", "9"} {
+		if name, err := who(server+":securityMechanism="+mechanism+";", password); err != nil || name != "DB2INST1" {
+			t.Errorf("securityMechanism=%s: %q, %v", mechanism, name, err)
+		}
+	}
+	if _, err := who(server+":securityMechanism=3;", password); err == nil || !strings.Contains(err.Error(), "does not take a user and a password as they are") {
+		t.Errorf("securityMechanism=3 on a Db2 that takes no password as it is: %v", err)
+	}
+	if _, err := who(server, "not-the-password"); err == nil || !strings.Contains(err.Error(), "the password is not the user's") {
+		t.Errorf("a wrong password, encrypted: %v", err)
+	}
 }
