@@ -21,6 +21,7 @@ migrations and record it again with the commands below.
 | `mariadb` | `mariadb:11.4` (11.4.13) | its `mariadb-dump` |
 | `sqlserver` | `mcr.microsoft.com/mssql/server:2022-latest` (2022 CU27-GDR, 16.0.4305.5, amd64) | SqlPackage 170.5.96 on `mcr.microsoft.com/dotnet/runtime:10.0` (.NET 10.0.14, arm64) |
 | `oracle` | `gvenzl/oracle-free:23-slim-faststart` (Oracle AI Database 26ai Free 23.26.3) | `DBMS_METADATA.GET_DDL` through its SQL\*Plus 23.26.3 |
+| `db2` | `icr.io/db2_community/db2:12.1.5.0` (Db2 Community Edition 12.1.5.0, amd64) | its `db2look` 12.1 |
 | `sqlite` | `modernc.org/sqlite` v1.61.1 (SQLite 3.54.1) | the `sql` of `sqlite_master` |
 
 The images were these digests:
@@ -34,6 +35,7 @@ mariadb@sha256:d1891ede5a559f1086f55053bb8cc1569b0298338c4d72d71725a7f74f6ba620
 mcr.microsoft.com/mssql/server@sha256:cf8f0ab2ebe61feec2eed2629061a07d247f791c2a8ddda74a4ac9f06a291718
 mcr.microsoft.com/dotnet/runtime@sha256:4f1f30cf0bb4ab0c8b2daa84613051683456f8df4a9bf7c812e20d74962992ac
 gvenzl/oracle-free@sha256:f5ff19033860d662c821cb04eb10483fa94f14f78eae252d054291ea07028093
+icr.io/db2_community/db2@sha256:2de8151713c261843868c5c3411b57be6ae79d99d70a5b3022337836776bfda6
 ```
 
 SqlPackage is the NuGet package of the `microsoft.sqlpackage` .NET tool, which is
@@ -180,6 +182,40 @@ EOF
 docker exec axxdump-oracle sqlplus -s -L parcels/parcels@//localhost/FREEPDB1 @/tmp/get-ddl.sql > $DUMPS/oracle/schema.sql
 ```
 
+### Db2
+
+IBM's image starts only with `LICENSE=accept`, which accepts IBM's license for Db2 Community
+Edition (the image's `/licenses` folder): read it first. It is built for amd64, so an
+Apple-silicon Mac emulates it, and it was ready there after about 100 s: when the file its
+setup writes last is there and `db2 connect` succeeds.
+
+Db2's command line processor applies each migration in a `PARCELS` schema, as the instance's
+owner. `-s` stops at the first error, and the processor's exit code is under 4 for a warning,
+like that of `04`'s UPDATE, which finds no row. A table Db2 changed in some ways cannot be written
+until it is reorganized, which the migrations ask for (`CALL SYSPROC.ADMIN_CMD('REORG TABLE
+...')`), and Db2 renames no table that has a foreign key or is named by one, so
+`05-couriers.sql` drops the keys and adds them again. `db2look -e` writes every table with
+its schema, the name padded with blanks to eight characters (`"PARCELS "."DEPOTS"`); `-td @`
+ends each statement with `@`. Its header has the time it ran at, and nothing else changes
+from one run to the next.
+
+```sh
+docker run -d --name axxdump-db2 --network axxdump-net --platform linux/amd64 --privileged \
+  -e LICENSE=accept -e DB2INST1_PASSWORD=Parcels-Secret-1 -e DBNAME=parcels \
+  -e AUTOCONFIG=false -e ARCHIVE_LOGS=false icr.io/db2_community/db2:12.1.5.0
+db2() { docker exec axxdump-db2 su - db2inst1 -c "$1"; }
+until docker exec axxdump-db2 test -f /database/config/.shared-data/setup_complete && db2 "db2 connect to parcels" >/dev/null 2>&1; do sleep 2; done
+docker cp -q $DUMPS/db2/migrations axxdump-db2:/tmp/migrations
+docker exec axxdump-db2 chmod -R a+rX /tmp/migrations
+db2 "db2 connect to parcels && db2 'CREATE SCHEMA parcels'"
+for f in $DUMPS/db2/migrations/*.sql; do
+  db2 "db2 connect to parcels && db2 set current schema parcels && db2 -stvf /tmp/migrations/$(basename $f)" || [ $? -lt 4 ]
+done
+db2 "db2look -d parcels -z PARCELS -e -o /tmp/schema.sql && db2look -d parcels -z PARCELS -e -td @ -o /tmp/schema-terminator.sql"
+docker cp -q axxdump-db2:/tmp/schema.sql $DUMPS/db2/schema.sql
+docker cp -q axxdump-db2:/tmp/schema-terminator.sql $DUMPS/db2/schema-terminator.sql
+```
+
 ### SQLite
 
 A Go program applies each migration with `modernc.org/sqlite` (pure Go, foreign keys on) and
@@ -242,7 +278,7 @@ EOF
 ### Cleaning up
 
 ```sh
-docker rm -fv axxdump-pg16 axxdump-pg17 axxdump-pg18 axxdump-mysql axxdump-mariadb axxdump-mssql axxdump-oracle
+docker rm -fv axxdump-pg16 axxdump-pg17 axxdump-pg18 axxdump-mysql axxdump-mariadb axxdump-mssql axxdump-oracle axxdump-db2
 docker network rm axxdump-net
 rm -rf $SQLPACKAGE $SQLITEDUMP
 ```
@@ -262,4 +298,6 @@ is `STRICT` or the key is its `INTEGER` rowid):
   and not `rowversion`, in `sys.columns`.
 - Oracle: `nullable = 'N'`, no `data_default` (or `NULL`), `identity_column = 'NO'` and
   `virtual_column = 'NO'`, in `user_tab_cols`.
+- Db2: `nulls = 'N' AND default IS NULL AND identity = 'N' AND generated = ''` in
+  `syscat.columns`.
 - SQLite: an INSERT of every other column, for each column.

@@ -39,6 +39,8 @@ var (
 	sqlBlockLines = regexp.MustCompile(`(?im)^[ \t]*(?:GO(?:[ \t]+\d+)?|/)[ \t]*\r?$`)
 	// sqlDelimiterLine is the mysql client's DELIMITER, which changes what ends a statement.
 	sqlDelimiterLine = regexp.MustCompile(`(?i)^[ \t]*DELIMITER[ \t]+(\S+)`)
+	// sqlTerminatorLine is Db2's, in a comment its command line processor reads.
+	sqlTerminatorLine = regexp.MustCompile(`(?i)^[ \t]*--#SET[ \t]+TERMINATOR[ \t]+(\S+)`)
 )
 
 // sqlLexer splits SQL text into statements of tokens.
@@ -54,8 +56,9 @@ type sqlLexer struct {
 }
 
 // splitSQL splits a SQL file into its statements, each a list of tokens, leaving out comments,
-// psql's meta-commands (\restrict) and the mysql client's DELIMITER lines. A statement ends at
-// a ";" (or the delimiter DELIMITER set), a GO line (SQL Server) or a "/" line (SQL*Plus), and
+// psql's meta-commands (\restrict), the mysql client's DELIMITER lines and Db2's --#SET
+// TERMINATOR lines. A statement ends at a ";" (or the delimiter one of those lines set), a GO
+// line (SQL Server) or a "/" line (SQL*Plus), and
 // before a line that starts another (SQL Server's need no ";"). A routine or trigger runs on
 // past the ";" in its body: to the END that closes its BEGIN, or to the file's next GO or "/"
 // line when it has them.
@@ -149,12 +152,17 @@ func (l *sqlLexer) line() bool {
 		n = len(l.src) - l.i
 	}
 	line := l.src[l.i : l.i+n]
-	if m := sqlDelimiterLine.FindStringSubmatch(line); m != nil {
+	m := sqlDelimiterLine.FindStringSubmatch(line)
+	if m == nil {
+		m = sqlTerminatorLine.FindStringSubmatch(line)
+	}
+	switch {
+	case m != nil:
 		l.end()
 		l.delimiter = m[1]
-	} else if sqlGoLine.MatchString(line) || sqlSlashLine.MatchString(line) {
+	case sqlGoLine.MatchString(line) || sqlSlashLine.MatchString(line):
 		l.end()
-	} else if !strings.HasPrefix(strings.TrimLeft(line, " \t"), `\`) {
+	case !strings.HasPrefix(strings.TrimLeft(line, " \t"), `\`):
 		return false
 	}
 	l.i += n
@@ -412,7 +420,9 @@ func (c *sqlCursor) acceptSymbol(s string) bool {
 func (c *sqlCursor) name() string {
 	var parts []string
 	for c.peek(0).isName() {
-		parts = append(parts, strings.ToLower(c.next().text))
+		// Db2 does not count the blanks a quoted name ends with, and its db2look pads a
+		// schema's name with them: "PARCELS "."DEPOTS".
+		parts = append(parts, strings.TrimRight(strings.ToLower(c.next().text), " "))
 		if !c.peek(0).isSymbol(".") || !c.peek(1).isName() {
 			break
 		}
