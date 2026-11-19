@@ -15,10 +15,11 @@ import (
 //
 // It reads the properties that say where the database is and how to reach
 // it: currentSchema, sslConnection and sslCertLocation (a file of the
-// certificates, in PEM, a TLS server's own is held to) and securityMechanism,
+// certificates, in PEM, a TLS server's own is held to), securityMechanism,
 // of which it speaks three: a user and a password as they are (3), and
-// encrypted (7 and 9). It refuses any other, and leaves the other properties
-// to the driver they are for.
+// encrypted (7 and 9), and encryptionAlgorithm, the cipher of those two (1,
+// DES, and 2, AES). It refuses any other of these, and leaves the other
+// properties to the driver they are for.
 func ParseURL(raw, user, password string) (Config, error) {
 	rest, ok := strings.CutPrefix(raw, "jdbc:")
 	if !ok {
@@ -66,6 +67,15 @@ func ParseURL(raw, user, password string) (Config, error) {
 			cfg.RootCAs = x509.NewCertPool()
 			if !cfg.RootCAs.AppendCertsFromPEM(pem) {
 				return Config{}, fmt.Errorf("db2: sslCertLocation's file %s holds no certificate in PEM", value)
+			}
+		case "encryptionalgorithm":
+			switch value {
+			case "1":
+				cfg.Cipher = cipherDES
+			case "2":
+				cfg.Cipher = cipherAES
+			default:
+				return Config{}, fmt.Errorf("db2: encryptionAlgorithm=%s is no cipher of DRDA's: it is 1 (DES) or 2 (AES)", value)
 			}
 		case "securitymechanism":
 			switch value {

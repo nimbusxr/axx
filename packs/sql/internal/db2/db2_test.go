@@ -5,8 +5,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/aes"
 	"crypto/cipher"
-	"crypto/des" //nolint:gosec // the standard's cipher, as the server's side of a test
+	"crypto/des" //nolint:gosec // the standard's first cipher, as the server's side of a test
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -23,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -41,8 +43,9 @@ import (
 //	AXX_DB2_RECORD=localhost:50000 go test ./packs/sql/internal/db2 -run 'TestSession|TestRefused|TestSingleByteDatabase'
 //
 // TestEncryptedLogin's are of a Db2 that takes no password as it is (db2
-// update dbm cfg using AUTHENTICATION SERVER_ENCRYPT, and a restart), and are
-// recorded against one, by -run TestEncryptedLogin.
+// update dbm cfg using AUTHENTICATION SERVER_ENCRYPT, and a restart), and
+// TestAESOnly's of one that takes it encrypted with AES only (ALTERNATE_AUTH_ENC
+// AES_ONLY as well): each is recorded against such a Db2, by -run and its name.
 const (
 	testDatabase = "parcels"
 	testUser     = "db2inst1"
@@ -623,20 +626,31 @@ func fixedRandom(t *testing.T) {
 
 // A Db2 that takes no password as it is (AUTHENTICATION SERVER_ENCRYPT) is
 // logged in to with the user and the password encrypted, or the password
-// alone when that is what the server takes. These sessions are of such a
+// alone when that is what the server takes: with AES, which the client asks
+// for first, or with DES when the URL names it. These sessions are of such a
 // Db2: record them against one.
 func TestEncryptedLogin(t *testing.T) {
 	both := encrypted
 	t.Cleanup(func() { encrypted = both })
-	for name, order := range map[string][]int{"encrypted": both, "encrypted-password": {secEncryptedPassword}} {
-		encrypted = order
+	for _, c := range []struct {
+		name  string
+		order []int
+		cfg   Config
+	}{
+		{"encrypted", both, Config{}},
+		{"encrypted-password", []int{secEncryptedPassword}, Config{}},
+		{"encrypted-des", both, Config{Cipher: cipherDES}},
+		{"encrypted-des-password", []int{secEncryptedPassword}, Config{Cipher: cipherDES}},
+		{"encrypted-as-the-url-says", both, Config{Mechanism: secEncryptedPassword, Cipher: cipherAES}},
+	} {
+		encrypted = c.order
 		fixedRandom(t)
-		db, done := session(t, name, Config{})
+		db, done := session(t, c.name, c.cfg)
 		var user string
 		err := db.QueryRow("VALUES CURRENT USER").Scan(&user)
 		done()
 		if err != nil || strings.TrimSpace(user) != "DB2INST1" {
-			t.Errorf("%s: logged in as %q, %v", name, user, err)
+			t.Errorf("%s: logged in as %q, %v", c.name, user, err)
 		}
 	}
 	encrypted = both
@@ -647,37 +661,71 @@ func TestEncryptedLogin(t *testing.T) {
 	wantError(t, err, -30082, "28000", "the password is not the user's")
 }
 
+// A Db2 that takes a password encrypted with AES only (ALTERNATE_AUTH_ENC
+// AES_ONLY) is logged in to with AES, and says no to DES. These sessions are
+// of such a Db2: record them against one.
+func TestAESOnly(t *testing.T) {
+	fixedRandom(t)
+	db, done := session(t, "aes-only", Config{})
+	var user string
+	err := db.QueryRow("VALUES CURRENT USER").Scan(&user)
+	done()
+	if err != nil || strings.TrimSpace(user) != "DB2INST1" {
+		t.Errorf("logged in as %q, %v", user, err)
+	}
+	fixedRandom(t)
+	db, done = session(t, "aes-only-des", Config{Cipher: cipherDES})
+	err = db.Ping()
+	done()
+	if err == nil || !strings.Contains(err.Error(), "not with DES, which is what the URL's encryptionAlgorithm asks for") {
+		t.Errorf("DES, of a server of AES only: %v", err)
+	}
+}
+
 // decrypt is what a server does with what the client encrypted.
-func decrypt(t *testing.T, key, token, secret []byte) string {
+func decrypt(t *testing.T, algorithm int, key, start, secret []byte) string {
 	t.Helper()
-	block, err := des.NewCipher(key)
-	if err != nil || len(secret) == 0 || len(secret)%des.BlockSize != 0 {
+	var block cipher.Block
+	var err error
+	if algorithm == cipherAES {
+		block, err = aes.NewCipher(key)
+	} else {
+		block, err = des.NewCipher(key)
+	}
+	if err != nil || len(secret) == 0 || len(secret)%block.BlockSize() != 0 {
 		t.Errorf("a secret of %d bytes: %v", len(secret), err)
 		return ""
 	}
 	plain := make([]byte, len(secret))
-	cipher.NewCBCDecrypter(block, token).CryptBlocks(plain, secret)
+	cipher.NewCBCDecrypter(block, start).CryptBlocks(plain, secret)
 	pad := int(plain[len(plain)-1])
-	if pad < 1 || pad > des.BlockSize {
+	if pad < 1 || pad > block.BlockSize() {
 		t.Errorf("padding of %d", pad)
 		return ""
 	}
 	return fromEBCDIC(plain[:len(plain)-pad])
 }
 
-// encryptingServer is a stand-in that takes a user by the mechanisms it is
-// given, and says what it read of the user and the password.
-func encryptingServer(t *testing.T, takes []int, got chan<- [3]string) string {
+// encryptingServer is a stand-in that takes a user by the mechanisms and the
+// ciphers it is given, at a level of the security manager, and says what it
+// read: the mechanism, the cipher, the user and the password.
+func encryptingServer(t *testing.T, level int, takes, ciphers []int, got chan<- [4]string) string {
 	return standIn(t, func(nc net.Conn, r *bufio.Reader) {
 		readRequest(t, r) // EXCSAT
-		_, _ = nc.Write(attributesReply())
+		var levels, attrs buf
+		for _, m := range [][2]int{{mgrAGENT, 10}, {mgrSQLAM, 10}, {mgrCMNTCPIP, 5}, {mgrRDB, 8}, {mgrSECMGR, level}, {mgrCCSIDMGR, ccsidUTF8}} {
+			levels.u16(m[0])
+			levels.u16(m[1])
+		}
+		attrs.param(cpMGRLVLLS, levels.b)
+		_, _ = nc.Write(answer(dssReply, 1, false, cpEXCSATRD, attrs.b))
 		var offer buf
 		for _, m := range takes {
 			offer.u16(m)
 		}
 		var mine *agreement
 		var clientKey []byte
-		mechanism := 0
+		mechanism, algorithm := 0, cipherDES
 		for {
 			items := readRequest(t, r)
 			if len(items) == 0 {
@@ -687,11 +735,12 @@ func encryptingServer(t *testing.T, takes []int, got chan<- [3]string) string {
 				// SECCHK, and the ACCRDB after it.
 				ps, _ := params(items[0].data)
 				readRequest(t, r)
-				key, err := mine.key(clientKey)
+				shared, err := mine.shared(clientKey)
 				if err != nil {
 					t.Error(err)
 					return
 				}
+				key := cipherKey(algorithm, shared)
 				var tokens [][]byte
 				for data := items[0].data; len(data) > 0; {
 					cp, v, rest, _ := next(data)
@@ -700,155 +749,168 @@ func encryptingServer(t *testing.T, takes []int, got chan<- [3]string) string {
 					}
 					data = rest
 				}
-				user, userText := fromEBCDIC(nil), ""
+				user, word := "", ""
 				switch mechanism {
 				case secEncryptedUserPassword:
-					from := mine.public()[12:20]
-					user = decrypt(t, key, from, tokens[0])
-					userText = decrypt(t, key, from, tokens[1])
+					start := startingBlock(algorithm, mechanism, nil, mine.public())
+					user = decrypt(t, algorithm, key, start, tokens[0])
+					word = decrypt(t, algorithm, key, start, tokens[1])
 				case secEncryptedPassword:
 					user = string(ps[cpUSRID])
 					e, _ := toEBCDIC(user)
-					userText = decrypt(t, key, token(secEncryptedPassword, e, nil), tokens[0])
+					word = decrypt(t, algorithm, key, startingBlock(algorithm, mechanism, e, mine.public()), tokens[0])
 				}
-				got <- [3]string{fmt.Sprint(mechanism), user, userText}
+				got <- [4]string{fmt.Sprint(mechanism), cipherName(algorithm), user, word}
 				return
 			}
 			ps, _ := params(items[0].data)
 			mechanism = int(binary.BigEndian.Uint16(ps[cpSECMEC]))
+			algorithm = cipherDES
+			if v := ps[cpENCALG]; len(v) == 2 {
+				algorithm = int(binary.BigEndian.Uint16(v))
+			}
 			var reply buf
-			if !offers(offer.b, mechanism) {
+			switch {
+			case !offers(offer.b, mechanism):
 				reply.param(cpSECMEC, offer.b)
-			} else {
-				mine, _ = newAgreement()
+			case !slices.Contains(ciphers, algorithm):
+				// The mechanism, and the cipher it takes instead: no key.
+				reply.param16(cpSECMEC, mechanism)
+				reply.param16(cpENCALG, ciphers[0])
+			default:
+				mine, _ = newAgreement(groupOf(algorithm))
 				clientKey = ps[cpSECTKN]
 				reply.param16(cpSECMEC, mechanism)
 				reply.param(cpSECTKN, mine.public())
+				if algorithm == cipherAES {
+					reply.param16(cpENCALG, algorithm)
+				}
 			}
 			_, _ = nc.Write(answer(dssReply, 1, false, cpACCSECRD, reply.b))
 		}
 	})
 }
 
-// The client's side of the encryption, held to a server's side of it: the
-// key the two agree on, the cipher, and what each mechanism encrypts.
+// The client's side of the encryption, held to the standard's numbers and to
+// a server's side of it: the key the two agree on, the two ciphers, and what
+// each mechanism encrypts.
 func TestEncryption(t *testing.T) {
-	// The key agreement, from numbers worked out apart from this code.
 	hex := func(s string) []byte {
 		var b []byte
 		_, _ = fmt.Sscanf(s, "%X", &b)
 		return b
 	}
-	a := &agreement{private: new(big.Int).SetBytes(hex("0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20"))}
+	// The agreement of 256 bits, from numbers worked out apart from this code.
+	a := &agreement{group: group256, private: new(big.Int).SetBytes(hex("0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20"))}
 	if got := fmt.Sprintf("%X", a.public()); got != "1E193463D8FF28DE84D42805ED9F150120DE19CB2B7296AB013969C9205B12F3" {
 		t.Errorf("this side's public key is %s", got)
 	}
-	key, err := a.key(hex("50D265D163338FD437F0DEDA5CE186AC29709F88575EE5390F234B24365F8FE9"))
-	if err != nil || fmt.Sprintf("%X", key) != "70AFA9E26CEC9C1D" {
-		t.Errorf("the shared key is %X, %v", key, err)
+	shared, err := a.shared(hex("50D265D163338FD437F0DEDA5CE186AC29709F88575EE5390F234B24365F8FE9"))
+	if err != nil || fmt.Sprintf("%X", cipherKey(cipherDES, shared)) != "70AFA9E26CEC9C1D" {
+		t.Errorf("the shared key gives the DES key %X, %v", cipherKey(cipherDES, shared), err)
 	}
-	for _, bad := range [][]byte{nil, make([]byte, 32), make([]byte, 31), bytes.Repeat([]byte{0xFF}, 32)} {
-		if _, err := a.key(bad); !errors.Is(err, errProtocol) {
+	for _, bad := range [][]byte{nil, make([]byte, 32), make([]byte, 31), bytes.Repeat([]byte{0xFF}, 32), make([]byte, 64)} {
+		if _, err := a.shared(bad); !errors.Is(err, errProtocol) {
 			t.Errorf("a key of %x: %v", bad, err)
 		}
 	}
-	// DES in CBC mode, as its standard's example has it (FIPS 81), and padded.
-	secret, err := encrypt(hex("0123456789ABCDEF"), hex("1234567890ABCDEF"), []byte("Now is the time for all "))
+	// The agreement of 512 bits, and the AES key the standard derives from
+	// it with SHA-1, worked out apart from this code too.
+	wide := &agreement{group: group512, private: new(big.Int).SetBytes(bytes.Repeat([]byte{1}, 64))}
+	if got := fmt.Sprintf("%X", wide.public()); got != "201CEE32896C3EA6F86E77CDCF30AFB15C493F9C9359E76DEE8DA1F3616C7636B76CE78841AE9E5ECEB3366A8FB3E38D881A56F8E3B6CDF01003CC3ECFB10B65" {
+		t.Errorf("this side's public key of 512 bits is %s", got)
+	}
+	theirs := hex("9F516F2042DF2D665F8B3A2FCC7BF8E47D322503273F9452B449D711E362D9220FCE8766581564D6B43474DFEFA4E37792B62CC73CCBA07CF11315EE5DCB0267")
+	shared, err = wide.shared(theirs)
+	if err != nil || fmt.Sprintf("%X", cipherKey(cipherAES, shared)) != "47215E4DA44A61BF80AF94B124307F324A964FD2CA351E25F758E0D234AD3F90" {
+		t.Errorf("the shared key gives the AES key %X, %v", cipherKey(cipherAES, shared), err)
+	}
+	if got := fmt.Sprintf("%X", startingBlock(cipherAES, secEncryptedPassword, []byte("user"), theirs)); got != "B449D711E362D9220FCE8766581564D6" {
+		t.Errorf("AES starts from %s", got)
+	}
+	// A side's own number has as many bits as the standard says, and the
+	// two primes are primes.
+	for _, g := range []group{group256, group512} {
+		side, err := newAgreement(g)
+		if err != nil || side.private.BitLen() > g.bits || side.private.Sign() <= 0 || len(side.public()) != g.size || !g.prime.ProbablyPrime(20) || g.base.Cmp(g.prime) >= 0 {
+			t.Errorf("an agreement of %d bytes: %v", g.size, err)
+		}
+	}
+	// DES in CBC mode, as its standard's example has it (FIPS 81), and AES
+	// in CBC mode, as NIST's has it (SP 800-38A, F.2.5), each padded.
+	secret, err := encrypt(cipherDES, hex("0123456789ABCDEF"), hex("1234567890ABCDEF"), []byte("Now is the time for all "))
 	if err != nil || fmt.Sprintf("%X", secret[:24]) != "E5C7CDDE872BF27C43E934008C389C0F683788499A7C05F6" || len(secret) != 32 {
-		t.Errorf("the cipher gives %X, %v", secret, err)
+		t.Errorf("DES gives %X, %v", secret, err)
 	}
-	if got := token(secEncryptedPassword, []byte("ab"), nil); !bytes.Equal(got, []byte{'a', 'b', 0, 0, 0, 0, 0, 0}) {
-		t.Errorf("a short user's token is %x", got)
+	secret, err = encrypt(cipherAES, hex("603DEB1015CA71BE2B73AEF0857D77811F352C073B6108D72D9810A30914DFF4"),
+		hex("000102030405060708090A0B0C0D0E0F"), hex("6BC1BEE22E409F96E93D7E117393172A"))
+	if err != nil || fmt.Sprintf("%X", secret[:16]) != "F58C4C04D6E5F1BA779EABFB5F7BFBD6" || len(secret) != 32 {
+		t.Errorf("AES gives %X, %v", secret, err)
 	}
-	if got := token(secEncryptedPassword, []byte("a-long-user"), nil); string(got) != "a-long-u" {
-		t.Errorf("a long user's token is %q", got)
+	if got := startingBlock(cipherDES, secEncryptedPassword, []byte("ab"), nil); !bytes.Equal(got, []byte{'a', 'b', 0, 0, 0, 0, 0, 0}) {
+		t.Errorf("a short user's starting block is %x", got)
+	}
+	if got := startingBlock(cipherDES, secEncryptedPassword, []byte("a-long-user"), nil); string(got) != "a-long-u" {
+		t.Errorf("a long user's starting block is %q", got)
 	}
 
-	// Each mechanism, against a server that decrypts what it is sent.
-	for _, c := range []struct {
-		takes []int
-		want  [3]string
-	}{
-		{[]int{7, 9, 10}, [3]string{"9", "clerk_1", "S3cret! pass"}},
-		{[]int{9}, [3]string{"9", "clerk_1", "S3cret! pass"}},
-		{[]int{7}, [3]string{"7", "clerk_1", "S3cret! pass"}},
-	} {
-		got := make(chan [3]string, 1)
-		addr := encryptingServer(t, c.takes, got)
-		_, err := NewConnector(Config{Addr: addr, Database: testDatabase, User: "clerk_1", Password: "S3cret! pass"}).Connect(context.Background())
-		if err == nil {
-			t.Errorf("%v: the stand-in opens no database, and the client connected", c.takes)
+	// Each mechanism and cipher, against a server that decrypts what it is sent.
+	login := func(level int, takes, ciphers []int, cfg Config) ([4]string, error) {
+		t.Helper()
+		got := make(chan [4]string, 1)
+		cfg.Addr = encryptingServer(t, level, takes, ciphers, got)
+		cfg.Database, cfg.User = testDatabase, "clerk_1"
+		if cfg.Password == "" {
+			cfg.Password = "S3cret! pass"
 		}
+		_, err := NewConnector(cfg).Connect(context.Background())
 		select {
 		case read := <-got:
-			if read != c.want {
-				t.Errorf("a server that takes %v read %q, want %q", c.takes, read, c.want)
-			}
-		case <-time.After(5 * time.Second):
-			t.Errorf("a server that takes %v was sent no user", c.takes)
+			return read, err
+		case <-time.After(200 * time.Millisecond):
+			return [4]string{}, err
 		}
 	}
-
-	// A URL that names a mechanism gets that one, or is told the server
-	// does not take it.
-	got := make(chan [3]string, 1)
-	addr := encryptingServer(t, []int{3, 7, 9}, got)
-	_, _ = NewConnector(Config{Addr: addr, Database: testDatabase, User: "clerk_1", Password: "S3cret! pass", Mechanism: 7}).Connect(context.Background())
-	select {
-	case read := <-got:
-		if read != [3]string{"7", "clerk_1", "S3cret! pass"} {
-			t.Errorf("a URL that asks for mechanism 7 was read as %q", read)
+	aesAndDES, desOnly, aesOnly := []int{cipherAES, cipherDES}, []int{cipherDES}, []int{cipherAES}
+	for _, c := range []struct {
+		what    string
+		level   int
+		takes   []int
+		ciphers []int
+		cfg     Config
+		want    [4]string
+	}{
+		{"a server of both ciphers gets AES", 9, []int{7, 9, 10}, aesAndDES, Config{}, [4]string{"9", "AES", "clerk_1", "S3cret! pass"}},
+		{"a server of AES only", 9, []int{7, 9}, aesOnly, Config{}, [4]string{"9", "AES", "clerk_1", "S3cret! pass"}},
+		{"a server of DES only is asked for AES, then DES", 9, []int{9}, desOnly, Config{}, [4]string{"9", "DES", "clerk_1", "S3cret! pass"}},
+		{"a server from before AES is asked for DES", 7, []int{9}, desOnly, Config{}, [4]string{"9", "DES", "clerk_1", "S3cret! pass"}},
+		{"the password alone, with AES", 9, []int{7}, aesAndDES, Config{}, [4]string{"7", "AES", "clerk_1", "S3cret! pass"}},
+		{"the password alone, with DES", 7, []int{7}, desOnly, Config{}, [4]string{"7", "DES", "clerk_1", "S3cret! pass"}},
+		{"the mechanism the URL names", 9, []int{3, 7, 9}, aesAndDES, Config{Mechanism: 7}, [4]string{"7", "AES", "clerk_1", "S3cret! pass"}},
+		{"the cipher the URL names", 9, []int{7, 9}, aesAndDES, Config{Cipher: cipherDES}, [4]string{"9", "DES", "clerk_1", "S3cret! pass"}},
+	} {
+		got, err := login(c.level, c.takes, c.ciphers, c.cfg)
+		if got != c.want {
+			t.Errorf("%s: the server read %q, want %q (%v)", c.what, got, c.want, err)
 		}
-	case <-time.After(5 * time.Second):
-		t.Error("a URL that asks for mechanism 7 sent no user")
 	}
-	addr = encryptingServer(t, []int{7}, make(chan [3]string, 1))
-	_, err = NewConnector(Config{Addr: addr, Database: testDatabase, User: testUser, Password: testPassword, Mechanism: 9}).Connect(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "does not take security mechanism 9 (it offers 7)") {
-		t.Errorf("a server that takes 7, asked for 9: %v", err)
-	}
-	addr = encryptingServer(t, []int{7, 9}, make(chan [3]string, 1))
-	_, err = NewConnector(Config{Addr: addr, Database: testDatabase, User: testUser, Password: testPassword, Mechanism: 3}).Connect(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "securityMechanism=3 asks for (it offers the security mechanisms 7, 9)") {
-		t.Errorf("a server of encrypted passwords, asked for them as they are: %v", err)
-	}
-
-	// A server that takes the mechanism with another cipher gives no key for
-	// this one's (a Db2 set to AES only).
-	addr = standIn(t, func(nc net.Conn, r *bufio.Reader) {
-		readRequest(t, r)
-		_, _ = nc.Write(attributesReply())
-		for {
-			items := readRequest(t, r)
-			if len(items) == 0 {
-				return
-			}
-			ps, _ := params(items[0].data)
-			var reply buf
-			if int(binary.BigEndian.Uint16(ps[cpSECMEC])) == secUserPassword {
-				reply.param(cpSECMEC, []byte{0, 7, 0, 9, 0, 10})
-			} else {
-				reply.param(cpSECMEC, ps[cpSECMEC])
-			}
-			_, _ = nc.Write(answer(dssReply, 1, false, cpACCSECRD, reply.b))
+	for _, c := range []struct {
+		what    string
+		takes   []int
+		ciphers []int
+		cfg     Config
+		want    string
+	}{
+		{"DES, of a server of AES only", []int{7, 9}, aesOnly, Config{Cipher: cipherDES}, "not with DES, which is what the URL's encryptionAlgorithm asks for"},
+		{"AES, of a server of DES only", []int{7, 9}, desOnly, Config{Cipher: cipherAES}, "not with AES, which is what the URL's encryptionAlgorithm asks for"},
+		{"a mechanism the server does not take", []int{7}, aesAndDES, Config{Mechanism: 9}, "does not take security mechanism 9 (it offers 7)"},
+		{"a password as it is, of a server of encrypted ones", []int{7, 9}, aesAndDES, Config{Mechanism: 3}, "securityMechanism=3 asks for (it offers the security mechanisms 7, 9)"},
+		{"a server of Kerberos and plug-ins only", []int{11, 15}, aesAndDES, Config{}, "it offers the security mechanisms 11, 15"},
+		{"a password the cipher has no place for", []int{9}, aesAndDES, Config{Password: "pässword"}, "encrypted, in EBCDIC"},
+	} {
+		if _, err := login(9, c.takes, c.ciphers, c.cfg); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: %v, want %s", c.what, err, c.want)
 		}
-	})
-	_, err = NewConnector(Config{Addr: addr, Database: testDatabase, User: testUser, Password: testPassword}).Connect(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "AES_ONLY") || !strings.Contains(err.Error(), "TLS") {
-		t.Errorf("a server of another cipher: %v", err)
-	}
-
-	// A server that takes a user in no way this client speaks, and a
-	// password the cipher's character set has no place for.
-	addr = encryptingServer(t, []int{11, 15}, make(chan [3]string, 1))
-	_, err = NewConnector(Config{Addr: addr, Database: testDatabase, User: testUser, Password: testPassword}).Connect(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "it offers the security mechanisms 11, 15") {
-		t.Errorf("a server of Kerberos and plug-ins only: %v", err)
-	}
-	addr = encryptingServer(t, []int{9}, make(chan [3]string, 1))
-	_, err = NewConnector(Config{Addr: addr, Database: testDatabase, User: testUser, Password: "pässword"}).Connect(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "encrypted, in EBCDIC") || !strings.Contains(err.Error(), "TLS") {
-		t.Errorf("a password the cipher has no place for: %v", err)
 	}
 }
 
@@ -1013,6 +1075,9 @@ func TestParseURL(t *testing.T) {
 		{url: "jdbc:db2://localhost:50000/parcels:securityMechanism=9;", want: Config{Addr: "localhost:50000", Database: "parcels", Mechanism: 9}},
 		{url: "jdbc:db2://localhost:50000/parcels:securityMechanism=7;", want: Config{Addr: "localhost:50000", Database: "parcels", Mechanism: 7}},
 		{url: "jdbc:db2://localhost:50000/parcels:securityMechanism=11;", err: "securityMechanism=11 is not one this client speaks"},
+		{url: "jdbc:db2://localhost:50000/parcels:securityMechanism=9;encryptionAlgorithm=2;", want: Config{Addr: "localhost:50000", Database: "parcels", Mechanism: 9, Cipher: 2}},
+		{url: "jdbc:db2://localhost:50000/parcels:encryptionAlgorithm=1;", want: Config{Addr: "localhost:50000", Database: "parcels", Cipher: 1}},
+		{url: "jdbc:db2://localhost:50000/parcels:encryptionAlgorithm=3;", err: "encryptionAlgorithm=3 is no cipher of DRDA's"},
 		{url: "jdbc:db2://localhost:50000/parcels:sslConnection=true;sslCertLocation=" + pem + ";", err: "holds no certificate in PEM"},
 		{url: "jdbc:db2://localhost:50000/parcels:sslCertLocation=/no/such/file;", err: "the certificates of sslCertLocation"},
 		{url: "jdbc:db2://localhost:50000", err: "names no database"},

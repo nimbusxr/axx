@@ -578,7 +578,8 @@ func db2Leftovers(t *testing.T, db *dbsql.DB) int {
 
 // A Db2 that takes no password as it is (AUTHENTICATION SERVER_ENCRYPT) is
 // logged in to with the user and the password encrypted, whether the URL
-// names the way or leaves it to axx.
+// names the way or leaves it to axx, and so is one that takes them encrypted
+// with AES only (ALTERNATE_AUTH_ENC AES_ONLY).
 func TestDb2EncryptedPasswords(t *testing.T) {
 	server, user, password := db2Server(t)
 	if db2Container == nil {
@@ -629,5 +630,36 @@ func TestDb2EncryptedPasswords(t *testing.T) {
 	}
 	if _, err := who(server, "not-the-password"); err == nil || !strings.Contains(err.Error(), "the password is not the user's") {
 		t.Errorf("a wrong password, encrypted: %v", err)
+	}
+	// Such a Db2 takes either cipher: AES, which axx asks for first, and
+	// DES when the URL names it.
+	for _, cipher := range []string{"1", "2"} {
+		if name, err := who(server+":encryptionAlgorithm="+cipher+";", password); err != nil || name != "DB2INST1" {
+			t.Errorf("encryptionAlgorithm=%s: %q, %v", cipher, name, err)
+		}
+	}
+
+	// A Db2 that takes a password encrypted with AES only.
+	code, out, err = db2Container.Exec(ctx, []string{
+		"su", "-", db2User, "-c",
+		"db2 update dbm cfg using ALTERNATE_AUTH_ENC AES_ONLY && db2stop force && db2start && db2 activate db parcels",
+	})
+	if err != nil || code != 0 {
+		said, _ := io.ReadAll(out)
+		t.Fatalf("setting ALTERNATE_AUTH_ENC AES_ONLY: exit %d, %v\n%s", code, err, said)
+	}
+	aes := newHarness(t)
+	aes.ok("a parcels-db database with the following properties:", []string{"url", server}, []string{"user", user}, []string{"password", password})
+	aes.ok("a selection of rows is retrieved from the sysibm.sysdummy1 table where:", []string{"ibmreqd", "Y"})
+	for _, url := range []string{server + ":securityMechanism=7;", server + ":securityMechanism=9;encryptionAlgorithm=2;"} {
+		if name, err := who(url, password); err != nil || name != "DB2INST1" {
+			t.Errorf("%s on a Db2 of AES only: %q, %v", url, name, err)
+		}
+	}
+	if _, err := who(server+":encryptionAlgorithm=1;", password); err == nil || !strings.Contains(err.Error(), "not with DES") {
+		t.Errorf("DES on a Db2 of AES only: %v", err)
+	}
+	if _, err := who(server, "not-the-password"); err == nil || !strings.Contains(err.Error(), "the password is not the user's") {
+		t.Errorf("a wrong password, encrypted with AES: %v", err)
 	}
 }

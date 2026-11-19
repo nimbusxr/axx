@@ -72,6 +72,7 @@ const (
 	cpSECMEC    = 0x11A2 // how a user is proved
 	cpSECCHKCD  = 0x11A4 // why a user was refused
 	cpSECTKN    = 0x11DC // a token of the proof
+	cpENCALG    = 0x1909 // the cipher of an encrypted proof
 	cpUSRID     = 0x11A0
 	cpPASSWORD  = 0x11A1
 	cpRDBNAM    = 0x2110 // the database's name
