@@ -3,9 +3,12 @@
 package sql
 
 import (
+	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // oracleTypesSchema is a table with a column of every type Oracle has, and values at
@@ -57,6 +60,9 @@ var oracleTypesSchema = []string{
 	`CREATE TABLE rare_types (reference VARCHAR2(40) PRIMARY KEY, row_ref ROWID, any_row UROWID, embedding VECTOR(3, FLOAT32), fine VECTOR(2, FLOAT64), small VECTOR(2, INT8), doc XMLTYPE, bits VECTOR(8, BINARY))`,
 	`INSERT INTO rare_types (reference, row_ref, any_row, embedding, fine, small, doc, bits) SELECT 'PX-TYPES-1', ROWID, ROWID, TO_VECTOR('[1,2,3]', 3, FLOAT32), TO_VECTOR('[0.1,0.5]', 2, FLOAT64), TO_VECTOR('[1,-2]', 2, INT8), XMLTYPE('<parcel/>'), TO_VECTOR('[254]', 8, BINARY) FROM old_notes`,
 	`CREATE TABLE seeded_types AS SELECT * FROM every_type WHERE 1 = 0`,
+	`CREATE TABLE any_vectors (reference VARCHAR2(40) PRIMARY KEY, any_format VECTOR, sparse VECTOR(5, FLOAT32, SPARSE), "MixedCase" VECTOR(2, INT8))`,
+	`INSERT INTO any_vectors VALUES ('PX-VEC-32', TO_VECTOR('[0.1,2]', 2, FLOAT32), TO_VECTOR('[5,[2,4],[1.5,0.1]]', 5, FLOAT32, SPARSE), TO_VECTOR('[1,-2]', 2, INT8))`,
+	`INSERT INTO any_vectors (reference, any_format) VALUES ('PX-VEC-64', TO_VECTOR('[0.1,2,3]', 3, FLOAT64))`,
 }
 
 func oracleEveryType(t *testing.T, h *harness, tgt Target, host, port string) {
@@ -126,6 +132,42 @@ func oracleEveryType(t *testing.T, h *harness, tgt Target, host, port string) {
 		if got := len(mustService(t, h).Triggers()); got != 0 {
 			t.Errorf("%d triggers were created", got)
 		}
+	})
+
+	t.Run("a vector of any format, a sparse one, and none", func(t *testing.T) {
+		for reference, cells := range map[string]map[string]string{
+			// A column of any format holds each row's vector in its own.
+			"PX-VEC-32": {"any_format": "[0.1,2.0]", "sparse": "[5,[2,4],[1.5,0.1]]", "MixedCase": "[1,-2]"},
+			"PX-VEC-64": {"any_format": "[0.1,2.0,3.0]"},
+		} {
+			ok(t, "a selection of rows is retrieved from the any_vectors table where:", []string{"reference", reference})
+			all := mustService(t, h).Selections()
+			last, n := all[len(all)-1], nth(len(all))
+			if want := []string{"REFERENCE", "ANY_FORMAT", "SPARSE", "MixedCase"}; !slices.Equal(last.Columns, want) {
+				t.Errorf("the selection's columns are %v, want the table's, in its order: %v", last.Columns, want)
+			}
+			for column, want := range cells {
+				if err := h.step("the 1st row " + column + " column of the " + n + " selection is '" + want + "'"); err != nil {
+					t.Errorf("%s %s: %v", reference, column, err)
+				}
+			}
+			if _, set := cells["sparse"]; !set {
+				if v, err := last.Value(0, "sparse"); err != nil || v != nil {
+					t.Errorf("%s has no sparse vector, and reads as %v, %v", reference, v, err)
+				}
+			}
+		}
+	})
+
+	t.Run("the rows of a table with vectors are locked", func(t *testing.T) {
+		ok(t, "the rows in the rare_types table are locked where:", []string{"reference", "PX-TYPES-1"})
+		db := openForTest(t, tgt)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if _, err := db.ExecContext(ctx, "SELECT reference FROM rare_types WHERE reference = 'PX-TYPES-1' FOR UPDATE NOWAIT"); err == nil {
+			t.Error("the row is not locked")
+		}
+		ok(t, "the row locks are released")
 	})
 
 	t.Run("a ROWID is the text Oracle gives", func(t *testing.T) {
