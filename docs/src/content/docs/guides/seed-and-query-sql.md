@@ -308,7 +308,7 @@ Cleaning ends every connection to Db2 that is open (`db2 force application all`)
 - **The container stops during its setup on a Mac.** A folder of the Mac mounted at `/database` goes through Docker's file sharing, and the image's setup fails there as it creates its users. Leave `/database` to Docker, as the compose file above does, or give it a Docker volume.
 - **The container exits at once.** Its log says `LICENSE not set to 'accept'`: the image starts only when its license is accepted.
 - **Db2 never gets ready, and the container's log has `SQL1042C  An unexpected system error occurred`.** The container is not privileged. It keeps running and its setup goes on to the end, but Db2 did not start and there is no database. Set `privileged: true`.
-- **The start takes much longer than two minutes on a Mac.** A limit on the container's processors (`cpus:`) slows the emulation: limited to 4, the start took up to 2 min 30 s on the same Mac.
+- **The start takes many minutes on a Mac with Apple silicon.** Docker emulates the image's processor, with Rosetta or without it, and the times on this page are with Rosetta. `docker run --rm --platform linux/amd64 alpine grep -m1 "model name" /proc/cpuinfo` prints `VirtualApple` when Rosetta is in use. When it is not, turn on "Use Rosetta for x86_64/amd64 emulation on Apple Silicon" in Docker Desktop's settings. Less memory or fewer processors did not explain a slow start here: with 2 GB of memory, or with 2 processors, Db2 was ready in the same time.
 - **A seed fails with `a row with that key is already there`.** The database has the rows of an earlier run: the service that cleans it did not run. Check that your service depends on `clean-db2`.
 
 ### How long Db2 takes
