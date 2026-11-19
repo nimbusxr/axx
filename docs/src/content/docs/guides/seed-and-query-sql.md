@@ -226,7 +226,7 @@ The other properties are for IBM's driver, and axx leaves them alone. A `securit
 IBM publishes Db2 Community Edition as a container image, `icr.io/db2_community/db2`. Three things about it are worth knowing before you start it:
 
 - **Its license is IBM's.** The image starts only with `LICENSE=accept`, which accepts IBM's license for Db2 Community Edition. Read it first: it is in the image's `/licenses` folder. IBM gives the edition at no charge, and the license limits a server to 4 processor cores and 16 GB of memory.
-- **It is built for Intel and AMD processors.** A Mac with Apple silicon runs it by emulation, which Docker Desktop does when the service says `platform: linux/amd64`.
+- **It is built for Intel and AMD processors.** A Mac with Apple silicon runs it by emulation, which Docker Desktop does when the service says `platform: linux/amd64`. Turn on "Use Rosetta for x86_64/amd64 emulation on Apple Silicon" in Docker Desktop's settings, under General, before you start it: without Rosetta, a start that takes a minute or two takes about ten.
 - **It takes a minute or two to start,** every time a container of it starts. The setup below starts it once and gives every run a clean database in seconds.
 
 The setup is three files. The first is the compose file:
@@ -309,7 +309,7 @@ Cleaning ends every connection to Db2 that is open (`db2 force application all`)
 - **The container stops during its setup on a Mac.** A folder of the Mac mounted at `/database` goes through Docker's file sharing, and the image's setup fails there as it creates its users. Leave `/database` to Docker, as the compose file above does, or give it a Docker volume.
 - **The container exits at once.** Its log says `LICENSE not set to 'accept'`: the image starts only when its license is accepted.
 - **Db2 never gets ready, and the container's log has `SQL1042C  An unexpected system error occurred`.** The container is not privileged. It keeps running and its setup goes on to the end, but Db2 did not start and there is no database. Set `privileged: true`.
-- **The start takes many minutes on a Mac with Apple silicon.** Docker emulates the image's processor, with Rosetta or without it, and the times on this page are with Rosetta. `docker run --rm --platform linux/amd64 alpine grep -m1 "model name" /proc/cpuinfo` prints `VirtualApple` when Rosetta is in use. When it is not, turn on "Use Rosetta for x86_64/amd64 emulation on Apple Silicon" in Docker Desktop's settings. Less memory or fewer processors did not explain a slow start here: with 2 GB of memory, or with 2 processors, Db2 was ready in the same time.
+- **The start takes about ten minutes on a Mac with Apple silicon.** Docker emulates the image's processor without Rosetta, which is much slower. Run `docker run --rm --platform linux/amd64 alpine grep -m1 "model name" /proc/cpuinfo`, as it is written: it prints `VirtualApple` when Rosetta is in use, and nothing when it is not. Then turn on "Use Rosetta for x86_64/amd64 emulation on Apple Silicon" in Docker Desktop's settings, under General, and restart Docker. The times on this page are with Rosetta. Less memory or fewer processors did not explain a slow start here: with 2 GB of memory, or with 2 processors, Db2 was ready in the same time.
 - **A seed fails with `a row with that key is already there`.** The database has the rows of an earlier run: the service that cleans it did not run. Check that your service depends on `clean-db2`.
 
 ### How long Db2 takes
