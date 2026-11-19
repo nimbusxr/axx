@@ -394,7 +394,7 @@ func selectStep(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT * FROM "+f.table+" WHERE "+f.where, f.types)
+	sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT "+f.columns+" FROM "+f.table+" WHERE "+f.where, f.types)
 	if err != nil {
 		return fmt.Errorf("Could not perform selection: %w", typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
@@ -424,7 +424,7 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 		case err != nil:
 			return err
 		default:
-			sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT * FROM "+f.table+" WHERE "+f.where, f.types)
+			sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT "+f.columns+" FROM "+f.table+" WHERE "+f.where, f.types)
 			if err != nil {
 				lastErr = err
 				break
@@ -566,7 +566,7 @@ func noRowsStep(sc *core.Scenario, a core.Args) error {
 		case err != nil:
 			return false, stop{err}
 		}
-		sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT * FROM "+f.table+" WHERE "+f.where, f.types)
+		sel, err := svc.queryTyped(sc.Context(), f.table, "SELECT "+f.columns+" FROM "+f.table+" WHERE "+f.where, f.types)
 		if err != nil {
 			return false, err
 		}
@@ -705,7 +705,16 @@ func tableAndWhere(ctx context.Context, svc *Service, table string, t *core.Tabl
 	if err != nil {
 		return filter{}, err
 	}
-	return filter{table: tbl, where: where, untyped: untyped, types: types}, nil
+	return filter{table: tbl, where: where, untyped: untyped, types: types, columns: svc.selectList(tbl, types)}, nil
+}
+
+// selectList is what a selection of the table asks the database for: all of its
+// columns, which is `*` unless a database needs one of them asked for another way.
+func (svc *Service) selectList(tbl string, types map[string]string) string {
+	if svc.Target.Dialect.Oracle {
+		return svc.oracleSelectList(tbl, types)
+	}
+	return "*"
 }
 
 // filter is what a step's table of conditions asks of a table.
@@ -715,6 +724,8 @@ type filter struct {
 	untyped []untypedCondition
 	// types are the table's column types, for the query that follows.
 	types map[string]string
+	// columns is what that query selects: all of the table's (selectList).
+	columns string
 }
 
 // whereClauseOf turns key/value rows into conditions joined with AND. A value means what

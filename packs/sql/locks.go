@@ -47,7 +47,7 @@ func (svc *Service) lockRows(ctx context.Context, table string, t *core.Table) e
 		}
 		svc.lockConn, svc.lockTx = conn, tx
 	}
-	q := "SELECT * FROM " + tbl + d.ForUpdateHint + " WHERE " + where + d.ForUpdate
+	q := "SELECT " + f.columns + " FROM " + tbl + d.ForUpdateHint + " WHERE " + where + d.ForUpdate
 	qctx, cancel := context.WithTimeout(ctx, lockTimeout)
 	defer cancel()
 	failed := func(err error) error {

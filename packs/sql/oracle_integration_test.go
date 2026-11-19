@@ -12,7 +12,11 @@ import (
 	"time"
 )
 
-const oracleImage = "gvenzl/oracle-free:23-slim-faststart"
+// oracleImage is the Oracle the tests run, by its digest (Oracle AI Database 26ai,
+// 23.26.4): the tag is given to each new release, and one may answer the driver
+// another way, as 23.26.4 did for VECTOR columns. A new one is a change to make here,
+// with the tests, not one that arrives in every pull request at once.
+const oracleImage = "gvenzl/oracle-free:23-slim-faststart@sha256:cebd977833411a42170777d8e9ccf616a028a2bb137ae96498354ab6c7510268"
 
 // oracleDB starts a real Oracle Database Free for the test, with the statements run.
 func oracleDB(t *testing.T, statements ...string) (h *harness, tgt Target, host, port string) {
