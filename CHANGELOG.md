@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.6](https://github.com/nimbusxr/axx/compare/v0.7.5...v0.7.6) (2026-11-19)
+
+
+### Features
+
+* **sql:** an empty password cell is the password of a user that has none ([4491e71](https://github.com/nimbusxr/axx/commit/4491e71ffca1a4a1065ee9c1f6811338c8066944))
+* **sql:** H2 databases, through axx's own client of H2's server ([4491e71](https://github.com/nimbusxr/axx/commit/4491e71ffca1a4a1065ee9c1f6811338c8066944))
+
+
+### Bug Fixes
+
+* **sql:** a table with VECTOR columns is selected and locked on Oracle 23.26.4 ([#365](https://github.com/nimbusxr/axx/issues/365)) ([ec96373](https://github.com/nimbusxr/axx/commit/ec963734fb92ecf4783bc706362ae23602d43e01))
+
 ## [0.7.5](https://github.com/nimbusxr/axx/compare/v0.7.4...v0.7.5) (2026-11-17)
 
 
