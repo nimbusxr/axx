@@ -10,10 +10,13 @@ import (
 // relative times count from. A column with no time zone holds a wall clock, and what
 // compares it (Oracle's SYSDATE, MySQL's NOW()) reads the database's, so the machine
 // running axx, in its own zone and with its own idea of the time, has no say in it.
-// SQLite has no clock or zone of its own, so it has the machine's.
+// SQLite has no clock or zone of its own, so it has the machine's. H2 has a clock, and
+// the zone of each session (h2Now).
 func (svc *Service) databaseNow(ctx context.Context) (time.Time, error) {
 	var q string
 	switch d := svc.Target.Dialect; {
+	case d.Name == h2db.Name:
+		return svc.h2Now(ctx)
 	case d.Oracle:
 		q = "SELECT TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD HH24:MI:SS.FF6'), " +
 			"EXTRACT(TIMEZONE_HOUR FROM SYSTIMESTAMP) * 60 + EXTRACT(TIMEZONE_MINUTE FROM SYSTIMESTAMP) FROM dual"

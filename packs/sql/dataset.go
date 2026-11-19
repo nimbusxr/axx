@@ -382,7 +382,7 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 	d := svc.Target.Dialect
 	// Before the transaction, which holds its connection (maxConnections).
 	types := map[string]map[string]string{}
-	if d.Oracle || d.Name == sqlserver.Name {
+	if d.Oracle || d.Name == sqlserver.Name || d.Name == h2db.Name {
 		for _, t := range ds.Tables {
 			table, err := Ident(t.Name)
 			if err != nil {
@@ -413,14 +413,17 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 					return err
 				}
 				valueDialect := d
-				if d.Name == sqlserver.Name && normalizeType(types[table][strings.ToLower(c)]) == "DATETIMEOFFSET" {
+				if (d.Name == sqlserver.Name || d.Name == h2db.Name) && d.holdsMoment(types[table][strings.ToLower(c)]) {
 					valueDialect.TimeOffset = true // the only one of its types that takes one
 				}
 				if vals[j], err = resolveValue(valueDialect, r.Values[j], now); err != nil {
 					return fmt.Errorf("%s row %d column %s: %w", t.Name, i+1, c, err)
 				}
-				if d.Oracle {
+				switch {
+				case d.Oracle:
 					vals[j] = oracleSeedValue(types[table], c, vals[j])
+				case d.Name == h2db.Name:
+					vals[j] = h2SeedValue(types[table], c, vals[j])
 				}
 			}
 			override, err := overrides.prepare(ctx, table, cols)

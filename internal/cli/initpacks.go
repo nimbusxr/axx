@@ -43,7 +43,7 @@ var composeSignals = []packSignal{
 // Client libraries in dependency manifests. Names that other packages' names
 // start with (pika, motor) count only whole.
 var dependencySignals = []packSignal{
-	{"sql", regexp.MustCompile(`(?i)jackc/pgx|lib/pq|go-sql-driver/mysql|microsoft/go-mssqldb|sijms/go-ora|godror|oracledb|ojdbc|"pg"\s*:|mysql2|psycopg|asyncpg|pymysql|postgresql</artifactId>|mysql-connector|mssql-jdbc|org\.postgresql`), "a SQL database client"},
+	{"sql", regexp.MustCompile(`(?i)jackc/pgx|lib/pq|go-sql-driver/mysql|microsoft/go-mssqldb|sijms/go-ora|godror|oracledb|ojdbc|"pg"\s*:|mysql2|psycopg|asyncpg|pymysql|postgresql</artifactId>|mysql-connector|mssql-jdbc|org\.postgresql|com\.h2database`), "a SQL database client"},
 	{"mongo", regexp.MustCompile(`(?im)mongo-driver|"mongodb"\s*:|"mongoose"\s*:|pymongo|(^|[^\w./-])motor($|[^\w./-])|mongodb-driver`), "a MongoDB client"},
 	{"redis", regexp.MustCompile(`(?im)go-redis|"(io)?redis"\s*:|redis-py|^\s*["']?redis(\s|$|[=<>~!\[;"'])|jedis|lettuce`), "a Redis client"},
 	{"kafka", regexp.MustCompile(`(?i)franz-go|segmentio/kafka-go|confluent-kafka|kafka-clients|"kafkajs"\s*:|kafka-python|aiokafka|spring-kafka`), "a Kafka client"},

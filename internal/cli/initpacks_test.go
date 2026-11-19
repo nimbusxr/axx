@@ -113,11 +113,17 @@ func TestInitSuggestsFaultsOtelAndOracle(t *testing.T) {
 			t.Errorf("%q does not point to %s", c.line, c.pack)
 		}
 	}
-	found := false
-	for _, s := range dependencySignals {
-		found = found || s.pack == "sql" && s.re.MatchString("github.com/sijms/go-ora/v2 v2.9.0")
-	}
-	if !found {
-		t.Error("go-ora does not point to sql")
+	for _, line := range []string{
+		"github.com/sijms/go-ora/v2 v2.9.0",
+		`    runtimeOnly("com.h2database:h2")`,
+		"      <groupId>com.h2database</groupId>",
+	} {
+		found := false
+		for _, s := range dependencySignals {
+			found = found || s.pack == "sql" && s.re.MatchString(line)
+		}
+		if !found {
+			t.Errorf("%q does not point to sql", line)
+		}
 	}
 }

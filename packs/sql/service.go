@@ -13,6 +13,7 @@ import (
 	goora "github.com/sijms/go-ora/v2"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/sql/internal/h2"
 )
 
 // Service is a database registered in a scenario.
@@ -146,9 +147,12 @@ const maxConnections = 32
 func openDB(s *core.Suite, t Target) (*dbsql.DB, error) {
 	return core.Cached(s, "sql.db:"+t.Dialect.Driver+":"+t.DSN, func() (*dbsql.DB, error) {
 		var db *dbsql.DB
-		if t.Dialect.Oracle {
+		switch {
+		case t.Dialect.Oracle:
 			db = dbsql.OpenDB(oracleSession{goora.NewConnector(t.DSN)})
-		} else {
+		case t.H2 != nil:
+			db = dbsql.OpenDB(h2.NewConnector(*t.H2))
+		default:
 			var err error
 			if db, err = dbsql.Open(t.Dialect.Driver, t.DSN); err != nil {
 				return nil, err

@@ -13,9 +13,9 @@ import (
 // The database errors of a seed that names a column or a table the database
 // does not have, as each one words them.
 var (
-	unknownColumn = regexp.MustCompile(`(?i)column .* does not exist|unknown column|invalid column name|has no column named|ORA-00904`)
-	unknownTable  = regexp.MustCompile(`(?i)relation .* does not exist|table .* doesn't exist|invalid object name|no such table|ORA-00942`)
-	duplicateKey  = regexp.MustCompile(`(?i)duplicate key|duplicate entry|unique constraint failed|violation of (?:primary key|unique key) constraint|ORA-00001`)
+	unknownColumn = regexp.MustCompile(`(?i)column .* does not exist|unknown column|invalid column name|has no column named|ORA-00904|column "[^"]*" not found`)
+	unknownTable  = regexp.MustCompile(`(?i)relation .* does not exist|table .* doesn't exist|invalid object name|no such table|ORA-00942|table "[^"]*" not found`)
+	duplicateKey  = regexp.MustCompile(`(?i)duplicate key|duplicate entry|unique constraint failed|violation of (?:primary key|unique key) constraint|ORA-00001|unique index or primary key violation`)
 	// Oracle's GENERATED ALWAYS, which no INSERT can give a value to.
 	alwaysIdentity = regexp.MustCompile(`ORA-32795`)
 )
@@ -78,6 +78,9 @@ func (svc *Service) columnsQuery(schema, name string) string {
 		return "SELECT column_name FROM all_tab_columns WHERE owner = " + svc.schemaExpr(schema) +
 			" AND table_name = UPPER(" + d.Literal(name) + ") ORDER BY column_id"
 	}
+	if d.Name == h2db.Name {
+		return "SELECT column_name FROM information_schema.columns WHERE " + svc.h2Table(schema, name) + " ORDER BY ordinal_position"
+	}
 	return "SELECT column_name FROM information_schema.columns WHERE table_schema = " + svc.schemaExpr(schema) +
 		" AND table_name = " + d.Literal(name) + " ORDER BY ordinal_position"
 }
@@ -90,6 +93,9 @@ func (svc *Service) tablesQuery(schema string) string {
 	}
 	if d.Oracle {
 		return "SELECT table_name FROM all_tables WHERE owner = " + svc.schemaExpr(schema) + " ORDER BY table_name"
+	}
+	if d.Name == h2db.Name {
+		return "SELECT table_name FROM information_schema.tables WHERE UPPER(table_schema) = UPPER(" + svc.h2Schema(schema) + ") ORDER BY table_name"
 	}
 	return "SELECT table_name FROM information_schema.tables WHERE table_schema = " + svc.schemaExpr(schema) + " ORDER BY table_name"
 }
