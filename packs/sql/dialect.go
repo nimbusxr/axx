@@ -14,6 +14,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/sql/internal/h2"
 )
 
 // Dialect captures the database-specific parts of the SQL pack.
@@ -45,6 +46,7 @@ var (
 	sqlite    = Dialect{Name: "sqlite", Driver: "sqlite"}
 	sqlserver = Dialect{Name: "sqlserver", Driver: "sqlserver", ForUpdateHint: " WITH (UPDLOCK, ROWLOCK)", BitBooleans: true}
 	oracle    = Dialect{Name: "oracle", Driver: "oracle", ForUpdate: " FOR UPDATE WAIT 10", BitBooleans: true, Oracle: true, TimeOffset: true}
+	h2db      = Dialect{Name: "h2", Driver: "h2", ForUpdate: " FOR UPDATE"}
 )
 
 // Target is a resolved connection target.
@@ -53,6 +55,8 @@ type Target struct {
 	DSN     string
 	// Host, Port and Database are known for PostgreSQL (dblink phantom inserts).
 	Host, Port, Database string
+	// H2 is how to reach an H2 database, which has no DSN: its client is axx's own.
+	H2 *h2.Config
 }
 
 // Resolve converts a JDBC URL (as used in feature files) or a native URL into
@@ -69,11 +73,13 @@ func Resolve(rawURL, user, password string) (Target, error) {
 		return resolveSQLServer(u, user, password)
 	case strings.HasPrefix(lower, "jdbc:oracle:"), strings.HasPrefix(lower, "oracle://"):
 		return resolveOracle(u, user, password)
+	case strings.HasPrefix(lower, "jdbc:h2:"), strings.HasPrefix(lower, "h2:"):
+		return resolveH2(u, user, password)
 	case strings.HasPrefix(lower, "jdbc:sqlite:"), strings.HasPrefix(lower, "sqlite:"), strings.HasPrefix(lower, "file:"):
 		path := strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(u, "jdbc:"), "sqlite:"), "//")
 		return Target{Dialect: sqlite, DSN: path}, nil
 	}
-	return Target{}, fmt.Errorf("unsupported database URL %q (supported: jdbc:postgresql, jdbc:mysql, jdbc:mariadb, jdbc:sqlserver, jdbc:oracle, jdbc:sqlite, or native postgres://, mysql://, sqlserver://, oracle:// URLs)", rawURL)
+	return Target{}, fmt.Errorf("unsupported database URL %q (supported: jdbc:postgresql, jdbc:mysql, jdbc:mariadb, jdbc:sqlserver, jdbc:oracle, jdbc:h2, jdbc:sqlite, or native postgres://, mysql://, sqlserver://, oracle:// URLs)", rawURL)
 }
 
 func resolvePostgres(raw, user, password string) (Target, error) {

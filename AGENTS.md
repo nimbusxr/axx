@@ -42,6 +42,10 @@ the skills instead: `axx skills install`.
   the project's). Both run before or after one of axx's commands, never inside it, on every command
   but those of `commandsWithoutPacks` (`internal/cli/commandhooks.go`). Keep it so: before and
   after, nothing more; another kind of hook gets its own group beside `hooks.commands`.
+- `packs/sql/internal/h2`: axx's own client of H2's server, for database/sql, as H2 has no Go driver: H2's protocol from its source
+  (`org.h2.value.Transfer`, `SessionRemote`, `TcpServerThread`), versions 17 to 21 (H2 1.4.197 to 2.5). The integration tests hold it
+  to real servers of three releases (`h2Releases`): a new H2 release joins them, and a new version of the protocol means reading
+  what H2's `Transfer` changed for it.
 - `packs/web/core` (`web-core`): drives Playwright through playwright-go, with the browsers on the machine that runs
   axx. It pins the Playwright version and its hash in `packs/web/internal/driver`, and runs it
   with the Node.js `internal/npm` pins; upgrading playwright-go means updating them

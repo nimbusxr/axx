@@ -279,3 +279,57 @@ func TestReadDbUnitCSV(t *testing.T) {
 		t.Error("an unclosed quote must be an error")
 	}
 }
+
+// An H2 URL names a database axx can reach, or the step says how the service's
+// own is made reachable.
+func TestResolveH2(t *testing.T) {
+	tgt, err := Resolve("jdbc:h2:tcp://localhost:9092/mem:parcels;MODE=PostgreSQL", "sa", "")
+	if err != nil || tgt.Dialect.Name != "h2" || tgt.H2 == nil || tgt.H2.Addr != "localhost:9092" || tgt.H2.Database != "mem:parcels" || tgt.H2.Settings["MODE"] != "PostgreSQL" {
+		t.Errorf("%+v, %v", tgt, err)
+	}
+	// Each user of a database has a pool of its own.
+	other, _ := Resolve("jdbc:h2:tcp://localhost:9092/mem:parcels;MODE=PostgreSQL", "clerk", "secret")
+	if other.DSN == tgt.DSN {
+		t.Error("two users share a pool")
+	}
+	if tgt, err := Resolve("h2:file:./data/parcels;AUTO_SERVER=TRUE", "sa", ""); err != nil || !strings.HasSuffix(tgt.H2.LockFile, "parcels.lock.db") {
+		t.Errorf("%+v, %v", tgt, err)
+	}
+	for _, url := range []string{"jdbc:h2:mem:parcels", "jdbc:h2:file:./data/parcels", "jdbc:h2:~/parcels"} {
+		_, err := Resolve(url, "sa", "")
+		if err == nil {
+			t.Errorf("%s: no error", url)
+			continue
+		}
+		for _, want := range []string{"AUTO_SERVER=TRUE", "jdbc:h2:tcp://localhost:9092/mem:parcels", "/guides/seed-and-query-sql/#h2"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("%s: %v, want %s", url, err, want)
+			}
+		}
+	}
+	if _, err := Resolve("jdbc:h2:tcp://localhost", "sa", ""); err == nil || strings.Contains(err.Error(), "AUTO_SERVER") {
+		t.Errorf("a URL with no database: %v", err)
+	}
+}
+
+// What H2 is given for a JSON column says it is JSON, and for a column of bytes that
+// it is hex: H2 reads a plain string as neither.
+func TestH2Values(t *testing.T) {
+	for _, c := range []struct{ typ, literal, want string }{
+		{"JSON", `'{"zone":"DE-1"}'`, `'{"zone":"DE-1"}' FORMAT JSON`},
+		{"JSON", "NULL", "NULL"},
+		{"BINARY LARGE OBJECT", "'CAFE'", "X'CAFE'"},
+		{"BINARY VARYING", "'cafe'", "X'cafe'"},
+		{"BINARY VARYING", "'not hex'", "'not hex'"},
+		{"BINARY", "'ABC'", "'ABC'"},
+		{"CHARACTER VARYING", "'CAFE'", "'CAFE'"},
+		{"INTEGER", "7", "7"},
+	} {
+		if got := h2Value(c.typ, c.literal); got != c.want {
+			t.Errorf("%s %s: %s, want %s", c.typ, c.literal, got, c.want)
+		}
+	}
+	if got := h2SeedValue(map[string]string{"photo": "BINARY LARGE OBJECT"}, "PHOTO", "'CAFE'"); got != "X'CAFE'" {
+		t.Errorf("a seed's bytes: %s", got)
+	}
+}

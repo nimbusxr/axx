@@ -38,7 +38,7 @@ func (pack) Manifest() core.Manifest {
 		Name:      "sql",
 		Namespace: "sql",
 		Doc: "Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and " +
-			"trigger fault injection); Oracle has all of it but JSONB; MySQL/MariaDB and SQL Server support seeds, selections, row counts and locks, " +
+			"trigger fault injection); Oracle has all of it but JSONB; MySQL/MariaDB, SQL Server and H2 support seeds, selections, row counts and locks, " +
 			"and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.",
 		Params: []core.ParamType{
 			{
@@ -70,15 +70,19 @@ func steps() []core.StepDef {
 				"- The first database registered in a scenario is the default.\n" +
 				"- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), " +
 				"MySQL or MariaDB (`mysql://`, `jdbc:mysql:`, `jdbc:mariadb:`), SQL Server (`sqlserver://`, `jdbc:sqlserver:`), " +
-				"Oracle (`oracle://host:1521/service`, `jdbc:oracle:thin:@//host:1521/service`) " +
+				"Oracle (`oracle://host:1521/service`, `jdbc:oracle:thin:@//host:1521/service`), " +
+				"H2 (`jdbc:h2:tcp://host:9092/~/parcels` for an H2 server's database, `jdbc:h2:file:./data/parcels;AUTO_SERVER=TRUE` for a file " +
+				"database its service opened with that setting) " +
 				"or SQLite (`sqlite:`, `file:`, `jdbc:sqlite:`).\n" +
+				"- An H2 database in a service's memory (`jdbc:h2:mem:`), or a file opened without `AUTO_SERVER=TRUE`, is that service's alone: " +
+				"the step says what URL to give the service for its test runs.\n" +
 				"- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.",
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
 				Rows: []core.TableRow{
 					{Name: "url", Takes: "where the database is: a native or JDBC URL, like `postgres://localhost:5432/parcels`", Required: true},
 					{Name: "user", Takes: "the user axx connects as; SQLite ignores it, but the table needs it all the same", Required: true},
-					{Name: "password", Takes: "the user's password; SQLite ignores it, but the table needs it all the same", Required: true},
+					{Name: "password", Takes: "the user's password, with the cell left empty for a user that has none, like H2's `sa`; SQLite ignores it, but the table needs it all the same", Required: true},
 					{Name: "schema", Takes: "a schema, kept for code that builds on the pack; the steps don't use it, so name tables `schema.table` " +
 						"(or set a PostgreSQL URL's `currentSchema`)"},
 				},
@@ -332,7 +336,8 @@ func addService(sc *core.Scenario, a core.Args) error {
 	}
 	props := map[string]string{}
 	for _, p := range pairs {
-		if !p.Null {
+		// An empty password is one: H2's `sa` has it until someone sets another.
+		if !p.Null || p.Key == "password" {
 			props[p.Key] = p.Value
 		}
 	}
@@ -757,7 +762,7 @@ func whereClauseOf(t *core.Table, prefix string, compare func(left, column strin
 func typeMismatch(err error) error {
 	var pg interface{ SQLState() string }
 	var ms interface{ SQLErrorNumber() int32 }
-	if errors.As(err, &pg) && pg.SQLState() == "42883" || errors.As(err, &ms) && ms.SQLErrorNumber() == 245 {
+	if errors.As(err, &pg) && pg.SQLState() == "42883" || errors.As(err, &ms) && ms.SQLErrorNumber() == 245 || h2Code(err) == h2DataConversion {
 		return fmt.Errorf("%w; a value must be of its column's type: a text column's number is in double quotes (\"10115\"), "+
 			"a decimal column's is written 12.0, and an integer column's 12", err)
 	}

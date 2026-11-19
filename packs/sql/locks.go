@@ -51,12 +51,17 @@ func (svc *Service) lockRows(ctx context.Context, table string, t *core.Table) e
 	qctx, cancel := context.WithTimeout(ctx, lockTimeout)
 	defer cancel()
 	failed := func(err error) error {
-		if errors.Is(qctx.Err(), context.DeadlineExceeded) || err != nil && strings.Contains(err.Error(), "ORA-30006") {
+		if errors.Is(qctx.Err(), context.DeadlineExceeded) || err != nil && strings.Contains(err.Error(), "ORA-30006") || h2Code(err) == h2LockTimeout {
 			return fmt.Errorf("Could not acquire row lock on table '%s'; rows may be locked by another scenario. Timed out after 10 seconds.", table) //nolint:staticcheck // user-facing message
 		}
 		return fmt.Errorf("Could not lock rows in table '%s': %w", table, typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
 	rows, err := svc.lockTx.QueryContext(qctx, q)
+	// H2 waits for a row as long as the database is set to, a second or two,
+	// and then refuses: asked again, it waits again.
+	for h2Code(err) == h2LockTimeout && qctx.Err() == nil {
+		rows, err = svc.lockTx.QueryContext(qctx, q)
+	}
 	if err != nil {
 		return failed(err)
 	}
