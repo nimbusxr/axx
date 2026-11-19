@@ -225,16 +225,16 @@ IBM publishes Db2 Community Edition as a container image, `icr.io/db2_community/
 
 - **Its license is IBM's.** The image starts only with `LICENSE=accept`, which accepts IBM's license for Db2 Community Edition. Read it first: it is in the image's `/licenses` folder. IBM gives the edition at no charge, and the license limits a server to 4 processor cores and 16 GB of memory.
 - **It is built for Intel and AMD processors.** A Mac with Apple silicon runs it by emulation, which Docker Desktop does when the service says `platform: linux/amd64`.
-- **It must run privileged,** as IBM's instructions say.
+- **It takes a minute or two to start,** every time a container of it starts. The setup below starts it once and gives every run a clean database in seconds.
 
-By default the image's first start sets up log archiving and tunes Db2 to the machine. A database for tests needs neither, and two settings turn them off:
+The setup is three files. The first is the compose file:
 
 ```yaml title="compose.yaml"
 services:
   db2:
     image: icr.io/db2_community/db2:12.1.5.0
     platform: linux/amd64
-    privileged: true
+    privileged: true          # IBM's image needs it
     ports:
       - "50000:50000"
     environment:
@@ -243,9 +243,29 @@ services:
       DBNAME: parcels
       AUTOCONFIG: "false"     # do not tune Db2 to this machine
       ARCHIVE_LOGS: "false"   # do not archive logs, which starts with a backup
+    volumes:
+      - ./db2/clean.sh:/clean.sh:ro
 ```
 
-Db2 is ready when the image's setup is over and the database takes connections. Its port says nothing of that: Docker answers on a published port as soon as the container starts, and Db2 itself opens the port while it still creates the database. So the service's readiness check asks Db2:
+`DB2INST1_PASSWORD` is the password of the user `db2inst1`, which owns the database. Db2's users are the container's own, so a user for your service is one you add to the container, or `db2inst1` itself in a test.
+
+The second is a script that makes the database clean. The first time it runs, it keeps the empty database as a backup. Every time after that, it restores the backup:
+
+```sh title="db2/clean.sh"
+#!/bin/sh
+# Brings the parcels database back to how it was when Db2 first started: empty.
+baseline=$HOME/baseline
+db2 force application all
+db2 deactivate db parcels
+if [ -d "$baseline" ]; then
+  db2 restore db parcels from "$baseline" replace existing || exit 1
+else
+  mkdir "$baseline" && db2 backup db parcels to "$baseline" || exit 1
+fi
+echo "parcels is clean"
+```
+
+The third is `axx.yaml`, with Db2 as one service and the cleaning as another:
 
 ```yaml title="axx.yaml"
 services:
@@ -257,31 +277,53 @@ services:
       timeout: 300s
       interval: 5s
     cleanup: docker compose -p parcels-axx down -v
+
+  clean-db2:
+    dependsOn: [db2]
+    command: docker compose -p parcels-axx exec -T db2 su - db2inst1 -c "sh /clean.sh"
+    ready:
+      log: parcels is clean
+
+  api:
+    dependsOn: [clean-db2]
+    command: java -jar build/libs/parcels-api.jar
+    # ...
 ```
 
-The check has two parts. The file is one the image writes when its setup is over, and `db2 connect` says the database takes connections. The same command makes a `healthcheck` in the compose file, for tools that wait on one.
+Your service depends on `clean-db2`, so it starts when the database is clean, and creates its tables as it does on a new database.
 
-`DB2INST1_PASSWORD` is the password of the user `db2inst1`, which owns the database. Db2's users are the container's own, so a user for your service is one you add to the container, or `db2inst1` itself in a test.
+With these files there are two ways to run:
 
-### How long Db2 takes to start
+1. **`axx run` alone** starts Db2, runs the scenarios and removes Db2. Every run waits for Db2 to start.
+2. **`axx up db2` once, then `axx run` as often as you like.** Db2 keeps running, and each run cleans the database first, which takes a few seconds. `axx down` stops Db2 and removes it.
 
-Db2 takes a minute or two to start, every time a container of it starts. These are the times of Db2 12.1.5 on a Mac with Apple silicon, where Docker emulates the image's processor, from `docker run` to a database that takes connections:
+The second way is the one to work with. On a Mac with Apple silicon, a run of one scenario took 1 min 47 s the first way and 9 s the second. axx warns on such a run that services kept by `axx up` keep the data of earlier runs: of Db2's database, the cleaning takes care.
 
-| Start | Time |
+Cleaning ends every connection to Db2 that is open (`db2 force application all`), which a restore needs. A service that is still running loses its connections and has to connect again, as a connection pool does.
+
+### What goes wrong, and why
+
+- **The scenarios start before Db2 is ready.** Db2's port says nothing of whether Db2 is ready: Docker answers on a published port as soon as the container starts, and Db2 itself opens the port while it still creates the database. A readiness check of the port (`ready.tcp`) passes at once, and the first step then fails with `connection reset by peer`. Ask Db2, as the `ready.exec` above does: the file is one the image writes when its setup is over, and `db2 connect` says the database takes connections.
+- **The container stops during its setup on a Mac.** A folder of the Mac mounted at `/database` goes through Docker's file sharing, and the image's setup fails there as it creates its users. Leave `/database` to Docker, as the compose file above does, or give it a Docker volume.
+- **The container exits at once.** Its log says `LICENSE not set to 'accept'`: the image starts only when its license is accepted.
+- **Db2 never gets ready, and the container's log has `SQL1042C  An unexpected system error occurred`.** The container is not privileged. It keeps running and its setup goes on to the end, but Db2 did not start and there is no database. Set `privileged: true`.
+- **The start takes much longer than two minutes on a Mac.** A limit on the container's processors (`cpus:`) slows the emulation: limited to 4, the start took up to 2 min 30 s on the same Mac.
+- **A seed fails with `a row with that key is already there`.** The database has the rows of an earlier run: the service that cleans it did not run. Check that your service depends on `clean-db2`.
+
+### How long Db2 takes
+
+These are the times of Db2 12.1.5 on a Mac with Apple silicon, where Docker emulates the image's processor. A start is measured from `docker run` to a database that takes connections:
+
+| What | Time |
 | --- | --- |
-| The first start, with the two settings above | 1 min 40 s |
+| The first start of a container, with the two settings above | 1 min 40 s |
 | The first start, with the image's own defaults | 2 min 10 s |
-| A later start, with the database kept in a volume at `/database` | 1 min 20 s |
+| A start with the database kept in a volume at `/database` | 1 min 20 s |
 | A stopped container started again | 1 min 10 s or more |
+| Cleaning the database of a Db2 that runs (a restore) | 5 s |
+| Dropping the database and creating it again | 20 s |
 
-So no setting makes a start short, and these do the most:
-
-1. **Keep Db2 running while you work.** `axx up db2` starts it once, and every `axx run` after that uses the Db2 that runs. `axx down` stops it. A scenario then finds the rows of earlier runs, so give each scenario keys of its own ([Scenario isolation](/explanations/scenario-isolation/)).
-2. **Do not limit the container's processors.** Limited to 4 (`cpus: 4`), the first start took 2 min 10 s to 2 min 30 s on the same Mac, most of it the emulation's work. The license allows Db2 itself 4 cores, and `db2licm -l` in the container shows what Db2 holds itself to.
-3. **Keep the two settings above.** They saved half a minute of the first start.
-4. **On a Mac, do not mount a folder of the Mac at `/database`.** The folder goes through Docker's file sharing, and the image's setup failed there when it created its users. A Docker volume, or no volume at all, has no such trouble.
-
-A volume at `/database` keeps the database from one container to the next, which saves the time it takes to create it. The `cleanup` above removes it (`down -v`), so that every run starts from an empty database. Take the `-v` away to keep it.
+No setting makes a start short: most of it is Db2 starting, not the database being created. That is why the setup above keeps Db2 running and cleans the database instead.
 
 ### Db2's own ways
 
