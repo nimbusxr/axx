@@ -2,18 +2,38 @@
 FROM golang:1.27-trixie@sha256:c124b9ad3452f46061b5054607d26ea51730dae5372c5e469920063ba2bc6dcc AS build
 ARG TARGETARCH
 # ONNX Runtime, which runs the evidence photo check: its release for the platform, pinned.
+# When its GitHub repository answers 404 (it went offline on 2026-11-17), the library comes
+# from the same release's jar on Maven Central, pinned too. The arm64 library there is the very file
+# of GitHub's release (the same SHA-256 as in an image built from it); the amd64 one could not be
+# compared while GitHub is away.
 ARG ORT_VERSION=1.29.0
+ARG ORT_JAR_SHA256=5933bbc0c6c4d89afc04bf7c11011de23a947509c1352e5bf5936e62a84e4d10
 RUN set -eu; \
     case "$TARGETARCH" in \
-      amd64) arch=x64; sum=c3fddc4f139a045b0c4902c57410f0694f1c2fdf9b6939fbe38b1aeae7cd14ba ;; \
-      arm64) arch=aarch64; sum=e1799098ebc054b370f6176a450f158720f297818c613e5dc99b92e2ec82346f ;; \
+      amd64) arch=x64; sum=c3fddc4f139a045b0c4902c57410f0694f1c2fdf9b6939fbe38b1aeae7cd14ba; \
+             lib=5715f06d8992ca8eeeddcce43df3a7d38f97d537052126f558e912cb312460ca ;; \
+      arm64) arch=aarch64; sum=e1799098ebc054b370f6176a450f158720f297818c613e5dc99b92e2ec82346f; \
+             lib=a27d21126db312aa8f02f3d5eaebe466e991f51f469882e6d0407d5a8b64afda ;; \
       *) echo "no ONNX Runtime for $TARGETARCH" >&2; exit 1 ;; \
     esac; \
-    curl -fsSL -o /tmp/ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-${arch}-${ORT_VERSION}.tgz"; \
-    echo "$sum  /tmp/ort.tgz" | sha256sum -c -; \
     mkdir -p /opt/onnxruntime; \
-    tar xzf /tmp/ort.tgz -C /opt/onnxruntime --strip-components=1; \
-    cp "/opt/onnxruntime/lib/libonnxruntime.so.${ORT_VERSION}" /opt/onnxruntime/libonnxruntime.so
+    release="https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-${arch}-${ORT_VERSION}.tgz"; \
+    answer=$(curl -sSL -o /tmp/ort.tgz -w '%{http_code}' "$release"); \
+    case "$answer" in \
+      200) \
+        echo "$sum  /tmp/ort.tgz" | sha256sum -c -; \
+        tar xzf /tmp/ort.tgz -C /opt/onnxruntime --strip-components=1; \
+        cp "/opt/onnxruntime/lib/libonnxruntime.so.${ORT_VERSION}" /opt/onnxruntime/libonnxruntime.so ;; \
+      404) \
+        echo "ONNX Runtime ${ORT_VERSION} is not on GitHub (404): taking it from Maven Central" >&2; \
+        curl -fsSL -o /tmp/ort.jar "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime/${ORT_VERSION}/onnxruntime-${ORT_VERSION}.jar"; \
+        echo "$ORT_JAR_SHA256  /tmp/ort.jar" | sha256sum -c -; \
+        apt-get update; apt-get install -y --no-install-recommends unzip; rm -rf /var/lib/apt/lists/*; \
+        unzip -p /tmp/ort.jar "ai/onnxruntime/native/linux-${arch}/libonnxruntime.so" > /opt/onnxruntime/libonnxruntime.so; \
+        echo "$lib  /opt/onnxruntime/libonnxruntime.so" | sha256sum -c - ;; \
+      *) echo "ONNX Runtime ${ORT_VERSION}: GitHub answered $answer" >&2; exit 1 ;; \
+    esac; \
+    rm -f /tmp/ort.tgz /tmp/ort.jar
 # llama.cpp, which runs the description triage: built from its release's commit, pinned, as
 # static libraries the service links in (the CPU's code for any of the platform's CPUs). Its
 # ggml is whisper.cpp's too: the release's ggml headers are whisper.cpp's release's below.
