@@ -287,6 +287,22 @@ func TestCleanupAlwaysRuns(t *testing.T) {
 			t.Errorf("events %q", got)
 		}
 	})
+	t.Run("a command that ends well is no warning", func(t *testing.T) {
+		t.Parallel()
+		// As docker compose up -d does: it starts what it starts and exits 0.
+		stack := logReady(helperApp(t, "stack", "print-exit", "50ms", "0", "up"), "up")
+		h := newHarness(t, config.Services{stack}, Options{})
+		if err := h.Start(t.Context(), nil); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, 5*time.Second, "its end", func() bool { return strings.Contains(h.logs.String(), "service's command ended") })
+		if err := h.Stop(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if logs := h.logs.String(); strings.Contains(logs, "exited on its own") || strings.Contains(logs, "level=WARN") {
+			t.Errorf("a command that exited 0 was warned of:\n%s", logs)
+		}
+	})
 	t.Run("cleanup failure is reported and others still run", func(t *testing.T) {
 		t.Parallel()
 		file := filepath.Join(t.TempDir(), "events")
