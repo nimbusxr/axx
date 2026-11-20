@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -74,6 +75,13 @@ func logsOnFailure(t *testing.T, h *cloudtest.Harness) {
 		for _, serial := range serials {
 			out, _ := s.run(ctx, serial, "logcat", "-d", "-b", "crash")
 			t.Logf("%s's crash log:\n%s", serial, out)
+			// What each process that crashed logged before it did: its crash's log has how it
+			// ended, not what led there (which of an app's models was loading, say).
+			for _, pid := range crashed(out) {
+				before, _ := s.run(ctx, serial, "logcat", "-d", "-v", "threadtime", "-b", "main,system", "--pid="+pid)
+				lines := strings.Split(strings.TrimSpace(before), "\n")
+				t.Logf("%s: the last lines of process %s before it crashed:\n%s", serial, pid, strings.Join(lines[max(0, len(lines)-200):], "\n"))
+			}
 			// What axx's scroll service was asked and answered: which view, whether it took the
 			// scroll, whether it moved, and how many milliseconds after.
 			out, _ = s.run(ctx, serial, "logcat", "-d", "-v", "time", "-s", "axx-scroll")
@@ -88,6 +96,21 @@ func logsOnFailure(t *testing.T, h *cloudtest.Harness) {
 			}
 		}
 	})
+}
+
+// crashedPID is a crashed process's ID in a device's crash log: a native crash's ("pid: 4449,
+// tid: 4866") or an app's exception's ("Process: example.parcels.courier, PID: 4449").
+var crashedPID = regexp.MustCompile(`(?:\bpid: |, PID: )(\d+)`)
+
+// crashed is the IDs of the processes a device's crash log has, each once, in its order.
+func crashed(log string) []string {
+	var pids []string
+	for _, m := range crashedPID.FindAllStringSubmatch(log, -1) {
+		if !slices.Contains(pids, m[1]) {
+			pids = append(pids, m[1])
+		}
+	}
+	return pids
 }
 
 // near checks that the scenario's device was put at a latitude and longitude
