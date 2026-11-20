@@ -170,16 +170,18 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    # The unit tests on each OS, in two parts: the packs' and the rest. (The rest took 10 to 12
-    # minutes on Windows and macOS, whose caches and builds are the slowest, when it had every
-    # pack but the models packs.) On main, where the tests are only built, one part builds them
-    # all.
+    # The unit tests on each OS, in four parts (scripts/test-parts.sh): the models packs', the
+    # other packs', internal/cli's and the rest. In two, the packs' and the rest, both took 9 to
+    # 11 minutes on Windows as a rule, and the packs' 9 on macOS: a Windows runner takes over 4
+    # minutes to set up (3.3 of them restoring Go's caches), a minute more before the first test
+    # runs, and then ran 5 minutes of the packs' tests, or 4 of the rest's, 2.6 of them
+    # internal/cli's. On main, where the tests are only built, one part builds them all.
     name: test (${{ matrix.os }}, ${{ matrix.part }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-26.04, macos-latest, windows-latest]
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["packs", "rest"]' || '["all"]') }}
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["packs-models", "packs", "cli", "rest"]' || '["all"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       # Windows scans every file the checkout, the cache restore and the build write, which
@@ -210,14 +212,12 @@ jobs:
       - name: the part's packages
         env:
           PART: ${{ matrix.part }}
-        run: |
-          # (xargs: macOS's bash, 3.2, has no mapfile.)
-          case "$PART" in
-            packs) go list ./packs/... > "$RUNNER_TEMP/packages" ;;
-            rest) go list ./... | grep -v '/packs/' > "$RUNNER_TEMP/packages" ;;
-            *) go list ./... > "$RUNNER_TEMP/packages" ;;
-          esac
+        # (Into a file, for xargs: macOS's bash, 3.2, has no mapfile.)
+        run: scripts/test-parts.sh "$PART" > "$RUNNER_TEMP/packages"
         shell: bash
+      - if: matrix.part == 'rest' && runner.os == 'Linux'
+        name: every package is in one part
+        run: scripts/test-parts.sh --check
       # On main, the tests are only built: their build cache is what pull requests read. A pull
       # request's are built as they run: go test links a test binary again each time it runs it,
       # so a step that built them first had each linked twice.
