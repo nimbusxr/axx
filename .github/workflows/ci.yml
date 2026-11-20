@@ -714,6 +714,21 @@ jobs:
             examples/parcels/acceptance/.axx/logs/
           if-no-files-found: ignore
           retention-days: 7
+      # A UiAutomator2 server that ended under a scenario, which axx started again: the run says
+      # nothing of it when the scenario then passed. Its log's account of each end (adb's own,
+      # and the device's) is printed, with a warning on the run's page, so that how often adb
+      # loses an emulator on these runners, and why, shows in the runs that pass too.
+      - if: ${{ !cancelled() }}
+        name: the UiAutomator2 server's ends that the run got over
+        working-directory: examples/parcels/acceptance
+        run: |
+          for log in .axx/mobile/uiautomator2-*.log; do
+            [ -e "$log" ] || continue
+            ends=$(grep -c 'ended by itself' "$log" || true)
+            [ "$ends" -gt 0 ] || continue
+            echo "::warning::the UiAutomator2 server ended by itself $ends times in this job: this step's log has its account of each ($log)"
+            cat "$log"
+          done
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/android-builds
         with:
