@@ -2,18 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # The packages of each part of CI's unit tests (the test job), one to a line: the models packs',
-# the other packs', internal/cli's, which alone takes as long as all the rest, and the rest. A
-# package is in one part by where it is, so a new one needs no line here.
-#   usage: scripts/test-parts.sh <packs-models|packs|cli|rest|all>
+# the mobile and desktop packs' (the Android pack's tests run a second time through the axx
+# host, 3 minutes in all on Windows), the other packs', internal/cli's, which alone takes as
+# long as all the rest, and the rest. A package is in one part by where it is, so a new one
+# needs no line here.
+#   usage: scripts/test-parts.sh <packs-models|packs-devices|packs|cli|rest|all>
 #          scripts/test-parts.sh --check   # every package is in one part, and in one only
 set -euo pipefail
 
-parts=(packs-models packs cli rest)
+parts=(packs-models packs-devices packs cli rest)
 
 part() {
   case "$1" in
     packs-models) go list ./packs/models/... ;;
-    packs) go list ./packs/... | grep -v '/packs/models/' ;;
+    packs-devices) go list ./packs/mobile/... ./packs/desktop/... ;;
+    packs) go list ./packs/... | grep -v -E '/packs/(models|mobile|desktop)(/|$)' ;;
     cli) go list ./internal/cli/... ;;
     rest) go list ./... | grep -v -e '/packs/' -e '/internal/cli$' -e '/internal/cli/' ;;
     all) go list ./... ;;

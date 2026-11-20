@@ -171,18 +171,21 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    # The unit tests on each OS, in four parts (scripts/test-parts.sh): the models packs', the
-    # other packs', internal/cli's and the rest. In two, the packs' and the rest, both took 9 to
-    # 11 minutes on Windows as a rule, and the packs' 9 on macOS: a Windows runner takes over 4
-    # minutes to set up (3.3 of them restoring Go's caches), a minute more before the first test
-    # runs, and then ran 5 minutes of the packs' tests, or 4 of the rest's, 2.6 of them
-    # internal/cli's. On main, where the tests are only built, one part builds them all.
+    # The unit tests on each OS, in five parts (scripts/test-parts.sh): the models packs', the
+    # mobile and desktop packs', the other packs', internal/cli's and the rest. (With the mobile
+    # and desktop packs among the other packs', that part took 11 minutes on Windows: 5.8 of
+    # tests, 3.1 of them the Android pack's, after 4.2 of setting up.) In two, the packs' and
+    # the rest, both took 9 to 11 minutes on Windows as a rule, and the packs' 9 on macOS: a
+    # Windows runner takes over 4 minutes to set up (3.3 of them restoring Go's caches), a
+    # minute more before the first test runs, and then ran 5 minutes of the packs' tests, or 4
+    # of the rest's, 2.6 of them internal/cli's. On main, where the tests are only built, one
+    # part builds them all.
     name: test (${{ matrix.os }}, ${{ matrix.part }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-26.04, macos-latest, windows-latest]
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["packs-models", "packs", "cli", "rest"]' || '["all"]') }}
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["packs-models", "packs-devices", "packs", "cli", "rest"]' || '["all"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       # Windows scans every file the checkout, the cache restore and the build write, which
