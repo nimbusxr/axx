@@ -82,7 +82,8 @@ runs:
       run: |
         dir="$RUNNER_TEMP/ccache-bin"
         mkdir -p "$dir"
-        curl -fsSL -o "$RUNNER_TEMP/ccache.tar.xz" https://github.com/ccache/ccache/releases/download/v4.14.2/ccache-4.14.2-linux-x86_64-glibc.tar.xz
+        # A download that fails is tried again, three times.
+        curl -fsSL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/ccache.tar.xz" https://github.com/ccache/ccache/releases/download/v4.14.2/ccache-4.14.2-linux-x86_64-glibc.tar.xz
         echo "bd1313f5316f594443dcb4113a4191c666ac6450e0cf016ff8cb8b080f46c160  $RUNNER_TEMP/ccache.tar.xz" | sha256sum -c --quiet
         tar -xJf "$RUNNER_TEMP/ccache.tar.xz" -C "$dir" --strip-components 1
         echo "COURIER_APK_BUILT=true" >> "$GITHUB_ENV"
@@ -199,6 +200,13 @@ runs:
         for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
         cat "$RUNNER_TEMP/device.log"
         [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -o pid,ppid,stat,wchan:32,etime,args -p "$(pgrep -d, -f 'create-emulator|emulator|qemu|adb')" || true; echo "::error::the emulator's device was not made"; exit 1; }
+        # What the device is made of: its script installs the SDK's newest emulator, platform
+        # tools and system image of the day it runs, so a device kept in November is not one
+        # made today, and a fault that came with one of them shows here.
+        for package in emulator platform-tools system-images/android-35/google_apis/x86_64; do
+          echo "the device's $package: $(grep -h -e '^Pkg.Revision=' -e '^Pkg.BuildId=' "$ANDROID_HOME/$package/source.properties" 2> /dev/null | tr '\n' ' ')"
+        done
+        "$ANDROID_HOME/platform-tools/adb" version | sed -n 1,2p
     - if: inputs.mode == 'finish' && inputs.save-emulator == 'true' && env.COURIER_DEVICE_MADE == 'true'
       id: device-paths
       shell: bash

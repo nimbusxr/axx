@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,4 +104,67 @@ func emulatorProcess(t *testing.T, dir, serial string, running bool) *device {
 		<-d.exited
 	}
 	return d
+}
+
+// The server is started with Android's hidden APIs allowed it, by the option "am instrument" has
+// from Android 9, the first Android that refuses them: an Android before it knows no such option,
+// and stops at it.
+func TestTheServerIsStartedWithTheHiddenAPIs(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		level   int
+		scrolls bool
+		want    string
+	}{
+		{
+			"Android 8.1, which refuses no app its hidden APIs", 27, false,
+			"am instrument -w --no-window-animation -e disableAnalytics true " + uia2Runner,
+		},
+		{
+			"Android 9, the first that refuses them", 28, false,
+			"am instrument -w --no-hidden-api-checks --no-window-animation -e disableAnalytics true " + uia2Runner,
+		},
+		{
+			"Android 17, with axx's scroll service left running", 37, true,
+			"am instrument -w --no-hidden-api-checks --no-window-animation -e disableAnalytics true -e DISABLE_SUPPRESS_ACCESSIBILITY_SERVICES true " + uia2Runner,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := strings.Join(instrumentation(tc.level, tc.scrolls), " "); got != tc.want {
+				t.Errorf("the server is started with\n  %s\nand not with\n  %s", got, tc.want)
+			}
+		})
+	}
+}
+
+// A device's Android level is its SDK level, as the device gives it; a device that gives none
+// stops the server's start, with the device named.
+func TestADevicesAndroidLevel(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stand-in adb is a shell script")
+	}
+	dir := t.TempDir()
+	adb := filepath.Join(dir, "adb")
+	script := `#!/bin/sh
+case "$2" in
+emulator-5554) echo 37 ;;
+emulator-5556) echo ;;
+*) echo "error: device '$2' not found" >&2; exit 1 ;;
+esac
+`
+	if err := os.WriteFile(adb, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	p := &pool{sdk: &sdk{adb: adb}}
+	if level, err := p.sdkLevel(t.Context(), "emulator-5554"); err != nil || level != 37 {
+		t.Errorf("emulator-5554 is of level %d, %v", level, err)
+	}
+	for serial, want := range map[string]string{
+		"emulator-5556": `cannot read the Android version of emulator-5556: its SDK level is ""`,
+		"emulator-5558": "cannot read the Android version of emulator-5558: adb",
+	} {
+		if _, err := p.sdkLevel(t.Context(), serial); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v, and not %q", serial, err, want)
+		}
+	}
 }

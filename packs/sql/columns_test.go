@@ -250,16 +250,23 @@ func TestWhatIsNotInTheTableKeepsItsError(t *testing.T) {
 // its values to its columns.
 func TestAPollHoldsATableMadeWhileItWaits(t *testing.T) {
 	h := sqliteDB(t)
-	svc, err := Context(h.SC).Service("parcels-db")
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := sqliteService(t, h)
+	// The service creates the table a moment into the poll. The test does not count
+	// on that moment: a CREATE that lands while a try reads the file waits for it.
+	made := make(chan error, 1)
 	go func() {
 		time.Sleep(200 * time.Millisecond)
-		_, _ = svc.DB.ExecContext(context.Background(), "CREATE TABLE late (postcode TEXT)")
+		_, err := service.ExecContext(context.Background(), "CREATE TABLE late (postcode TEXT)")
+		made <- err
 	}()
-	_ = h.Fails("within 30s a selection of at least 1 row is retrieved from the late table where:", `postcode is text in late (TEXT): write "10115"`,
-		[][]string{{"postcode", "10115"}})
+	err := h.Step("within 30s a selection of at least 1 row is retrieved from the late table where:", [][]string{{"postcode", "10115"}})
+	// The service's error first: with no table, the step's own says only that it is missing.
+	if err := <-made; err != nil {
+		t.Fatalf("the service could not create the table: %v", err)
+	}
+	if want := `postcode is text in late (TEXT): write "10115"`; err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want an error containing %q, got %v", want, err)
+	}
 }
 
 // The type of a column is the database's each time: a scenario's service may

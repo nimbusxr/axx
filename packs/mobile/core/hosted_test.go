@@ -128,7 +128,9 @@ func (d *phone) HideKeyboard(context.Context) (bool, error) { return true, nil }
 
 // OutOfView is whether a control a selector found is out of view: this phone's driver finds
 // such controls, and the element "far" is one.
-func (d *phone) OutOfView(_ context.Context, el *appium.Element) bool { return el.ID == "far" }
+func (d *phone) OutOfView(_ context.Context, el *appium.Element) (bool, error) {
+	return el.ID == "far", nil
+}
 
 func (d *phone) ScrollToShow(_ context.Context, n *Node, name string) (bool, error) {
 	if n == nil || n.Parent == nil || !n.Parent.Scrolling {
@@ -441,8 +443,10 @@ func TestARunsPhoneIsStartedAndDrivenInTheHost(t *testing.T) {
 	if !ok {
 		t.Fatal("the run's device does not say whether a control is out of view")
 	}
-	if !o.OutOfView(ctx, d.Session().Element("far")) || o.OutOfView(ctx, d.Session().Element("row")) {
-		t.Error("out of view: the far element is, the row is not")
+	far, err := o.OutOfView(ctx, d.Session().Element("far"))
+	row, err2 := o.OutOfView(ctx, d.Session().Element("row"))
+	if err != nil || err2 != nil || !far || row {
+		t.Errorf("out of view: the far element is (%v, %v), the row is not (%v, %v)", far, err, row, err2)
 	}
 	if err := d.OpenLink(ctx, "parcels://delivery/PX-4101"); err != nil {
 		t.Error(err)

@@ -13,13 +13,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/nimbusxr/axx/internal/npm"
 )
 
 // Credit is the line Cisco's binary license asks of software that uses
@@ -88,21 +89,12 @@ func fetch(dir string) (string, error) {
 	if _, err := os.Stat(path); err == nil {
 		return path, nil
 	}
+	// npm.Fetch tries the download again when the network or Cisco's server fails it, for
+	// these two minutes at most: one failed lookup of Cisco's host should not cost a run
+	// its videos.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, openh264URL+build.file, nil)
-	if err != nil {
-		return "", err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("cannot download OpenH264 from Cisco: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("cannot download OpenH264 from Cisco: %s answered %s", openh264URL+build.file, resp.Status)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	body, err := npm.Fetch(ctx, openh264URL+build.file)
 	if err != nil {
 		return "", fmt.Errorf("cannot download OpenH264 from Cisco: %w", err)
 	}

@@ -246,11 +246,40 @@ func (d *running) under(ctx context.Context, src string, s *mobilecore.Screen) {
 }
 
 // OutOfView is whether a control a selector found is out of view: the driver finds what the
-// screen lists out of view too, and does not scroll to it to tap it, so the step does.
-func (d *running) OutOfView(ctx context.Context, el *appium.Element) bool {
+// screen lists out of view too, and does not scroll to it to tap it, so the step does. A
+// control the driver has lost since it found it (a web page draws its controls again as it
+// scrolls) is not one it can say that of, and the step finds it again.
+//
+// The driver's "displayed" is Android's word that the control is visible to the user, and of a
+// web page's control Android has it from the windows above the app's: the page says every
+// control of it is visible, and Android takes that back where the app's window less the
+// windows above it (the status bar, the navigation bar) does not reach the control. With no
+// window above it at that moment, it takes nothing back, and a control four screens down the
+// page "is displayed": seen for a quarter of a second after the system's bars went away, and
+// on CI's emulators with no such cause known, where the tap then went to the screen's edge
+// and its step took half a second. So the control's place is asked too: the driver cuts it
+// to the screen, and a control that is off it has no height, or no width.
+func (d *running) OutOfView(ctx context.Context, el *appium.Element) (bool, error) {
 	if d.scrollService() == nil {
-		return false
+		return false, nil
 	}
 	shown, err := el.Attribute(ctx, "displayed")
-	return err == nil && shown == "false"
+	if err != nil || shown == "false" {
+		return shown == "false", err
+	}
+	at, err := el.Rect(ctx)
+	if err != nil {
+		return false, err
+	}
+	if at.Width > 0 && at.Height > 0 {
+		return false, nil
+	}
+	// Tests' devices have no pool.
+	if d.pool != nil && d.pool.suite != nil {
+		if l := d.pool.suite.Logger(); l != nil {
+			l.Info("Android says a control off the screen is displayed: it is taken for out of view by its place",
+				"app", d.app.name, "width", at.Width, "height", at.Height)
+		}
+	}
+	return true, nil
 }

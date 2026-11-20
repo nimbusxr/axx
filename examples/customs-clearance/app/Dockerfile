@@ -2,7 +2,8 @@
 FROM golang:1.27-trixie@sha256:c124b9ad3452f46061b5054607d26ea51730dae5372c5e469920063ba2bc6dcc AS build
 ARG TARGETARCH
 # OpenVINO, which runs the inspections' contents check: its release for the platform, pinned,
-# whose C library the service links in.
+# whose C library the service links in. A download that fails is tried again, three times
+# (--retry).
 ARG OPENVINO_VERSION=2026.4.1
 ARG OPENVINO_BUILD=22982.07f9c262b05
 RUN set -eu; \
@@ -12,7 +13,7 @@ RUN set -eu; \
       *) echo "no OpenVINO for $TARGETARCH" >&2; exit 1 ;; \
     esac; \
     name="openvino_toolkit_ubuntu22_${OPENVINO_VERSION}.${OPENVINO_BUILD}_${arch}"; \
-    curl -fsSL -o /tmp/openvino.tgz "https://storage.openvinotoolkit.org/repositories/openvino/packages/${OPENVINO_VERSION}/linux/${name}.tgz"; \
+    curl -fsSL --retry 3 --retry-all-errors -o /tmp/openvino.tgz "https://storage.openvinotoolkit.org/repositories/openvino/packages/${OPENVINO_VERSION}/linux/${name}.tgz"; \
     echo "$sum  /tmp/openvino.tgz" | sha256sum -c -; \
     tar xzf /tmp/openvino.tgz -C /tmp; \
     mkdir -p /opt/openvino/lib; \

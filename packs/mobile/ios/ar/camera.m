@@ -108,6 +108,34 @@ static BOOL openVideo(void) {
     return YES;
 }
 
+// How long the video is, as its frames say (the last one's time); how long reading the frames of
+// this pass through it has taken; and how many times the log has told of a pass read slowly.
+static double videoLength, videoReading;
+static int videoSlowPasses;
+
+// The video's next frame, decoded, with the time it took to read counted.
+static CMSampleBufferRef nextVideoSample(void) {
+    CFTimeInterval began = CACurrentMediaTime();
+    CMSampleBufferRef sample = [videoOutput copyNextSampleBuffer];
+    videoReading += CACurrentMediaTime() - began;
+    return sample;
+}
+
+// A pass through the video whose frames took longer to read than the video is long, in the log,
+// the first three times. The frames are read in turn, each one decoded, and the frame for now is
+// the last one due: when reading is slower than the video plays, the camera shows a frame, then
+// the one that is due once the frames between them are read, which is seconds on. What the video
+// ends on comes that much later: on a Mac that ran three simulators, the first frame of a video
+// of 3 seconds came after 5 seconds and the next, its last, 13 seconds after that.
+static void videoPlayedOnce(CFTimeInterval took) {
+    double reading = videoReading;
+    videoReading = 0;
+    if (videoLength <= 0 || reading < videoLength || videoSlowPasses >= 3) return;
+    videoSlowPasses++;
+    LOG(@"the video played once in %.1fs, %.1fs of them reading its frames, and is %.1fs long: the camera shows it slower than it was taken, and skips what it cannot read in time",
+        took, reading, videoLength);
+}
+
 // The video's frame for now: the last one due.
 static CVPixelBufferRef videoFrame(void) {
     if (!videoReader && !openVideo()) return NULL;
@@ -116,17 +144,19 @@ static CVPixelBufferRef videoFrame(void) {
     CMSampleBufferRef due = NULL;
     for (;;) {
         if (!videoNext) {
-            videoNext = [videoOutput copyNextSampleBuffer];
+            videoNext = nextVideoSample();
             if (!videoNext) {  // the end: again from the start
                 if (due) break;
+                videoPlayedOnce(CACurrentMediaTime() - videoLoopStart);
                 videoReader = nil;
                 if (!openVideo()) return NULL;
                 videoLoopStart = now;
-                videoNext = [videoOutput copyNextSampleBuffer];
+                videoNext = nextVideoSample();
                 if (!videoNext) return NULL;
             }
         }
         double at = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(videoNext));
+        if (at > videoLength) videoLength = at;
         if (due && at > now - videoLoopStart) break;
         if (due) CFRelease(due);
         due = videoNext;

@@ -612,3 +612,52 @@ func TestTheScrollServiceBuilds(t *testing.T) {
 		t.Error("a build that failed left a service")
 	}
 }
+
+// Whether a control is out of view is the driver's to say, of a control it still has. Of one it
+// has lost since it found it (a web page draws its controls again as it scrolls), it fails, and
+// the step finds the control again: it does not answer that the control is in view.
+func TestAControlTheDriverLostIsNotTakenForInView(t *testing.T) {
+	sv, _ := standInScrolls(t, func(int, map[string]any) map[string]any { return map[string]any{"found": false} })
+	d := deviceWith(t, sv, "")
+	el, err := d.session.Find(t.Context(), "xpath", `//android.widget.Button[@text="Send report"]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := d.OutOfView(t.Context(), el); err != nil || !out {
+		t.Errorf("the button at the page's end: out of view %v, %v; want out of view", out, err)
+	}
+	lost := d.session.Element("no-longer-the-drivers")
+	if out, err := d.OutOfView(t.Context(), lost); err == nil || !appium.IsStale(err) {
+		t.Errorf("a control the driver lost: out of view %v, %v; want the driver's error", out, err)
+	}
+}
+
+// Android says a web page's control is displayed unless a window above the app's covers it or
+// the app's window does not reach it, and with no window above it at that moment it says so of
+// every control of the page. The control's place does not change with that: the driver cuts it
+// to the screen, so a control below it has no height there. A step goes by both: it scrolls to
+// such a control, where it tapped the screen's edge before.
+func TestAControlOffTheScreenThatAndroidSaysIsDisplayedIsOutOfView(t *testing.T) {
+	sv, _ := standInScrolls(t, func(int, map[string]any) map[string]any { return map[string]any{"found": false} })
+	// What the driver said of the form's last button for a quarter of a second after the
+	// system's bars went away, on an emulator: displayed, at the screen's lower edge, 0 high.
+	page := strings.Replace(formPage, `bounds="[42,4226][1042,2402]" displayed="false"`, `bounds="[42,2337][1042,2337]" displayed="true"`, 1)
+	if page == formPage {
+		t.Fatal("the form has no such button")
+	}
+	d := deviceShowing(t, sv, "", page)
+	off, err := d.session.Find(t.Context(), "xpath", `//android.widget.Button[@text="Send report"]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := d.OutOfView(t.Context(), off); err != nil || !out {
+		t.Errorf("a button off the screen that Android says is displayed: out of view %v, %v; want out of view", out, err)
+	}
+	on, err := d.session.Find(t.Context(), "xpath", `//android.widget.EditText[@resource-id="q19"]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := d.OutOfView(t.Context(), on); err != nil || out {
+		t.Errorf("a field on the screen: out of view %v, %v; want in view", out, err)
+	}
+}

@@ -57,6 +57,10 @@ static int capture(NSString *kind, NSURL *url) {
   NSError *error = nil;
   NSMutableData *heard = [NSMutableData new];
   if ([kind isEqual:@"capture-session"]) {
+    // Each part's time and each failure's reason go to the test's log: on a
+    // slow Mac a session took 24 seconds where it takes 5, and one that
+    // failed there said nothing (simctl gives the test no exit status).
+    NSDate *began = [NSDate date];
     AVCaptureDevice *device =
         [AVCaptureDevice devicesWithMediaType:AVMediaTypeAudio].firstObject;
     if (!device) {
@@ -70,6 +74,19 @@ static int capture(NSString *kind, NSURL *url) {
       return 24;
     }
     AVCaptureSession *session = [AVCaptureSession new];
+    for (NSNotificationName name in @[
+           AVCaptureSessionRuntimeErrorNotification,
+           AVCaptureSessionWasInterruptedNotification
+         ])
+      [NSNotificationCenter.defaultCenter
+          addObserverForName:name
+                      object:session
+                       queue:nil
+                  usingBlock:^(NSNotification *note) {
+                    fprintf(stderr, "capture session: %s after %.1fs: %s\n",
+                            note.name.UTF8String, -began.timeIntervalSinceNow,
+                            note.userInfo.description.UTF8String);
+                  }];
     [session addInput:input];
     AVCaptureAudioDataOutput *output = [AVCaptureAudioDataOutput new];
     [session addOutput:output];
@@ -78,16 +95,34 @@ static int capture(NSString *kind, NSURL *url) {
     [output setSampleBufferDelegate:delegate
                               queue:dispatch_queue_create(
                                         "probe.audio", DISPATCH_QUEUE_SERIAL)];
+    fprintf(stderr, "capture session: set up after %.1fs\n",
+            -began.timeIntervalSinceNow);
     [session startRunning];
-    if (!session.running)
+    fprintf(stderr, "capture session: started after %.1fs\n",
+            -began.timeIntervalSinceNow);
+    if (!session.running) {
+      fprintf(stderr, "capture session: it does not run once started\n");
       return 25;
+    }
     hear(heard, 48000);
-    [session stopRunning];
-    if (session.running)
-      return 26;
     @synchronized(heard) {
-      if (![heard writeToURL:url options:NSDataWritingAtomic error:&error])
+      fprintf(stderr, "capture session: heard %lu frames after %.1fs\n",
+              (unsigned long)(heard.length / sizeof(float)),
+              -began.timeIntervalSinceNow);
+    }
+    [session stopRunning];
+    fprintf(stderr, "capture session: stopped after %.1fs\n",
+            -began.timeIntervalSinceNow);
+    if (session.running) {
+      fprintf(stderr, "capture session: it still runs once stopped\n");
+      return 26;
+    }
+    @synchronized(heard) {
+      if (![heard writeToURL:url options:NSDataWritingAtomic error:&error]) {
+        fprintf(stderr, "capture session: cannot write what it heard: %s\n",
+                error.description.UTF8String);
         return 27;
+      }
     }
     printf("captured 48000\n");
     return 0;
@@ -337,6 +372,14 @@ int main(int argc, const char **argv) {
              input ? "available" : "unavailable");
       if (error)
         printf("%s\n", error.description.UTF8String);
+      return 0;
+    }
+    // waiting does nothing for a minute: a test has the simulator end this run,
+    // by what it allows the app, before the run it is after.
+    if ([kind isEqual:@"waiting"]) {
+      printf("waiting\n");
+      fflush(stdout);
+      runFor(60);
       return 0;
     }
     if ([kind hasPrefix:@"capture-"])

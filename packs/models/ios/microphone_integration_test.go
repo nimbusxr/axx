@@ -3,6 +3,7 @@
 package modelsios
 
 import (
+	"bufio"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nimbusxr/axx/core"
 	modelscore "github.com/nimbusxr/axx/packs/models/core"
@@ -108,10 +110,54 @@ func (p *microphoneProbe) install(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(bundle, "Info.plist"), []byte(plist), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"install", p.device, bundle}, {"privacy", p.device, "grant", "microphone", bundleID}} {
-		if out, err := exec.CommandContext(t.Context(), "xcrun", append([]string{"simctl"}, args...)...).CombinedOutput(); err != nil {
-			t.Fatalf("authorize capture probe: %v: %s", err, out)
+	if out, err := exec.CommandContext(t.Context(), "xcrun", "simctl", "install", p.device, bundle).CombinedOutput(); err != nil {
+		t.Fatalf("install capture probe: %v: %s", err, out)
+	}
+	// The simulator ends an app that runs as what the app is allowed changes, and it does so
+	// a moment after simctl has returned: seconds on a slow Mac, where the probe, launched
+	// right after it was allowed the microphone, was ended four seconds into its session,
+	// without a word and with no report (CI's Mac, twice in a day). So the probe is launched
+	// once to wait, and allowed the microphone as it waits: that run is the one the simulator
+	// ends, and when it has, nothing is left to end the run the test is after.
+	waiting := exec.CommandContext(t.Context(), "xcrun", "simctl", "launch", "--console", p.device, bundleID, "waiting", "unused")
+	said, err := waiting.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := waiting.Start(); err != nil {
+		t.Fatalf("launch capture probe to wait: %v", err)
+	}
+	ended := make(chan struct{})
+	up := make(chan struct{})
+	go func() {
+		defer close(ended)
+		lines := bufio.NewScanner(said)
+		for lines.Scan() {
+			if lines.Text() == "waiting" {
+				close(up)
+			}
 		}
+		_ = waiting.Wait()
+	}()
+	select {
+	case <-up:
+	case <-ended:
+		t.Fatal("the capture probe, launched to wait, ended before it said it waits")
+	case <-time.After(time.Minute):
+		t.Fatal("the capture probe, launched to wait, did not say it waits within a minute")
+	}
+	if out, err := exec.CommandContext(t.Context(), "xcrun", "simctl", "privacy", p.device, "grant", "microphone", bundleID).CombinedOutput(); err != nil {
+		t.Fatalf("authorize capture probe: %v: %s", err, out)
+	}
+	allowed := time.Now()
+	select {
+	case <-ended:
+		t.Logf("the simulator ended the waiting probe %s after it was allowed the microphone", time.Since(allowed).Round(100*time.Millisecond))
+	case <-time.After(30 * time.Second):
+		// A simulator that ends nothing has nothing to end later either.
+		t.Log("the simulator did not end the waiting probe within 30s of allowing it the microphone")
+		_ = exec.Command("xcrun", "simctl", "terminate", p.device, bundleID).Run()
+		<-ended
 	}
 	t.Cleanup(func() { _ = exec.Command("xcrun", "simctl", "uninstall", p.device, bundleID).Run() })
 	return bundleID
@@ -209,15 +255,23 @@ func TestSimulatorCaptureHearsTheRecording(t *testing.T) {
 			var out string
 			var err error
 			if kind == "capture-session" {
+				began := time.Now()
 				id := p.install(t)
+				installed := time.Since(began)
 				cmd := exec.CommandContext(t.Context(), "xcrun", "simctl", "launch", "--console", p.device, id, kind, file)
 				cmd.Env = append(os.Environ(), "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES="+p.lib, "SIMCTL_CHILD_AXX_MODELS_DIR="+p.dir, "SIMCTL_CHILD_AXX_MODELS_MICROPHONE=1")
 				var data []byte
 				data, err = cmd.CombinedOutput()
 				out = string(data)
+				// The probe says how long its session took; the rest of this is the simulator
+				// installing and launching it, 12 to 26 seconds of it on CI's Mac.
+				t.Logf("the probe was installed and allowed the microphone in %s, and launched and ended in %s",
+					installed.Round(100*time.Millisecond), (time.Since(began) - installed).Round(100*time.Millisecond))
 				if strings.Contains(out, "no audio capture device") {
 					t.Skip("the simulator exposes no AVCaptureDevice for audio")
 				}
+				// How long each part of the session took, and why it failed if it did.
+				t.Log(strings.TrimSpace(out))
 			} else {
 				out, err = p.run(t, kind, file, true)
 			}

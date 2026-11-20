@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"image/png"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -34,14 +32,7 @@ func TestAndroidAppLaunchHook(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "../../../examples/parcels/courier/android/gradlew", "-p", "testdata/sdkprobe", "--no-daemon", "--console=plain", "--stacktrace", "assembleDebug")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("probe build: %v: %s", err, out)
-	}
-	apk, err := filepath.Abs("testdata/sdkprobe/build/outputs/apk/debug/axx-platform-model-probe-debug.apk")
-	if err != nil {
-		t.Fatal(err)
-	}
+	apk := sdkProbe(ctx, t)
 	h := cloudtest.New(t, appcore.Pack(), files.Pack(), mobilecore.Pack(), mobileandroid.Pack(), modelscore.Pack(), Pack())
 	h.NewScenarioWithin(5 * time.Minute)
 	h.Start(&core.Plan{})
