@@ -4,7 +4,8 @@ description: >-
   The parcels example's couriers' Android app (an x86_64 debug APK) and the emulator device it
   runs on (examples/parcels/courier/android/create-emulator.sh: the AVD and its boot snapshot),
   for the jobs that run them: `start` restores or starts making each, in the background, and
-  `finish` waits for them, and keeps what it made.
+  `finish` waits for them, and keeps what it made. `lookup` only says whether a run has kept
+  the device (the device-cached output).
 
   Both take minutes to make: the app compiles MNN, the LLM engine its native code links, from
   its source (8 minutes on a runner), and the emulator boots once for its snapshot (4 minutes,
@@ -13,9 +14,15 @@ description: >-
   changed links them again in a minute, and the device by the script that makes it. A cache
   keyed by what it holds is the same whichever run saves it, so a run that missed one saves it,
   on a pull request too (GitHub keeps a pull request's caches for its own runs).
+
+  The device is made once for a run, by ci.yml's courier-device job, when no run has kept it:
+  the script waits until the device has finished its first boot (over two minutes on a runner,
+  after the four of booting it), which no job of tests has the time for. The jobs that run the
+  emulator wait for that job and restore what it kept. One that finds no device all the same
+  (the save failed) makes it itself, and keeps nothing.
 inputs:
   mode:
-    description: "`start` or `finish`."
+    description: "`start`, `finish`, or `lookup`: only whether a run has kept the device."
     required: true
   app:
     description: "`true` when the job installs the app: it is restored, or built."
@@ -25,13 +32,18 @@ inputs:
     default: "true"
   save-emulator:
     description: >-
-      `true` for the one job that keeps the device when no run has: made even with no tests to
-      run, and saved (some 4 GB, which one job uploads, not every one).
+      `true` for the one job that keeps the device when no run has (ci.yml's courier-device):
+      made even with no emulator to run, and saved (some 4 GB, which one job uploads, not
+      every one).
     default: "false"
+outputs:
+  device-cached:
+    description: "`true` when a run has kept the device the script makes."
+    value: ${{ steps.device-lookup.outputs.cache-hit == 'true' }}
 runs:
   using: composite
   steps:
-    - if: inputs.mode == 'start'
+    - if: inputs.mode != 'finish'
       id: keys
       shell: bash
       env:
@@ -113,7 +125,9 @@ runs:
 
     # The emulator's device: its AVD (and adb's key, which its snapshot authorizes), the SDK's
     # emulator and platform tools, and the system image, as the script left them.
-    - if: inputs.mode == 'start' && (inputs.emulator == 'true' || inputs.save-emulator == 'true')
+    - if: >-
+        inputs.mode == 'lookup'
+        || (inputs.mode == 'start' && (inputs.emulator == 'true' || inputs.save-emulator == 'true'))
       id: device-lookup
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

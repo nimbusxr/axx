@@ -21,6 +21,8 @@ on:
       - examples/**/gradle/**
       - examples/**/gradle.properties
       - extensions/wiremock-openapi/**
+      # the emulator's device (the courier-device job)
+      - examples/parcels/courier/android/create-emulator.sh
       # the models-android pack's probe app (.github/actions/android-probe)
       - packs/models/android/testdata/sdkprobe/**
       # the parcel-support example's image (the support-image job)
@@ -61,6 +63,7 @@ jobs:
       workflows: ${{ steps.changes.outputs.workflows }}
       tests: ${{ steps.changes.outputs.tests }}
       wiremock-image: ${{ steps.wiremock.outputs.cached }}
+      courier-device: ${{ steps.device.outputs.device-cached }}
     steps:
       # A pull request is checked out as its merge into the base branch, and the merge queue's
       # group as its commit on top of it: the first parent differs by what they change.
@@ -88,6 +91,12 @@ jobs:
       # waits for, so that with the image kept no job waits for another.
       - id: wiremock
         uses: ./.github/actions/wiremock-image
+        with:
+          mode: lookup
+      # Whether a run has kept the emulator's device: the courier-device job makes it only when
+      # none has.
+      - id: device
+        uses: ./.github/actions/courier-android
         with:
           mode: lookup
       # The tree the pull request's run tests, for the merge queue to know it.
@@ -400,9 +409,55 @@ jobs:
         with:
           mode: save
 
-  mobile:
+  # The emulator's device (its AVD and the snapshot emulators start from), made once for the run
+  # when no run has kept it for the script that makes it (.github/actions/courier-android): on a
+  # pull request that changes create-emulator.sh, and on main after it. The script boots the
+  # device and waits until it has finished its first boot, some 6 to 7 minutes on a runner, and
+  # every part of the mobile and android jobs did that itself before, beside its own setting
+  # up: with the wait, parts took 10 minutes and more. They wait for this job and restore what
+  # it kept. When a run has kept the device, which the changes job looks up, this job is
+  # skipped and none of them waits.
+  courier-device:
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
+    if: needs.changes.outputs.courier-device != 'true' && needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: KVM, for the emulator, and where its devices are
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          # avdmanager would go by the runner's XDG_CONFIG_HOME, and the emulator not.
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The Java the jobs that made the device before had, for the SDK's tools.
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: ./.github/actions/courier-android
+        with:
+          mode: start
+          app: "false"
+          emulator: "false"
+          save-emulator: "true"
+      - uses: ./.github/actions/courier-android
+        with:
+          mode: finish
+          app: "false"
+          emulator: "false"
+          save-emulator: "true"
+
+  mobile:
+    needs: [changes, courier-device]
+    # After the courier-device job, passed or skipped (a run has kept the device), as the
+    # android job is after the wiremock-image job.
+    if: >-
+      ${{ !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.courier-device.result)
+      && needs.changes.outputs.mobile == 'true' }}
     # The mobile packs' tests, on an Android emulator that axx starts (KVM). The iOS pack's
     # skip here: they run in the ios job.
     name: mobile (${{ matrix.part }})
@@ -415,8 +470,9 @@ jobs:
         # models-android pack's on one of their own: in eleven parts of some 3 to 4.5 minutes each
         # on these runners, after some 4 to 5 of setting up (no job runs past 10). A test on the
         # emulator takes 1.5 to 2 minutes here, the torn label's 3 to 3.5: a part has two of them,
-        # or that one. With no tests to run, one part builds them, and keeps the couriers' app, the
-        # emulator's device and the models-android pack's probe app for the rest.
+        # or that one. With no tests to run, one part builds them, and keeps the couriers' app
+        # and the models-android pack's probe app for the rest (the courier-device job keeps the
+        # emulator's device).
         # The hosted parts run five of the emulator's parts again through an axx host, in the
         # tests' process (AXX_TEST_HOSTED): the host's side of the pack leases the emulator and
         # starts the app, as for a run in an agent's sandbox. They are the parts with the model
@@ -455,7 +511,6 @@ jobs:
           mode: start
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
-          save-emulator: ${{ matrix.part == 'emulator-1' }}
       # The app of the vendors' SDKs that the models-android pack's tests install, from its
       # cache, or built while the rest sets up, never inside a test's limit: for the parts that
       # run that pack's tests, and, with no tests to run, kept for them.
@@ -482,7 +537,6 @@ jobs:
           mode: finish
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
-          save-emulator: ${{ matrix.part == 'emulator-1' }}
       - if: startsWith(matrix.part, 'models-') || needs.changes.outputs.tests != 'true'
         uses: ./.github/actions/android-probe
         with:
@@ -559,13 +613,14 @@ jobs:
       - uses: ./.github/actions/wiremock-image
 
   android:
-    needs: [changes, wiremock-image]
+    needs: [changes, wiremock-image, courier-device]
     # The wiremock-image job is skipped when a run has kept the image, and a job that needs a
     # skipped one is skipped too unless its condition says otherwise: this one runs when that
     # job passed or was skipped, and not when it failed (each of these would then build the
-    # image itself, all at once again).
+    # image itself, all at once again). The courier-device job, the same.
     if: >-
       ${{ !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.wiremock-image.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.courier-device.result)
       && needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true' }}
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
     # whole example, which axx starts too. A runner runs a feature, or a shard of it (axx run
@@ -1447,7 +1502,7 @@ jobs:
   # saves. (Docker's layers, Gradle's and mise's caches look after their own.)
   caches:
     if: always() && github.event_name == 'push'
-    needs: [hygiene, lint, test, integration, web, mobile, wiremock-image, desktop, cross-build, mac-tests, acceptance, support-image]
+    needs: [hygiene, lint, test, integration, web, courier-device, mobile, wiremock-image, desktop, cross-build, mac-tests, acceptance, support-image]
     runs-on: ubuntu-26.04
     permissions:
       actions: write # to delete caches
@@ -1469,7 +1524,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, courier-device, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
     runs-on: ubuntu-26.04
     steps:
       - name: all jobs passed
