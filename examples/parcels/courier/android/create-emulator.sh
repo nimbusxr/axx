@@ -123,8 +123,45 @@ if [ -z "$booted" ]; then
   kill "$emulator" 2> /dev/null || true
   exit 1
 fi
+# Android says it has booted while its first boot still goes on: for a minute or more it unlocks
+# the user's storage (and starts the home screen again as it does, in front of whatever app is
+# there), scans its storage for media, and starts its services' apps, Google Play services among
+# them, which start themselves again. A snapshot saved now has every emulator started from it
+# go through that again, under each run's first scenario: the system's file picker lists a
+# folder again as the scan updates it, a web view's page goes empty for seconds, taps are slow
+# enough to be taken for long presses. So the snapshot is saved once the device has come to
+# rest: its user unlocked, and its processors idle (four fifths of the time or more) for
+# fifteen seconds on end. Four minutes at most: a device that never rests is saved as it is,
+# and the script says so.
+say "parcels-pixel: booted; waiting until it has finished its first boot"
+# idle prints the share of the next five seconds, in hundredths, that the device's processors
+# spend idle, from the kernel's own count (/proc/stat: the fourth number after "cpu").
+idle() {
+  limited 20 "$adb" -s emulator-5580 shell 'head -n 1 /proc/stat; sleep 5; head -n 1 /proc/stat' 2> /dev/null | tr -d '\r' |
+    awk 'NR == 1 { for (i = 2; i <= NF; i++) before += $i; was = $5 }
+         NR == 2 { for (i = 2; i <= NF; i++) after += $i; if (after > before) printf "%d", 100 * ($5 - was) / (after - before) }'
+}
+rested=0
+waited=$SECONDS
+deadline=$((SECONDS + 240))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  kill -0 "$emulator" 2> /dev/null || break
+  user=$(limited 10 "$adb" -s emulator-5580 shell am get-started-user-state 0 2> /dev/null | tr -d '\r' || true)
+  share=$(idle || true)
+  if [[ "$user" == *RUNNING_UNLOCKED* ]] && [ "${share:-0}" -ge 80 ]; then
+    rested=$((rested + 1))
+  else
+    rested=0
+  fi
+  [ "$rested" -ge 3 ] && break
+done
+if [ "$rested" -ge 3 ]; then
+  say "parcels-pixel: at rest $((SECONDS - waited))s after it booted"
+else
+  say "parcels-pixel: not at rest $((SECONDS - waited))s after it booted (its user: ${user:-unknown}; its processors idle ${share:-?}% of the last five seconds): its snapshot is saved as it is" >&2
+fi
 # Five minutes at most to save it (a save takes seconds).
-say "parcels-pixel: booted; saving its snapshot"
+say "parcels-pixel: saving its snapshot"
 log="$ANDROID_AVD_HOME/parcels-pixel-snapshot.log"
 snapshot="$ANDROID_AVD_HOME/parcels-pixel.avd/snapshots/default_boot"
 answer=$(limited 300 "$adb" -s emulator-5580 emu avd snapshot save default_boot 2>&1) || true
