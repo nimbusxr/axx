@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mxschmitt/playwright-go"
+
 	"github.com/nimbusxr/axx/core"
 )
 
@@ -75,10 +77,39 @@ func (s *session) pause(sc *core.Scenario, where string) {
 		case <-done:
 		}
 	}()
-	_ = pg.Pause()
+	started := time.Now()
+	how, unexpected := pauseEnded(sc, pg, pg.Pause())
+	// What ended the pause, for the person whose scenario went on without
+	// them: nothing else says so.
+	say := sc.Suite().Logger().Info
+	if unexpected {
+		say = sc.Suite().Logger().Warn
+	}
+	say(fmt.Sprintf("the scenario %q goes on after %s: %s", sc.Name, time.Since(started).Round(100*time.Millisecond), how))
 	// A pause that ends with its page leaves the context without timeouts.
 	s.ctx.SetDefaultTimeout(float64(actionTimeout.Milliseconds()))
 	s.ctx.SetDefaultNavigationTimeout(float64(navigationTimeout.Milliseconds()))
+}
+
+// pauseEnded says what ended a pause, from what Playwright's pause returned,
+// and whether that is something gone wrong rather than what a person or the
+// run did. Playwright returns no error for a pause that was resumed, by the
+// run or in the Inspector, and none for one whose Inspector closed: a window
+// a person closed, or a browser that ended by itself, which Playwright does
+// not tell apart. It returns an error for a page that is gone: a page that
+// closed says so itself, and a page that crashed is still open.
+func pauseEnded(sc *core.Scenario, pg playwright.Page, err error) (how string, unexpected bool) {
+	switch {
+	case sc.Context().Err() != nil:
+		return "the run was interrupted", false
+	case err == nil:
+		return "it was resumed in Playwright's Inspector, or the Inspector closed", false
+	case pg.IsClosed():
+		return "its page closed", false
+	case errors.Is(err, playwright.ErrTargetClosed):
+		return "its page crashed", true
+	}
+	return fmt.Sprintf("Playwright could not keep it paused: %v", err), true
 }
 
 // recordingPath is where the Inspector's recorder writes, while a run lasts,
