@@ -400,52 +400,6 @@ jobs:
         with:
           mode: save
 
-  # TEMPORARY: on this pull request's runs only, and removed before it merges. The pause test
-  # (TestFailedScenariosPauseWhenAskedTo) failed once on CI, its pause ended by itself after
-  # 1.4 seconds, and 1,705 pauses on other machines did not show it. Here it runs 700 times on
-  # CI's own runners: half alone, half after the test before it, which opens a browser window
-  # too. A pause that ends by itself now says in the packs' log what ended it. Not one of
-  # ci-ok's jobs: it fails nothing.
-  lab-pause:
-    needs: changes
-    if: github.event_name == 'pull_request'
-    name: lab, the pause test (${{ matrix.tests }} ${{ matrix.n }})
-    runs-on: ubuntu-26.04
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        tests: [alone, after]
-        n: [1, 2, 3, 4, 5]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
-        with:
-          install_args: "go"
-          cache_save: false
-      - uses: ./.github/actions/go-cache
-        with:
-          build: test
-      - uses: ./.github/actions/web-tools
-      - env:
-          TESTS: ${{ matrix.tests }}
-        run: |
-          go test -c -race -tags integration -o "$RUNNER_TEMP/webcore.test" ./packs/web/core
-          cd packs/web/core
-          case "$TESTS" in
-            alone) run='^TestFailedScenariosPauseWhenAskedTo$' count=70 ;;
-            *) run='^Test(WatchingShowsTheBrowser|FailedScenariosPauseWhenAskedTo)$' count=40 ;;
-          esac
-          xvfb-run -a "$RUNNER_TEMP/webcore.test" -test.run "$run" -test.count "$count" -test.v -test.timeout 8m > "$RUNNER_TEMP/lab.log" 2>&1 || true
-          echo "passed: $(grep -c '^--- PASS: TestFailedScenariosPauseWhenAskedTo' "$RUNNER_TEMP/lab.log" || true), failed: $(grep -c '^--- FAIL' "$RUNNER_TEMP/lab.log" || true)"
-          tail -n 3 "$RUNNER_TEMP/lab.log"
-          if grep -q '^--- FAIL' "$RUNNER_TEMP/lab.log"; then
-            echo "::warning::the pause test failed in the lab: this step's log has each failure"
-            grep -B 40 '^--- FAIL' "$RUNNER_TEMP/lab.log"
-          fi
-
   mobile:
     needs: changes
     if: needs.changes.outputs.mobile == 'true'
