@@ -469,10 +469,11 @@ jobs:
         # The Android pack's integration tests run one after another, each on an emulator, and the
         # models-android pack's on one of their own: in eleven parts of some 3 to 4.5 minutes each
         # on these runners, after some 4 to 5 of setting up (no job runs past 10). A test on the
-        # emulator takes 1.5 to 2 minutes here, the torn label's 3 to 3.5: a part has two of them,
-        # or that one. With no tests to run, one part builds them, and keeps the couriers' app
-        # and the models-android pack's probe app for the rest (the courier-device job keeps the
-        # emulator's device).
+        # emulator takes 1.5 to 2 minutes here, the torn label's 3 to 3.5, and the two shortest
+        # (the recordings' and the delivery under a toast) a minute each: a part has two of
+        # them, that one, or those two with a third. With no tests to run, one part builds them,
+        # and keeps the couriers' app and the models-android pack's probe app for the rest (the
+        # courier-device job keeps the emulator's device).
         # The hosted parts run five of the emulator's parts again through an axx host, in the
         # tests' process (AXX_TEST_HOSTED): the host's side of the pack leases the emulator and
         # starts the app, as for a run in an agent's sandbox. They are the parts with the model
@@ -547,12 +548,17 @@ jobs:
           part: mobile-${{ steps.part.outputs.tests }}
       - if: needs.changes.outputs.tests == 'true' && contains(matrix.part, 'emulator-')
         run: |
-          # The parts, by their tests' times here (gotestsum's slowest): the sixth runs the rest.
+          # The parts, by their tests' times here (gotestsum's slowest): the sixth runs the rest,
+          # which is two tests on the emulator (the notifications' and the reminder's) and the
+          # packages' other tests, a minute of them. A new test on the emulator is named in a
+          # part here: left to the rest, the delivery under a toast was the sixth's third, and
+          # the part took 6 minutes of tests where the others take 3 to 4. It is the fifth's,
+          # whose recordings' test is the shortest.
           one='TestACourierReadsATornLabelOnAnEmulator'
           two='TestCouriersOnAnEmulator|TestACourierScansALabelOnAnEmulator'
           three='TestACourierAttachesADocumentOnAnEmulator|TestACourierSharesTheVanOnAnEmulator'
           four='TestACourierWalksUpToAParcelAndMeasuresItOnAnEmulator|TestACourierPhotographsAParcelAtTheDoorOnAnEmulator'
-          five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator'
+          five='TestACourierMeasuresAParcelOnAnEmulator|TestRecordingsOnAnEmulator|TestACourierConfirmsADeliveryUnderAToastOnAnEmulator'
           seven='TestACourierChecksTheVanInAWebViewOnAnEmulator|TestACourierFindsAParcelFarDownTheRoundOnAnEmulator'
           eight='TestACourierReportsAProblemInAWebViewOnAnEmulator|TestACourierAttachesADocumentFurtherDownThePickerOnAnEmulator'
           case "${PART#hosted-}" in
@@ -565,6 +571,11 @@ jobs:
             emulator-8) select=(-run "^($eight)\$") ;;
             *) select=(-skip "^($one|$two|$three|$four|$five|$seven|$eight)\$") ;;
           esac
+          # Checked in the seventh part, one of the shortest.
+          if [ "$PART" = emulator-7 ]; then
+            rest=$(go test -race -tags integration -list 'OnAnEmulator$' ./packs/mobile/android | grep -E '^Test' | grep -c -v -E "^($one|$two|$three|$four|$five|$seven|$eight)\$" || true)
+            [ "$rest" -le 2 ] || { echo "::error::$rest tests on the emulator are in no part by name, so the sixth part runs them all: name each new one in a part, by its time"; exit 1; }
+          fi
           GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${select[@]}" ./packs/mobile/...
       # The models-android pack's tests, in three parts, on an emulator of the device's snapshot.
       - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'models-')
