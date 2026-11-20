@@ -85,9 +85,39 @@ func Resolve(rawURL, user, password string) (Target, error) {
 		return resolveDb2(u, user, password)
 	case strings.HasPrefix(lower, "jdbc:sqlite:"), strings.HasPrefix(lower, "sqlite:"), strings.HasPrefix(lower, "file:"):
 		path := strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(u, "jdbc:"), "sqlite:"), "//")
-		return Target{Dialect: sqlite, DSN: path}, nil
+		return Target{Dialect: sqlite, DSN: sqliteWaits(path)}, nil
 	}
 	return Target{}, fmt.Errorf("unsupported database URL %q (supported: jdbc:postgresql, jdbc:mysql, jdbc:mariadb, jdbc:sqlserver, jdbc:oracle, jdbc:db2, jdbc:h2, jdbc:sqlite, or native postgres://, mysql://, sqlserver://, oracle://, db2:// URLs)", rawURL)
+}
+
+// sqliteWaits is an SQLite database's DSN with a busy timeout: how long a
+// statement waits for the file while another connection has it locked. SQLite
+// locks the whole file, for a moment for each read and each write, and with no
+// busy timeout a statement that meets a lock fails at once ("database is
+// locked"). The other connection is the service under test's, or one of axx's
+// own: that of a scenario running at the same time. So a step waits, as long as
+// the steps wait for rows someone else has locked (lockTimeout). A URL that
+// sets its own busy timeout keeps it.
+func sqliteWaits(dsn string) string {
+	path, query, _ := strings.Cut(dsn, "?")
+	if path == "" {
+		return dsn // the driver reads no settings without a path before them
+	}
+	if q, err := url.ParseQuery(query); err == nil {
+		if q.Has("_busy_timeout") || q.Has("_timeout") {
+			return dsn
+		}
+		for _, pragma := range q["_pragma"] {
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(pragma)), "busy_timeout") {
+				return dsn
+			}
+		}
+	}
+	wait := fmt.Sprintf("_pragma=busy_timeout(%d)", lockTimeout.Milliseconds())
+	if query == "" {
+		return path + "?" + wait
+	}
+	return dsn + "&" + wait
 }
 
 func resolvePostgres(raw, user, password string) (Target, error) {

@@ -67,9 +67,10 @@ while ! $all && ! $none && IFS= read -r f; do
   case "$f" in
     examples/parcels/* | extensions/wiremock-openapi/*) mobile=true ;;
   esac
-  # The depot desk's feature runs against every build of the desk.
+  # The depot desk's feature runs against every build of the desk, through the script that
+  # limits its run.
   case "$f" in
-    examples/parcels/depot-desk/*) desktop=true ;;
+    examples/parcels/depot-desk/* | scripts/depot-desk-ci.sh) desktop=true ;;
   esac
   # Core ML stubs and the Apple platform adapters (iOS's, including their real courier app, and
   # the Mac's).
@@ -83,9 +84,10 @@ while ! $all && ! $none && IFS= read -r f; do
       examples/parcels/acceptance/features/courier-app/recordings/* | \
       core/* | internal/* | go.mod | go.sum | mise.toml | .mise.toml) models=true ;;
   esac
-  # The simulator the ios and coreml jobs make for their tests, and their tests' build.
+  # The simulator the ios and coreml jobs make for their tests, their tests' build, and the report
+  # at their end.
   case "$f" in
-    scripts/ios-simulator.sh | scripts/mac-tests.sh) mobile=true models=true ;;
+    scripts/ios-simulator.sh | scripts/mac-tests.sh | scripts/mac-job-report.sh) mobile=true models=true ;;
   esac
   # The examples' acceptance suites: axx, the examples, and the WireMock extension the parcels
   # example builds its mocks from.

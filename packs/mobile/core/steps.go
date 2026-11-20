@@ -401,17 +401,36 @@ func targetFor(sc *core.Scenario, d Device, app string, k kind, name string, wai
 		// A driver that finds what the screen has out of view, and does not scroll to it to use
 		// it (Android's): the step has the control's view show it, and finds it again where it
 		// then is.
-		if o, ok := d.(outOfViewer); ok && reach && o.OutOfView(sc.Context(), el) {
-			if err := bringIntoView(sc.Context(), d, el); err != nil {
-				return nil, nil, false, fmt.Errorf("scrolling to the %s %s: %w", quoted(name), k.noun, err)
+		if o, ok := d.(outOfViewer); ok && reach {
+			// The control as the driver has it now: asking of it finds it again when the driver
+			// has lost it.
+			again := func() (*appium.Element, error) {
+				sc.Log("the driver has lost the %s it found for %q: it is found again, and asked of whether it shows", k.noun, name)
+				if ok, err := find(); err != nil || !ok {
+					return nil, err
+				}
+				return el, nil
 			}
-			if _, err := find(); err != nil {
-				return nil, nil, false, err
+			out, err := outOfView(sc.Context(), o, &el, again, actionTimeout)
+			if err != nil {
+				return nil, nil, false, fmt.Errorf("cannot tell whether the %s %s shows: %w", quoted(name), k.noun, err)
 			}
-			// One that still does not show is not tapped where the driver would tap it, off the
-			// screen: the step says so.
-			if o.OutOfView(sc.Context(), el) {
-				return nil, nil, false, core.Failf("The %s in the %s app that matches %q is out of view, and its view does not scroll it into view", k.noun, app, name)
+			if out {
+				if err := bringIntoView(sc.Context(), d, el); err != nil {
+					return nil, nil, false, fmt.Errorf("scrolling to the %s %s: %w", quoted(name), k.noun, err)
+				}
+				if _, err := find(); err != nil {
+					return nil, nil, false, err
+				}
+				// One that still does not show is not tapped where the driver would tap it, off the
+				// screen: the step says so.
+				out, err := outOfView(sc.Context(), o, &el, again, actionTimeout)
+				if err != nil {
+					return nil, nil, false, fmt.Errorf("cannot tell whether the %s %s shows: %w", quoted(name), k.noun, err)
+				}
+				if out {
+					return nil, nil, false, core.Failf("The %s in the %s app that matches %q is out of view, and its view does not scroll it into view", k.noun, app, name)
+				}
 			}
 		}
 		return el, nil, false, nil
@@ -435,6 +454,36 @@ func targetFor(sc *core.Scenario, d Device, app string, k kind, name string, wai
 		case <-sc.Context().Done():
 			return nil, nil, false, sc.Context().Err()
 		case <-time.After(200 * time.Millisecond):
+		}
+	}
+}
+
+// outOfView asks the device whether the control a selector found is out of view. A driver that
+// has lost the control by then cannot say: a web page draws its controls again as it scrolls,
+// and the driver's own of them are gone (on a busy emulator, for a moment after every scroll).
+// The control is then found again and asked of again, for as long as within allows, and el is
+// the one that was asked of. It is never taken for in view unasked: the driver taps a control
+// that is out of view at the screen's edge, on whatever is there, and says it tapped.
+func outOfView(ctx context.Context, o outOfViewer, el **appium.Element, again func() (*appium.Element, error), within time.Duration) (bool, error) {
+	for end := time.Now().Add(within); ; {
+		out, err := o.OutOfView(ctx, *el)
+		if err == nil {
+			return out, nil
+		}
+		if ctx.Err() != nil || !time.Now().Before(end) {
+			return false, err
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+		found, ferr := again()
+		if ferr != nil && !appium.IsNoSuchElement(ferr) && !appium.IsStale(ferr) {
+			return false, ferr
+		}
+		if found != nil {
+			*el = found
 		}
 	}
 }

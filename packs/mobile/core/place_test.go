@@ -1,10 +1,13 @@
 package mobilecore
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
@@ -121,4 +124,56 @@ func indexOf(s *Screen, n *Node) int {
 		}
 	}
 	return -1
+}
+
+// lostThenFound is a device whose driver has lost the first controls it is asked of, as a web
+// page that draws its controls again after a scroll loses the driver its own of them: it can say
+// whether a control is out of view only of one found since.
+type lostThenFound struct {
+	lost  int
+	asked []string
+}
+
+func (d *lostThenFound) OutOfView(_ context.Context, el *appium.Element) (bool, error) {
+	d.asked = append(d.asked, el.ID)
+	if d.lost > 0 {
+		d.lost--
+		return false, &appium.Error{Code: "stale element reference", Message: "The element '" + el.ID + "' does not exist in DOM anymore"}
+	}
+	return el.ID == "found-again", nil
+}
+
+// A control a selector found, which its driver has lost by the time it is asked whether the
+// control is out of view, is found again and asked of again. It was taken for in view, and
+// tapped: the driver taps a control that is out of view at the screen's edge, and says it
+// tapped (a web page's radio button, right after the tap before it had scrolled the page, on
+// CI's emulator: the answer was never given). One the driver loses for as long as the step
+// waits fails the step with why, and is not tapped either.
+func TestAControlItsDriverLostIsAskedOfAgainWhetherItShows(t *testing.T) {
+	session := (&appium.Client{URL: "http://127.0.0.1:1"}).Attach("session-1", nil)
+	d := &lostThenFound{lost: 2}
+	el := session.Element("first-found")
+	finds := 0
+	again := func() (*appium.Element, error) {
+		finds++
+		if finds == 1 {
+			// The page is still drawing itself: nothing matches for a moment.
+			return nil, &appium.Error{Code: "no such element", Message: "An element could not be located on the page"}
+		}
+		return session.Element("found-again"), nil
+	}
+	out, err := outOfView(t.Context(), d, &el, again, 5*time.Second)
+	if err != nil || !out {
+		t.Fatalf("out of view: %v, %v; the control found again is out of view", out, err)
+	}
+	if el.ID != "found-again" || strings.Join(d.asked, " ") != "first-found first-found found-again" {
+		t.Errorf("the control is %s, and the driver was asked of %v", el.ID, d.asked)
+	}
+
+	never := &lostThenFound{lost: 1 << 30}
+	el = session.Element("first-found")
+	out, err = outOfView(t.Context(), never, &el, again, 500*time.Millisecond)
+	if err == nil || out || !appium.IsStale(err) {
+		t.Errorf("a control its driver never has: out of view %v, %v; want the driver's error, and not in view", out, err)
+	}
 }

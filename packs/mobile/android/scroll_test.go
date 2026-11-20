@@ -612,3 +612,22 @@ func TestTheScrollServiceBuilds(t *testing.T) {
 		t.Error("a build that failed left a service")
 	}
 }
+
+// Whether a control is out of view is the driver's to say, of a control it still has. Of one it
+// has lost since it found it (a web page draws its controls again as it scrolls), it fails, and
+// the step finds the control again: it does not answer that the control is in view.
+func TestAControlTheDriverLostIsNotTakenForInView(t *testing.T) {
+	sv, _ := standInScrolls(t, func(int, map[string]any) map[string]any { return map[string]any{"found": false} })
+	d := deviceWith(t, sv, "")
+	el, err := d.session.Find(t.Context(), "xpath", `//android.widget.Button[@text="Send report"]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err := d.OutOfView(t.Context(), el); err != nil || !out {
+		t.Errorf("the button at the page's end: out of view %v, %v; want out of view", out, err)
+	}
+	lost := d.session.Element("no-longer-the-drivers")
+	if out, err := d.OutOfView(t.Context(), lost); err == nil || !appium.IsStale(err) {
+		t.Errorf("a control the driver lost: out of view %v, %v; want the driver's error", out, err)
+	}
+}

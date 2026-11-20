@@ -99,11 +99,55 @@ type uia2Server struct {
 	stopping atomic.Bool
 }
 
-// ensureServer starts the device's server, or starts it again when it has
-// hiddenAPIPolicies are the device's settings that allow apps Android's hidden APIs.
-var hiddenAPIPolicies = []string{"hidden_api_policy_pre_p_apps", "hidden_api_policy_p_apps", "hidden_api_policy"}
+// hiddenAPIsFrom is the first Android (9) that refuses apps its hidden APIs, and the first whose
+// "am instrument" has the option that allows an instrumentation them.
+const hiddenAPIsFrom = 28
 
-// stopped answering (an app that took the device down with it).
+// instrumentation is the "am instrument" command that starts the server on a device of an
+// Android SDK level.
+//
+// The server reads the screen through Android's hidden APIs: for 3.5 seconds after a toast, it
+// adds a node for the toast to every screen it reads, and seals it through a field of
+// AccessibilityNodeInfo's that Android 9 and later refuse an app. A server refused it fails those
+// reads ("Cannot set AccessibilityNodeInfo's field 'mSealed'"). So it is started with
+// --no-hidden-api-checks, which Android has for instrumentations and reads in the very call that
+// starts the server's process.
+//
+// axx once allowed them as Appium's driver does, with the device's hidden_api_policy settings.
+// Android decides what a process may reach as the process starts, from what it last heard of
+// those settings, and it hears of a change some time after "settings put" has returned: on a
+// busy device (an emulator in its first minutes, three of them on one machine) the server
+// started before it had, and was refused the hidden APIs for as long as it ran. The settings
+// also allowed every other app on the device the hidden APIs, the app under test among them,
+// which no phone of its users does.
+//
+// With axx's scroll service running, the server is told to leave other accessibility services
+// running, as it takes the device's accessibility for itself.
+func instrumentation(sdkLevel int, scrolls bool) []string {
+	args := []string{"am", "instrument", "-w"}
+	if sdkLevel >= hiddenAPIsFrom {
+		args = append(args, "--no-hidden-api-checks")
+	}
+	args = append(args, "--no-window-animation", "-e", "disableAnalytics", "true")
+	if scrolls {
+		args = append(args, "-e", "DISABLE_SUPPRESS_ACCESSIBILITY_SERVICES", "true")
+	}
+	return append(args, uia2Runner)
+}
+
+// sdkLevel is the device's Android SDK level: 28 for Android 9.
+func (p *pool) sdkLevel(ctx context.Context, serial string) (int, error) {
+	out, err := p.sdk.shell(ctx, serial, "getprop", "ro.build.version.sdk")
+	if err != nil {
+		return 0, fmt.Errorf("cannot read the Android version of %s: %w", serial, err)
+	}
+	level, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil {
+		return 0, fmt.Errorf("cannot read the Android version of %s: its SDK level is %q", serial, strings.TrimSpace(out))
+	}
+	return level, nil
+}
+
 // startServer makes sure the device's UiAutomator2 server runs, as a scenario starts or after
 // the server crashed under one. An emulator can stall for a while, and adb loses it meanwhile
 // (adb: device offline, then not found): the server is started once adb has the device back, and
@@ -127,6 +171,8 @@ func lostDevice(err error) bool {
 	return strings.Contains(err.Error(), "device offline") || strings.Contains(err.Error(), "not found")
 }
 
+// ensureServer starts the device's server, or starts it again when it has stopped answering (an
+// app that took the device down with it).
 func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error {
 	if d.server != nil {
 		select {
@@ -174,14 +220,9 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	// axx's scroll service is switched on first: the server, as it starts, takes the device's
 	// accessibility for itself, and leaves other services running only when told to.
 	p.ensureScrolls(ctx, d)
-	// The server reads the screen through Android's hidden APIs, which Android 9 and later refuse
-	// it unless the device allows them; without them, it fails to read a screen now and then
-	// (it "cannot set AccessibilityNodeInfo's field 'mSealed'"). Appium's driver allows them the
-	// same way, and puts the default back when it is done, as stop does.
-	for _, k := range hiddenAPIPolicies {
-		if _, err := p.sdk.shell(ctx, d.serial, "settings", "put", "global", k, "1"); err != nil {
-			return fmt.Errorf("cannot allow the UiAutomator2 server Android's hidden APIs on %s: %w", d.serial, err)
-		}
+	level, err := p.sdkLevel(ctx, d.serial)
+	if err != nil {
+		return err
 	}
 	// A server started again after it crashed adds to the log of the one before, which says why.
 	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
@@ -198,11 +239,7 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 	d.served = true
 	_, _ = fmt.Fprintf(log, "--- the UiAutomator2 server starts, %s\n", time.Now().Format(time.RFC3339))
 	// The server outlives this step: it runs until the device leaves the pool.
-	instrument := []string{"-s", d.serial, "shell", "am", "instrument", "-w", "--no-window-animation", "-e", "disableAnalytics", "true"}
-	if d.scrolls != nil {
-		instrument = append(instrument, "-e", "DISABLE_SUPPRESS_ACCESSIBILITY_SERVICES", "true")
-	}
-	cmd := p.sdk.command(context.Background(), append(instrument, uia2Runner)...)
+	cmd := p.sdk.command(context.Background(), append([]string{"-s", d.serial, "shell"}, instrumentation(level, d.scrolls != nil)...)...)
 	cmd.Stdout, cmd.Stderr = log, log
 	cmd.WaitDelay = time.Second
 	proc.Setup(cmd)
@@ -215,9 +252,6 @@ func (p *pool) ensureServer(ctx context.Context, d *device, logDir string) error
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		_, _ = p.sdk.shell(ctx, d.serial, "am", "force-stop", uia2Package)
-		for _, k := range hiddenAPIPolicies {
-			_, _ = p.sdk.shell(ctx, d.serial, "settings", "delete", "global", k)
-		}
 		p.stopScrolls(ctx, d)
 	}
 	if g, err := proc.NewGroup(cmd); err == nil {

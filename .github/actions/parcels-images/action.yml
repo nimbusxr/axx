@@ -5,9 +5,9 @@ description: >-
   to an override that has compose use them, so that `docker compose up --build` builds nothing
   that takes long:
     - WireMock with axx's extensions (a Gradle build inside Docker, minutes): from a cache of
-      the image (.github/actions/docker-image), or built from the layers main's runs cache, and
-      loaded under the name the compose file gives it; the services that run it are not built
-      again.
+      the image (.github/actions/wiremock-image), which ci.yml's wiremock-image job built before
+      this job started if no run had kept it, and loaded under the name the compose file gives
+      it; the services that run it are not built again.
     - The parcels service (a Go build inside Docker without Go's caches, over a minute):
       compiled with the job's Go and its caches, and handed to the Dockerfile's final stage in
       place of its build stage (a named build context), so the image is the Dockerfile's own.
@@ -19,11 +19,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: ./.github/actions/docker-image
-      with:
-        context: extensions/wiremock-openapi
-        tag: parcels-wiremock:local
-        scope: axx-wiremock
+    - uses: ./.github/actions/wiremock-image
     - name: the parcels service, compiled
       shell: bash
       working-directory: examples/parcels/app

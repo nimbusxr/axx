@@ -5,7 +5,8 @@ ARG TARGETARCH
 # When its GitHub repository answers 404 (it went offline on 2026-11-17), the library comes
 # from the same release's jar on Maven Central, pinned too. The arm64 library there is the very file
 # of GitHub's release (the same SHA-256 as in an image built from it); the amd64 one could not be
-# compared while GitHub is away.
+# compared while GitHub is away. A download that the network or the server (a 5xx) fails is
+# tried again, three times (--retry). GitHub's 404 is an answer: it is asked for once.
 ARG ORT_VERSION=1.29.0
 ARG ORT_JAR_SHA256=5933bbc0c6c4d89afc04bf7c11011de23a947509c1352e5bf5936e62a84e4d10
 RUN set -eu; \
@@ -18,7 +19,7 @@ RUN set -eu; \
     esac; \
     mkdir -p /opt/onnxruntime; \
     release="https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-${arch}-${ORT_VERSION}.tgz"; \
-    answer=$(curl -sSL -o /tmp/ort.tgz -w '%{http_code}' "$release"); \
+    answer=$(curl -sSL --retry 3 --retry-all-errors -o /tmp/ort.tgz -w '%{http_code}' "$release"); \
     case "$answer" in \
       200) \
         echo "$sum  /tmp/ort.tgz" | sha256sum -c -; \
@@ -26,7 +27,7 @@ RUN set -eu; \
         cp "/opt/onnxruntime/lib/libonnxruntime.so.${ORT_VERSION}" /opt/onnxruntime/libonnxruntime.so ;; \
       404) \
         echo "ONNX Runtime ${ORT_VERSION} is not on GitHub (404): taking it from Maven Central" >&2; \
-        curl -fsSL -o /tmp/ort.jar "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime/${ORT_VERSION}/onnxruntime-${ORT_VERSION}.jar"; \
+        curl -fsSL --retry 3 --retry-all-errors -o /tmp/ort.jar "https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime/${ORT_VERSION}/onnxruntime-${ORT_VERSION}.jar"; \
         echo "$ORT_JAR_SHA256  /tmp/ort.jar" | sha256sum -c -; \
         apt-get update; apt-get install -y --no-install-recommends unzip; rm -rf /var/lib/apt/lists/*; \
         unzip -p /tmp/ort.jar "ai/onnxruntime/native/linux-${arch}/libonnxruntime.so" > /opt/onnxruntime/libonnxruntime.so; \

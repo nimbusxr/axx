@@ -463,10 +463,10 @@ func (d *hostedDevice) ScrollToShow(ctx context.Context, n *Node, name string) (
 
 // OutOfView asks the host's device whether a control a selector found is out of view: the
 // device knows its driver, and whether it scrolls to such a control.
-func (d *hostedDevice) OutOfView(ctx context.Context, el *appium.Element) bool {
+func (d *hostedDevice) OutOfView(ctx context.Context, el *appium.Element) (bool, error) {
 	var out bool
 	err := d.call(ctx, "outOfView", textParams{appRef: d.ref, Text: el.ID}, &out)
-	return err == nil && out
+	return out, err
 }
 
 func (d *hostedDevice) Swipe(ctx context.Context, direction string) error {

@@ -77,7 +77,10 @@ func (h *hostSide) ops() map[string]hostwire.Handler {
 		"outOfView": deviceOp(h, func(ctx context.Context, d *served, p textParams) (any, error) {
 			o, ok := d.Device.(outOfViewer)
 			s := d.Session()
-			return ok && s != nil && o.OutOfView(ctx, s.Element(p.Text)), nil
+			if !ok || s == nil {
+				return false, nil
+			}
+			return o.OutOfView(ctx, s.Element(p.Text))
 		}),
 		"scrollRow": deviceOp(h, func(ctx context.Context, d *served, p nodeParams) (any, error) {
 			row := p.node()

@@ -21,6 +21,8 @@ on:
       - examples/**/gradle/**
       - examples/**/gradle.properties
       - extensions/wiremock-openapi/**
+      # the models-android pack's probe app (.github/actions/android-probe)
+      - packs/models/android/testdata/sdkprobe/**
       # the parcel-support example's image (the support-image job)
       - examples/parcel-support/app/**
       # the cache keys
@@ -58,6 +60,7 @@ jobs:
       acceptance: ${{ steps.changes.outputs.acceptance }}
       workflows: ${{ steps.changes.outputs.workflows }}
       tests: ${{ steps.changes.outputs.tests }}
+      wiremock-image: ${{ steps.wiremock.outputs.cached }}
     steps:
       # A pull request is checked out as its merge into the base branch, and the merge queue's
       # group as its commit on top of it: the first parent differs by what they change.
@@ -80,6 +83,13 @@ jobs:
             scripts/ci-changes.sh --all
           fi | tee -a "$GITHUB_OUTPUT"
           if [ "$EVENT" = push ]; then echo tests=false; else echo tests=true; fi | tee -a "$GITHUB_OUTPUT"
+      # Whether a run has kept the WireMock image the parcels example's jobs load: the
+      # wiremock-image job builds it only when none has. Looked up here, in the job every other
+      # waits for, so that with the image kept no job waits for another.
+      - id: wiremock
+        uses: ./.github/actions/wiremock-image
+        with:
+          mode: lookup
       # The tree the pull request's run tests, for the merge queue to know it.
       - if: github.event_name == 'pull_request'
         run: git rev-parse 'HEAD^{tree}' > "$RUNNER_TEMP/tested-tree"
@@ -405,8 +415,8 @@ jobs:
         # models-android pack's on one of their own: in eleven parts of some 3 to 4.5 minutes each
         # on these runners, after some 4 to 5 of setting up (no job runs past 10). A test on the
         # emulator takes 1.5 to 2 minutes here, the torn label's 3 to 3.5: a part has two of them,
-        # or that one. With no tests to run, one part builds them, and keeps the couriers' app and
-        # the emulator's device for the rest.
+        # or that one. With no tests to run, one part builds them, and keeps the couriers' app, the
+        # emulator's device and the models-android pack's probe app for the rest.
         # The hosted parts run five of the emulator's parts again through an axx host, in the
         # tests' process (AXX_TEST_HOSTED): the host's side of the pack leases the emulator and
         # starts the app, as for a run in an agent's sandbox. They are the parts with the model
@@ -446,6 +456,13 @@ jobs:
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
           save-emulator: ${{ matrix.part == 'emulator-1' }}
+      # The app of the vendors' SDKs that the models-android pack's tests install, from its
+      # cache, or built while the rest sets up, never inside a test's limit: for the parts that
+      # run that pack's tests, and, with no tests to run, kept for them.
+      - if: startsWith(matrix.part, 'models-') || needs.changes.outputs.tests != 'true'
+        uses: ./.github/actions/android-probe
+        with:
+          mode: start
       - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
@@ -466,6 +483,10 @@ jobs:
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
           save-emulator: ${{ matrix.part == 'emulator-1' }}
+      - if: startsWith(matrix.part, 'models-') || needs.changes.outputs.tests != 'true'
+        uses: ./.github/actions/android-probe
+        with:
+          mode: finish
       - if: needs.changes.outputs.tests == 'true'
         uses: ./.github/actions/android-builds
         with:
@@ -516,9 +537,36 @@ jobs:
           part: mobile-${{ matrix.part }}
           mode: save
 
-  android:
+  # WireMock with axx's extensions, the image the parcels example's mocks run, built once for the
+  # run when no run has kept it for the extension's files (.github/actions/wiremock-image): on a
+  # pull request that changes extensions/wiremock-openapi, and on main after it. The jobs that
+  # start the example (android's and acceptance) wait for this one and load what it kept. Each
+  # of them built the image itself before, at once: 3 minutes of Gradle inside Docker in twenty
+  # jobs, to one of which Maven Central answered 429 Too Many Requests. When a run has kept the
+  # image, which the changes job looks up, this job is skipped and none of them waits.
+  wiremock-image:
     needs: changes
-    if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
+    if: >-
+      needs.changes.outputs.wiremock-image != 'true'
+      && (needs.changes.outputs.acceptance == 'true'
+      || (needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'))
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/wiremock-image
+
+  android:
+    needs: [changes, wiremock-image]
+    # The wiremock-image job is skipped when a run has kept the image, and a job that needs a
+    # skipped one is skipped too unless its condition says otherwise: this one runs when that
+    # job passed or was skipped, and not when it failed (each of these would then build the
+    # image itself, all at once again).
+    if: >-
+      ${{ !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.wiremock-image.result)
+      && needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true' }}
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
     # whole example, which axx starts too. A runner runs a feature, or a shard of it (axx run
     # --shard), on one emulator, a scenario at a time: some 3 to 4 minutes' worth on a fast
@@ -784,12 +832,15 @@ jobs:
         run: scripts/ios-simulator.sh
       # The tests share that simulator, kept booted from one to the next, as a run's worker has
       # one. Each prints the packs' log (how long the simulator took to get ready, each part, and
-      # each step), and a failed one the end of its logs and the screen it read. Without the race
-      # detector: on three cores it doubled the tests' time (783 s against 405 s, measured on a VM
-      # of this runner's size), and the Android jobs run the shared mobile code with it.
+      # each step), and a failed one the end of its logs and the screen it read; the screens its
+      # failed steps attached it writes into AXX_TEST_FAILURES, which the job keeps when it
+      # fails. Without the race detector: on three cores it doubled the tests' time (783 s
+      # against 405 s, measured on a VM of this runner's size), and the Android jobs run the
+      # shared mobile code with it.
       - env:
           SELECT: ${{ matrix.select }}
           AXX_TEST_HOSTED: ${{ matrix.hosted }}
+          AXX_TEST_FAILURES: ${{ runner.temp }}/failure
         run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh packs/mobile/ios/ios.test -test.timeout=10m "$SELECT"
       - if: ${{ !cancelled() && !matrix.hosted }}
         uses: ./.github/actions/simulator-builds
@@ -800,6 +851,16 @@ jobs:
         uses: ./.github/actions/simulator-mac
         with:
           mode: report
+      # What a job that failed leaves: the crash reports the Mac wrote during it, which the report
+      # above lists a line each (of a WebDriverAgent that never answered, say), and the screens
+      # the tests' failed steps attached.
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: failure-ios-${{ matrix.tests }}
+          path: ${{ runner.temp }}/failure/
+          if-no-files-found: ignore
+          retention-days: 7
 
   coreml:
     needs: [changes, mac-tests]
@@ -883,6 +944,15 @@ jobs:
         uses: ./.github/actions/simulator-mac
         with:
           mode: report
+      # The crash reports the Mac wrote during a job that failed, which the report above lists a
+      # line each: of the process that went as the tests' simulator stopped being booted, say.
+      - if: ${{ failure() && matrix.part != 'mac' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: failure-coreml-${{ matrix.part }}
+          path: ${{ runner.temp }}/failure/
+          if-no-files-found: ignore
+          retention-days: 7
 
   windows-models:
     needs: changes
@@ -1038,10 +1108,16 @@ jobs:
     # the desk, on X11 and, in a GNOME session of its own, on Wayland: the baseline that keeps every
     # toolkit working. It runs in the desk's image, which draws what the screenshots kept show. The
     # macOS and Windows builds run on developers' machines. A failure leaves its report, the
-    # traces and the screenshots the run took.
+    # traces and the screenshots the run took, and so does a run that does not end: the feature
+    # has until 9 minutes of the job, a little under the job's 10, and is then interrupted
+    # (scripts/depot-desk-ci.sh). The slowest parts are Tauri's, which build the desk with Cargo
+    # for 2 minutes first: their jobs take 5.5 to 7.5 minutes as a rule, and one took 9 minutes
+    # 43 seconds, after 5 minutes of setting up; the others take 7 at most. A desk once hung for
+    # 23 minutes under a limit of 45, and the job, cancelled by hand, left neither a log nor a
+    # report.
     name: desktop (${{ matrix.build }}, ${{ matrix.display }})
     runs-on: ubuntu-26.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: read
@@ -1055,6 +1131,8 @@ jobs:
         # does for a run in an agent's sandbox, once what stands in for its person approved it.
         include: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '[{"build":"gtk3","display":"x11-hosted"}]' || '[]') }}
     steps:
+      # When the job started, for the feature's limit.
+      - run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -1078,15 +1156,13 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD: ${{ matrix.build }}
           DISPLAY_SERVER: ${{ matrix.display }}
+        # Until 9 minutes of the job: interrupting a run that has not ended takes up to 25
+        # seconds more, and the upload of what it left the rest.
         run: |
           echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
-          mkdir -p "$RUNNER_TEMP/out"
-          # GNOME Shell takes /run/systemd/seats for logind's, which a container has not.
-          docker run --rm --shm-size=1g --tmpfs /run/systemd \
-            -v "$PWD/examples/parcels/depot-desk:/src:ro" -v "$RUNNER_TEMP/axx:/usr/local/bin/axx:ro" -v "$RUNNER_TEMP/out:/out" \
-            "$IMAGE" depot-desk "$BUILD" "$DISPLAY_SERVER" --format progress --format junit:/out/junit.xml \
-            --format html:/out/report.html --set packs.desktop-core.traces=failed
-      - if: failure()
+          scripts/depot-desk-ci.sh "$IMAGE" "$BUILD" "$DISPLAY_SERVER" "$RUNNER_TEMP/axx" "$RUNNER_TEMP/out" "$((JOB_STARTED + 540 - $(date +%s)))"
+      # Of a run that failed, and of one the job's own limit ended, or a person.
+      - if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: desktop-${{ matrix.build }}-${{ matrix.display }}
@@ -1100,11 +1176,16 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
+      # The build cache only. Linux's module cache is lint's to keep: this job runs on Linux too
+      # and ends first, so when it saved the modules it took the key, with the modules axx's
+      # build needs and without the ones only tests or lint need, which every job then
+      # downloaded.
       - if: ${{ !cancelled() && matrix.build == 'gtk3' && matrix.display == 'x11' }}
         uses: ./.github/actions/go-cache
         with:
           build: desktop
           mode: save
+          modules: "false"
 
   cross-build:
     needs: changes
@@ -1156,6 +1237,9 @@ jobs:
           install_args: "go golangci-lint"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      # The service's modules, which no cache keeps: a download that fails is tried again. (The
+      # tidy check still asks once for the few modules that only its dependencies' tests need.)
+      - run: ../../../scripts/go-mod-download.sh
       - run: go mod tidy -diff
       - run: go test ./...
       - run: golangci-lint run
@@ -1182,8 +1266,12 @@ jobs:
       - run: uv run --frozen pytest
 
   acceptance:
-    needs: changes
-    if: needs.changes.outputs.acceptance == 'true'
+    needs: [changes, wiremock-image]
+    # After the wiremock-image job, passed or skipped (a run has kept the image), as the android
+    # job: parcels' part loads its image.
+    if: >-
+      ${{ !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.wiremock-image.result)
+      && needs.changes.outputs.acceptance == 'true' }}
     # Each example's acceptance suite, the way its README runs it: axx starts the service and
     # its infrastructure with Docker Compose, runs the features and removes everything. axx is
     # built with every pack, so it prepares none. parcel-support's features and its other
@@ -1359,7 +1447,7 @@ jobs:
   # saves. (Docker's layers, Gradle's and mise's caches look after their own.)
   caches:
     if: always() && github.event_name == 'push'
-    needs: [hygiene, lint, test, integration, web, mobile, desktop, cross-build, mac-tests, acceptance, support-image]
+    needs: [hygiene, lint, test, integration, web, mobile, wiremock-image, desktop, cross-build, mac-tests, acceptance, support-image]
     runs-on: ubuntu-26.04
     permissions:
       actions: write # to delete caches
@@ -1381,7 +1469,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
     runs-on: ubuntu-26.04
     steps:
       - name: all jobs passed

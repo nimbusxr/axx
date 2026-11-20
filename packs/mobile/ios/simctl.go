@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -243,22 +244,51 @@ func (set simSet) boot(ctx context.Context, udid string, within time.Duration) e
 // SpringBoard's "<compose failure [shared UUID]>") still has the entry, the
 // only one of its category that SpringBoard logs as it starts.
 func (set simSet) notificationsServed(ctx context.Context, udid string, since time.Time, within time.Duration) bool {
+	_, served := set.notificationsServedBy(ctx, udid, since, within)
+	return served
+}
+
+// notificationsServedBy is notificationsServed, with the process ids of the SpringBoards whose
+// entries the log has from since on (none when the entries do not name their process): a
+// SpringBoard started again is told by it from the one it replaced.
+func (set simSet) notificationsServedBy(ctx context.Context, udid string, since time.Time, within time.Duration) (by []int, served bool) {
 	ctx, cancel := context.WithTimeout(ctx, within)
 	defer cancel()
 	predicate := `process == "SpringBoard" AND subsystem == "com.apple.UserNotifications" AND category == "ContentProtection"`
 	args := []string{"spawn", udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate}
 	for {
-		if out, _ := set.simctl(ctx, args...); strings.Contains(out, "UNSUserNotificationServer") ||
-			strings.Contains(out, "[com.apple.UserNotifications:ContentProtection] <compose failure") {
-			return true
+		out, _ := set.simctl(ctx, args...)
+		if by, served := notificationServers(out); served {
+			return by, true
 		}
 		select {
 		case <-ctx.Done():
-			return false
+			return nil, false
 		case <-time.After(time.Second):
 		}
 	}
 }
+
+// notificationServers reports whether a compact log has the entry of SpringBoard's notification
+// server starting, and the process ids of the SpringBoards that logged it: a compact log names
+// each entry's process and its id, as in SpringBoard[3576:41fb].
+func notificationServers(log string) (by []int, found bool) {
+	for _, line := range strings.Split(log, "\n") {
+		if !strings.Contains(line, "UNSUserNotificationServer") && !strings.Contains(line, "[com.apple.UserNotifications:ContentProtection] <compose failure") {
+			continue
+		}
+		found = true
+		if m := springboardEntry.FindStringSubmatch(line); m != nil {
+			if pid, err := strconv.Atoi(m[1]); err == nil && !slices.Contains(by, pid) {
+				by = append(by, pid)
+			}
+		}
+	}
+	return by, found
+}
+
+// springboardEntry finds SpringBoard's process id in an entry of a compact log.
+var springboardEntry = regexp.MustCompile(`\bSpringBoard\[(\d+):`)
 
 // notificationsUnserved tells why notificationsServed found nothing from since on, for the
 // warning that the simulator does not serve notifications: what the same query answers now, the

@@ -32,12 +32,70 @@ type Document struct {
 	Content                      []byte
 }
 
+// A Request is a call the courier's app made of the API, and the status it was answered with.
+type Request struct {
+	At     time.Time
+	Method string
+	Path   string
+	Status int
+}
+
 // API is the couriers' API a test serves.
 type API struct {
 	mu        sync.Mutex
 	locations []Location
 	documents []Document
 	lists     int
+	requests  []Request
+}
+
+// Requests are the calls the courier's app made of the API, in the order they came.
+func (a *API) Requests() []Request {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]Request(nil), a.requests...)
+}
+
+// recorded serves the API's calls with next, and keeps each one with the status it was
+// answered with.
+func (a *API) recorded(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		at := time.Now()
+		answer := &answered{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(answer, r)
+		a.mu.Lock()
+		a.requests = append(a.requests, Request{At: at, Method: r.Method, Path: r.URL.Path, Status: answer.status})
+		a.mu.Unlock()
+	})
+}
+
+// answered keeps the status a call is answered with.
+type answered struct {
+	http.ResponseWriter
+	status int
+}
+
+func (a *answered) WriteHeader(status int) {
+	a.status = status
+	a.ResponseWriter.WriteHeader(status)
+}
+
+// asked tells the calls the courier's app made, a line each with the time it came and its
+// answer's status: the last 60, as an app that shares the van's location reports it every second.
+func (a *API) asked() string {
+	requests := a.Requests()
+	if len(requests) == 0 {
+		return " nothing"
+	}
+	var b strings.Builder
+	if left := len(requests) - 60; left > 0 {
+		fmt.Fprintf(&b, "\n  (%d calls before these)", left)
+		requests = requests[left:]
+	}
+	for _, r := range requests {
+		fmt.Fprintf(&b, "\n  %s %s %s: %d", r.At.Format("15:04:05.000"), r.Method, r.Path, r.Status)
+	}
+	return b.String()
 }
 
 // Documents are the files the courier's app attached to deliveries, in order.
@@ -239,9 +297,17 @@ func start(t *testing.T, round int) *API {
 		api.mu.Unlock()
 		reply(w, http.StatusCreated, map[string]any{"reference": ref, "name": name, "size": len(content)})
 	})
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{Handler: api.recorded(mux)}
 	go func() { _ = srv.Serve(l) }()
-	t.Cleanup(func() { _ = srv.Close() })
+	t.Cleanup(func() {
+		_ = srv.Close()
+		// What the app asked of the API says how far a failed test's app got, which its screen
+		// does not: an app still on the sign-in screen after its button was tapped never sent the
+		// sign-in (the tap did not reach the button), or sent it and did not go on.
+		if t.Failed() {
+			t.Logf("the couriers' API was asked:%s", api.asked())
+		}
+	})
 	return api
 }
 

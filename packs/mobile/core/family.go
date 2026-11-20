@@ -118,12 +118,14 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 		err = el.Click(ctx)
 		// A control the app drew again between finding it and tapping it (a dialog's button as the
 		// dialog comes in, on a slow machine) is gone from the driver's cache: find it again, and tap
-		// that, as a person taps what is there now.
+		// that, as a person taps what is there now. It is found as it first was, scrolled to when
+		// it is out of view: a page that drew it again may have moved, and one found without that
+		// is tapped where it is, off the screen.
 		for range 2 {
 			if err == nil || !appium.IsNoSuchElement(err) && !appium.IsStale(err) {
 				break
 			}
-			if el, _, _, err = target(sc, d, app.Name, k, name, actionTimeout); err != nil {
+			if el, _, _, err = reached(sc, d, app.Name, k, name, actionTimeout); err != nil {
 				return err
 			}
 			if el, err = landed(ctx, sc, d, app.Name, k, name, el); err != nil {

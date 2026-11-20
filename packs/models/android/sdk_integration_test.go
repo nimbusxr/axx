@@ -21,6 +21,45 @@ import (
 	"github.com/nimbusxr/axx/packs/models/core/stub"
 )
 
+// sdkProbe is the APK of the vendor SDKs' probe app (testdata/sdkprobe): the one
+// AXX_MODELS_ANDROID_SDK_PROBE names, or else built here with Gradle, within ctx. Its build
+// downloads the Android Gradle plugin and ML Kit's libraries, dexes each and packages 137 MB:
+// minutes on a CI runner, and now and then more than a test's limit. So CI builds it in a step of
+// its own, keeps it by the probe's files (.github/actions/android-probe) and names it here.
+func sdkProbe(ctx context.Context, t *testing.T) string {
+	t.Helper()
+	if apk := os.Getenv("AXX_MODELS_ANDROID_SDK_PROBE"); apk != "" {
+		if _, err := os.Stat(apk); err != nil {
+			t.Fatalf("AXX_MODELS_ANDROID_SDK_PROBE: %v", err)
+		}
+		return apk
+	}
+	cmd := exec.CommandContext(ctx, "../../../examples/parcels/courier/android/gradlew", "-p", "testdata/sdkprobe", "--no-daemon", "--console=plain", "--stacktrace", "assembleDebug")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("probe build: %v: %s", err, out)
+	}
+	apk, err := filepath.Abs("testdata/sdkprobe/build/outputs/apk/debug/axx-platform-model-probe-debug.apk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return apk
+}
+
+// A named probe is the one the tests install, and nothing is built: a build under a context
+// that has ended would fail at once.
+func TestSDKProbeIsTheOneNamed(t *testing.T) {
+	apk := filepath.Join(t.TempDir(), "probe.apk")
+	if err := os.WriteFile(apk, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AXX_MODELS_ANDROID_SDK_PROBE", apk)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if got := sdkProbe(ctx, t); got != apk {
+		t.Fatalf("want the named probe, %s, got %s", apk, got)
+	}
+}
+
 // The probe depends on the vendor SDKs and calls their public factories and
 // result getters. It must never link to the adapter or choose a test provider.
 func TestAndroidVendorSDKCalls(t *testing.T) {
@@ -47,10 +86,10 @@ func TestAndroidVendorSDKCalls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	run("../../../examples/parcels/courier/android/gradlew", "-p", "testdata/sdkprobe", "--no-daemon", "--console=plain", "assembleDebug")
+	apk := sdkProbe(ctx, t)
 	const pkg = "us.nimbusxr.axx.sdkprobe"
 	_ = exec.CommandContext(ctx, adb, "-s", serial, "uninstall", pkg).Run()
-	device("install", "testdata/sdkprobe/build/outputs/apk/debug/axx-platform-model-probe-debug.apk")
+	device("install", apk)
 	t.Cleanup(func() { _ = exec.Command(adb, "-s", serial, "uninstall", pkg).Run() })
 	put := func(name string, b []byte) {
 		t.Helper()

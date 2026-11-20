@@ -41,13 +41,14 @@ func (d *device) ensureWDA(ctx context.Context) error {
 		"SIMCTL_CHILD_WDA_PRODUCT_BUNDLE_IDENTIFIER="+wdaBundleID,
 		"SIMCTL_CHILD_MJPEG_SERVER_PORT="+strconv.Itoa(d.mjpegPort),
 	)
+	launched := time.Now()
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("cannot launch WebDriverAgent on the %s simulator: %w: %s", d.name, err, strings.TrimSpace(string(out)))
 	}
-	deadline := time.Now().Add(90 * time.Second)
+	deadline := time.Now().Add(wdaAnswers)
 	for !wdaUp(ctx, d.wdaURL(), 2*time.Second) {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("WebDriverAgent did not answer on the %s simulator within 90s", d.name)
+			return fmt.Errorf("WebDriverAgent did not answer on the %s simulator within %s: %s", d.name, wdaAnswers, d.wdaUnanswered(ctx, launched))
 		}
 		select {
 		case <-ctx.Done():
@@ -56,6 +57,55 @@ func (d *device) ensureWDA(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// wdaAnswers is how long WebDriverAgent has to answer once it is launched; a variable, for tests.
+var wdaAnswers = 90 * time.Second
+
+// wdaUnanswered tells, for the error of a WebDriverAgent that did not answer, what became of it
+// since it was launched: whether its process still runs, as the simulator's launchd lists it (one
+// that runs and does not answer hangs, one that ended crashed or was ended), and the last of what
+// the simulator logged of it, its own lines and the lines of other processes that name it
+// (SpringBoard and RunningBoard say there why they ended an app).
+func (d *device) wdaUnanswered(ctx context.Context, since time.Time) string {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	var b strings.Builder
+	services, err := d.set.simctl(ctx, "spawn", d.udid, "launchctl", "list")
+	switch pid, status, listed := launchdJob(services, wdaBundleID); {
+	case err != nil:
+		fmt.Fprintf(&b, "the simulator's launchd does not say whether its process runs (%v)", err)
+	case !listed:
+		b.WriteString("the simulator's launchd lists no process of it")
+	case pid == "-":
+		fmt.Fprintf(&b, "its process has ended (launchd's status of it is %s)", status)
+	default:
+		fmt.Fprintf(&b, "its process still runs (pid %s)", pid)
+	}
+	predicate := fmt.Sprintf(`process == %q OR composedMessage CONTAINS %q`, strings.TrimSuffix(wdaApp, ".app"), wdaBundleID)
+	out, err := d.set.simctl(ctx, "spawn", d.udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
+	switch log := lastLines(out, 40, 300); {
+	case err != nil:
+		fmt.Fprintf(&b, "; the simulator's log cannot be read (%v)", err)
+	case log == "":
+		b.WriteString("; the simulator's log has nothing of it since it was launched")
+	default:
+		fmt.Fprintf(&b, "; the last of what the simulator logged of it since it was launched:\n%s", log)
+	}
+	return b.String()
+}
+
+// launchdJob is the process id and the status of the job whose label names an app, in what a
+// simulator's launchctl list prints: a line each of a process id (- for a job that does not run),
+// the status its last process ended with, and a label, which for an app holds its bundle
+// identifier (UIKitApplication:com.example.app[1a2b][rb-legacy]).
+func launchdJob(list, bundleID string) (pid, status string, listed bool) {
+	for _, l := range strings.Split(list, "\n") {
+		if f := strings.Fields(l); len(f) == 3 && strings.Contains(f[2], bundleID) {
+			return f[0], f[1], true
+		}
+	}
+	return "", "", false
 }
 
 // wdaUp reports whether WebDriverAgent answers its status at url.

@@ -3,6 +3,7 @@ package sql
 import (
 	"context"
 	dbsql "database/sql"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -11,6 +12,8 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
+	sqlitedriver "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/columntype"
@@ -37,6 +40,9 @@ func (svc *Service) columnTypes(ctx context.Context, tbl string) (map[string]str
 	}
 	rows, err := svc.DB.QueryContext(ctx, "SELECT * FROM "+tbl+" WHERE 1=0")
 	if err != nil {
+		if sqliteLocked(err) {
+			return nil, &columnTypesError{err}
+		}
 		if err := svc.DB.PingContext(ctx); err != nil {
 			return nil, &columnTypesError{err}
 		}
@@ -74,6 +80,15 @@ func (e *columnTypesError) Error() string {
 }
 
 func (e *columnTypesError) Unwrap() error { return e.err }
+
+// sqliteLocked says whether err is SQLite's for a file that another connection
+// kept locked for longer than a statement waits (sqliteWaits). The table is one
+// the database could not read this time, not one with no types, and a ping does
+// not tell the two apart: SQLite answers it without reading the file.
+func sqliteLocked(err error) bool {
+	var e *sqlitedriver.Error
+	return errors.As(err, &e) && e.Code()&0xff == sqlite3.SQLITE_BUSY
+}
 
 var oidName = regexp.MustCompile(`^[0-9]+$`)
 

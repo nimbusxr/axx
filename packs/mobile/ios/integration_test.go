@@ -94,7 +94,10 @@ func report(t *testing.T, h *cloudtest.Harness) {
 		t.Logf("the courier app's page source at the failure (%v):\n%s", err, src)
 		// What the simulator's own log says, in the last minutes, of the app, of the document
 		// picker and the files it shows, and of each tap XCTest made (where, and when), with
-		// the errors of each of those processes; all of what iOS's resolver of documents
+		// the errors of each of those processes; what UIKit in the app says of each touch it was
+		// given and sent on to a window (a tap XCTest made and the app did nothing with either
+		// never came to the app, or came and was not taken: twice a tap left the app as it was,
+		// and the log had only that XCTest made it); all of what iOS's resolver of documents
 		// for apps and its store of document ids say; and what SpringBoard, iOS's service of
 		// notifications and RunningBoard say of the app (its notifications, its priority).
 		if r, ok := d.(*running); ok && r.dev != nil {
@@ -102,10 +105,11 @@ func report(t *testing.T, h *cloudtest.Harness) {
 				`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
 					` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
 					` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`+
+					` OR (process == "Courier" AND subsystem == "com.apple.UIKit" AND category == "EventDispatch")`+
 					` OR process == "ResolverService" OR process == "revisiond" OR eventMessage BEGINSWITH "axx models:"`+
 					` OR ((process == "SpringBoard" OR process == "usernotificationsd" OR process == "runningboardd") AND eventMessage CONTAINS[c] "courier")`).CombinedOutput()
 			lines := strings.Split(string(out), "\n")
-			t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-1500):], "\n"))
+			t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-2000):], "\n"))
 		}
 		// What axx's AR library did in the app: the scene it drew from each pose, and each
 		// raycast (from where, and what it hit).
@@ -121,6 +125,10 @@ func report(t *testing.T, h *cloudtest.Harness) {
 		b, _ := os.ReadFile(l)
 		lines := strings.Split(string(b), "\n")
 		t.Logf("the end of %s:\n%s", filepath.Base(l), strings.Join(lines[max(0, len(lines)-80):], "\n"))
+	}
+	// The screens its failed steps attached, where CI's job keeps what a failure leaves.
+	for _, kept := range keepScreens(t.Name(), h.Sink.Attachments, os.Getenv("AXX_TEST_FAILURES")) {
+		t.Log(kept)
 	}
 }
 

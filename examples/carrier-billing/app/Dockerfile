@@ -2,11 +2,12 @@
 FROM golang:1.27-trixie@sha256:c124b9ad3452f46061b5054607d26ea51730dae5372c5e469920063ba2bc6dcc AS build
 ARG TARGETARCH
 # TensorFlow, which runs the repacks' photo check: its C library's release, pinned, which the
-# service links in. TensorFlow publishes its C library for amd64 only.
+# service links in. TensorFlow publishes its C library for amd64 only. A download that fails is
+# tried again, three times (--retry).
 ARG TENSORFLOW_VERSION=2.18.0
 RUN set -eu; \
     test "$TARGETARCH" = amd64 || { echo "TensorFlow's C library is built for amd64 only, not $TARGETARCH" >&2; exit 1; }; \
-    curl -fsSL -o /tmp/libtensorflow.tgz "https://storage.googleapis.com/tensorflow/versions/${TENSORFLOW_VERSION}/libtensorflow-cpu-linux-x86_64.tar.gz"; \
+    curl -fsSL --retry 3 --retry-all-errors -o /tmp/libtensorflow.tgz "https://storage.googleapis.com/tensorflow/versions/${TENSORFLOW_VERSION}/libtensorflow-cpu-linux-x86_64.tar.gz"; \
     echo "605bfcb370c7e7ec981eabada880f60784e3de018395be95c95c3e5592c3d9a2  /tmp/libtensorflow.tgz" | sha256sum -c -; \
     mkdir -p /opt/tensorflow; \
     tar xzf /tmp/libtensorflow.tgz -C /opt/tensorflow; \
