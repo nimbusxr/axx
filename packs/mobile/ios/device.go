@@ -61,7 +61,7 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 			p.release(dev)
 			return nil, err
 		}
-		if err := dev.ensureWDA(ctx); err != nil {
+		if err := dev.ensureWDA(ctx, sc.Suite().Logger().Warn); err != nil {
 			p.release(dev)
 			return nil, err
 		}

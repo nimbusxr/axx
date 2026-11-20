@@ -28,27 +28,47 @@ import (
 func (d *device) wdaURL() string { return "http://127.0.0.1:" + strconv.Itoa(d.wdaPort) }
 
 // ensureWDA makes sure WebDriverAgent answers on the simulator, and launches
-// it when it does not.
-func (d *device) ensureWDA(ctx context.Context) error {
+// it when it does not. One that ends as it starts is launched again, twice at
+// most, and warn is told what became of it: on CI's Mac one aborted 11 seconds
+// after it was launched, and axx waited its 90 seconds for a process that had
+// gone, where the job run again had it answer in a few.
+func (d *device) ensureWDA(ctx context.Context, warn func(msg string, args ...any)) error {
 	if wdaUp(ctx, d.wdaURL(), time.Second) {
 		return nil
 	}
-	cmd := exec.CommandContext(ctx, "xcrun", append([]string{"simctl"}, d.set.args("launch", "--terminate-running-process", d.udid, wdaBundleID)...)...) //nolint:gosec // simctl, with arguments axx builds
-	// What the driver gives the WebDriverAgent it launches: its port, its
-	// bundle id, and the port of its stream of the screen.
-	cmd.Env = append(os.Environ(),
-		"SIMCTL_CHILD_USE_PORT="+strconv.Itoa(d.wdaPort),
-		"SIMCTL_CHILD_WDA_PRODUCT_BUNDLE_IDENTIFIER="+wdaBundleID,
-		"SIMCTL_CHILD_MJPEG_SERVER_PORT="+strconv.Itoa(d.mjpegPort),
-	)
-	launched := time.Now()
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("cannot launch WebDriverAgent on the %s simulator: %w: %s", d.name, err, strings.TrimSpace(string(out)))
+	launched, err := d.launchWDA(ctx)
+	if err != nil {
+		return err
 	}
 	deadline := time.Now().Add(wdaAnswers)
+	again, gone, looked := 0, 0, time.Now()
 	for !wdaUp(ctx, d.wdaURL(), 2*time.Second) {
 		if time.Now().After(deadline) {
 			return fmt.Errorf("WebDriverAgent did not answer on the %s simulator within %s: %s", d.name, wdaAnswers, d.wdaUnanswered(ctx, launched))
+		}
+		// Whether its process still runs, asked now and then once it has had the time to
+		// start: gone twice in a row, it has ended, and is not waited for.
+		if time.Since(launched) >= wdaStarts && time.Since(looked) >= wdaLooks {
+			looked = time.Now()
+			if d.wdaGone(ctx) {
+				gone++
+			} else {
+				gone = 0
+			}
+			if gone >= 2 {
+				what := d.wdaUnanswered(ctx, launched)
+				if again == 2 {
+					return fmt.Errorf("WebDriverAgent ended as it started on the %s simulator, three times: %s", d.name, what)
+				}
+				again++
+				if warn != nil {
+					warn("WebDriverAgent ended as it started on the iOS simulator: it is launched again", "simulator", d.name, "after", time.Since(launched).Round(time.Second), "what became of it", what)
+				}
+				if launched, err = d.launchWDA(ctx); err != nil {
+					return err
+				}
+				gone = 0
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -59,14 +79,51 @@ func (d *device) ensureWDA(ctx context.Context) error {
 	return nil
 }
 
+// launchWDA launches WebDriverAgent on the simulator, in place of one that runs, and says when.
+func (d *device) launchWDA(ctx context.Context) (time.Time, error) {
+	cmd := exec.CommandContext(ctx, "xcrun", append([]string{"simctl"}, d.set.args("launch", "--terminate-running-process", d.udid, wdaBundleID)...)...) //nolint:gosec // simctl, with arguments axx builds
+	// What the driver gives the WebDriverAgent it launches: its port, its
+	// bundle id, and the port of its stream of the screen.
+	cmd.Env = append(os.Environ(),
+		"SIMCTL_CHILD_USE_PORT="+strconv.Itoa(d.wdaPort),
+		"SIMCTL_CHILD_WDA_PRODUCT_BUNDLE_IDENTIFIER="+wdaBundleID,
+		"SIMCTL_CHILD_MJPEG_SERVER_PORT="+strconv.Itoa(d.mjpegPort),
+	)
+	launched := time.Now()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return launched, fmt.Errorf("cannot launch WebDriverAgent on the %s simulator: %w: %s", d.name, err, strings.TrimSpace(string(out)))
+	}
+	return launched, nil
+}
+
+// wdaGone is whether the simulator's launchd has no running process of WebDriverAgent. A launchd
+// that does not say is not taken for one that has none.
+func (d *device) wdaGone(ctx context.Context) bool {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	services, err := d.set.simctl(ctx, "spawn", d.udid, "launchctl", "list")
+	if err != nil {
+		return false
+	}
+	pid, _, listed := launchdJob(services, wdaBundleID)
+	return !listed || pid == "-"
+}
+
+// wdaStarts is how long a launched WebDriverAgent is left before its process is looked for, and
+// wdaLooks how long between two looks; variables, for tests.
+var (
+	wdaStarts = 5 * time.Second
+	wdaLooks  = 3 * time.Second
+)
+
 // wdaAnswers is how long WebDriverAgent has to answer once it is launched; a variable, for tests.
 var wdaAnswers = 90 * time.Second
 
 // wdaUnanswered tells, for the error of a WebDriverAgent that did not answer, what became of it
 // since it was launched: whether its process still runs, as the simulator's launchd lists it (one
-// that runs and does not answer hangs, one that ended crashed or was ended), and the last of what
-// the simulator logged of it, its own lines and the lines of other processes that name it
-// (SpringBoard and RunningBoard say there why they ended an app).
+// that runs and does not answer hangs, one that ended crashed or was ended), the last of what it
+// logged itself, and the last of what other processes logged that names it (SpringBoard and
+// RunningBoard say there why they ended an app, and with which signal it ended).
 func (d *device) wdaUnanswered(ctx context.Context, since time.Time) string {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -82,15 +139,33 @@ func (d *device) wdaUnanswered(ctx context.Context, since time.Time) string {
 	default:
 		fmt.Fprintf(&b, "its process still runs (pid %s)", pid)
 	}
-	predicate := fmt.Sprintf(`process == %q OR composedMessage CONTAINS %q`, strings.TrimSuffix(wdaApp, ".app"), wdaBundleID)
+	runner := strings.TrimSuffix(wdaApp, ".app")
+	predicate := fmt.Sprintf(`process == %q OR composedMessage CONTAINS %q`, runner, wdaBundleID)
 	out, err := d.set.simctl(ctx, "spawn", d.udid, "log", "show", "--start", since.Format("2006-01-02 15:04:05"), "--style", "compact", "--predicate", predicate)
-	switch log := lastLines(out, 40, 300); {
-	case err != nil:
+	if err != nil {
 		fmt.Fprintf(&b, "; the simulator's log cannot be read (%v)", err)
-	case log == "":
+		return b.String()
+	}
+	// Its own lines apart from the others': when it ends, SpringBoard, RunningBoard and a
+	// dozen more log its end in forty lines, and the reason it gave before is what is asked.
+	var own, others []string
+	for _, l := range strings.Split(out, "\n") {
+		if strings.Contains(l, " "+runner+"[") {
+			own = append(own, l)
+		} else {
+			others = append(others, l)
+		}
+	}
+	ownLog, othersLog := lastLines(strings.Join(own, "\n"), 25, 300), lastLines(strings.Join(others, "\n"), 15, 300)
+	switch {
+	case ownLog == "" && othersLog == "":
 		b.WriteString("; the simulator's log has nothing of it since it was launched")
+	case ownLog == "":
+		fmt.Fprintf(&b, "; it logged nothing itself since it was launched, and the last of what the simulator logged of it:\n%s", othersLog)
+	case othersLog == "":
+		fmt.Fprintf(&b, "; the last of what it logged since it was launched:\n%s", ownLog)
 	default:
-		fmt.Fprintf(&b, "; the last of what the simulator logged of it since it was launched:\n%s", log)
+		fmt.Fprintf(&b, "; the last of what it logged since it was launched:\n%s\nand the last of what the simulator logged of it:\n%s", ownLog, othersLog)
 	}
 	return b.String()
 }
