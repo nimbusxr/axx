@@ -246,11 +246,13 @@ func (d *running) under(ctx context.Context, src string, s *mobilecore.Screen) {
 }
 
 // OutOfView is whether a control a selector found is out of view: the driver finds what the
-// screen lists out of view too, and does not scroll to it to tap it, so the step does.
-func (d *running) OutOfView(ctx context.Context, el *appium.Element) bool {
+// screen lists out of view too, and does not scroll to it to tap it, so the step does. A
+// control the driver has lost since it found it (a web page draws its controls again as it
+// scrolls) is not one it can say that of, and the step finds it again.
+func (d *running) OutOfView(ctx context.Context, el *appium.Element) (bool, error) {
 	if d.scrollService() == nil {
-		return false
+		return false, nil
 	}
 	shown, err := el.Attribute(ctx, "displayed")
-	return err == nil && shown == "false"
+	return shown == "false", err
 }

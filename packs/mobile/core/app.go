@@ -84,9 +84,11 @@ type Device interface {
 
 // outOfViewer is a device whose driver finds a control a selector names when the screen has it
 // out of view, and does not bring it into view to use it: OutOfView says so of a control, and a
-// step that uses one scrolls to it first.
+// step that uses one scrolls to it first. A driver that has lost the control since it found it
+// cannot say, and OutOfView fails: a control is never taken for in view because its driver
+// could not be asked.
 type outOfViewer interface {
-	OutOfView(ctx context.Context, el *appium.Element) bool
+	OutOfView(ctx context.Context, el *appium.Element) (bool, error)
 }
 
 // Register adds a platform's app to the scenario's apps, which app-core
