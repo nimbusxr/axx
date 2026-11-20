@@ -218,20 +218,34 @@ public class AxxLspIntegrationTest extends HeavyPlatformTestCase {
     public void testParameterColors() throws Exception {
         waitForServer();
         PsiFile psi = PsiManager.getInstance(getProject()).findFile(feature);
-        List<HighlightInfo> infos =
-                CodeInsightTestFixtureImpl.instantiateAndRun(psi, editor, new int[0], false);
-        // Step parameter values get the Gherkin plugin's step parameter color.
+        // Step parameter values get the Gherkin plugin's step parameter color. The IDE asks the
+        // server for the colors while it highlights the file, and colors the editor when the
+        // answer comes, which can be after that highlighting has ended. So one highlighting may
+        // not show them yet: the file is highlighted again until it does.
         int value = FEATURE.indexOf("200");
+        List<HighlightInfo> infos = List.of();
         boolean colored = false;
-        for (HighlightInfo info : infos) {
-            colored |=
-                    info.getStartOffset() == value
-                            && info.getEndOffset() == value + 3
-                            && info.forcedTextAttributesKey != null
-                            && "GHERKIN_REGEXP_PARAMETER"
-                                    .equals(info.forcedTextAttributesKey.getExternalName());
+        long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+        while (!colored && System.currentTimeMillis() < deadline) {
+            infos = CodeInsightTestFixtureImpl.instantiateAndRun(psi, editor, new int[0], false);
+            for (HighlightInfo info : infos) {
+                colored |=
+                        info.getStartOffset() == value
+                                && info.getEndOffset() == value + 3
+                                && info.forcedTextAttributesKey != null
+                                && "GHERKIN_REGEXP_PARAMETER"
+                                        .equals(info.forcedTextAttributesKey.getExternalName());
+            }
+            if (!colored) {
+                PlatformTestUtil.dispatchAllEventsInIdeEventQueue();
+                Thread.sleep(50);
+            }
         }
-        assertTrue(infos.toString(), colored);
+        assertTrue(
+                "the server's color for the step parameter 200 did not reach the editor, which"
+                        + " has: "
+                        + infos,
+                colored);
     }
 
     /** Runs Go to Declaration at an offset of the feature and returns the name of the file it opens. */
