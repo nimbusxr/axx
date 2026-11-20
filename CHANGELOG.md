@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.7](https://github.com/nimbusxr/axx/compare/v0.7.6...v0.7.7) (2026-11-20)
+
+
+### Features
+
+* fixture factories read Db2's schema, its migrations or what db2look writes ([27f08e5](https://github.com/nimbusxr/axx/commit/27f08e58044a96f5b92ed9b01cd7195decc804a2))
+* **sql:** Db2 databases, through axx's own client of DRDA: seeds, selections, locks and triggers ([27f08e5](https://github.com/nimbusxr/axx/commit/27f08e58044a96f5b92ed9b01cd7195decc804a2))
+
+
+### Bug Fixes
+
+* a service whose command ends well is not warned of ([#369](https://github.com/nimbusxr/axx/issues/369)) ([8080abb](https://github.com/nimbusxr/axx/commit/8080abb7512cecf38c3795517e37de4373b1018d))
+
 ## [0.7.6](https://github.com/nimbusxr/axx/compare/v0.7.5...v0.7.6) (2026-11-19)
 
 
