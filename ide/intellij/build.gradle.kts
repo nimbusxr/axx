@@ -240,6 +240,20 @@ tasks.test {
     // AxxLspIntegrationTest runs only with AXX_BIN set (an axx binary with `axx lsp`), so its value
     // is a test input: setting it reruns the tests instead of reusing an earlier result. So is
     // AXX_HOST_PROJECT, the project AxxHostIntegrationTest starts an axx host in.
-    inputs.property("axxBin", providers.environmentVariable("AXX_BIN").orElse(""))
-    inputs.property("axxHostProject", providers.environmentVariable("AXX_HOST_PROJECT").orElse(""))
+    val axxBin = providers.environmentVariable("AXX_BIN")
+    val axxHostProject = providers.environmentVariable("AXX_HOST_PROJECT")
+    inputs.property("axxBin", axxBin.orElse(""))
+    inputs.property("axxHostProject", axxHostProject.orElse(""))
+    // Gradle's configuration cache keeps the tests' environment as it was in the run that stored
+    // the entry, so a later run of the same command line would give the tests that run's AXX_BIN,
+    // or none, and the tests that need it would pass without running. The tests get the two as
+    // they are in this run.
+    doFirst {
+        val test = this as Test
+        val environment = test.environment.toMutableMap()
+        for ((name, value) in mapOf("AXX_BIN" to axxBin, "AXX_HOST_PROJECT" to axxHostProject)) {
+            if (value.isPresent) environment[name] = value.get() else environment.remove(name)
+        }
+        test.setEnvironment(environment)
+    }
 }
