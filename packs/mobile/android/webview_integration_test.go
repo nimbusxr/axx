@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/nimbusxr/axx/core"
@@ -29,6 +30,18 @@ func reportsAPK(t *testing.T) string {
 // pageAPK builds that app with a page of the test's for its web view to show.
 func pageAPK(t *testing.T, file string) string {
 	t.Helper()
+	page, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return testAPK(t, "webview", filepath.Join("example", "parcels", "reports", "Reports"), page)
+}
+
+// testAPK builds an app of the tests': the one activity of a folder of testdata (its Java source
+// and its manifest), with a page among its assets when the test has one. It is built with the
+// SDK's own tools, as the test's emulator has them.
+func testAPK(t *testing.T, folder, class string, page []byte) string {
+	t.Helper()
 	home := os.Getenv("ANDROID_HOME")
 	if home == "" {
 		home = os.Getenv("ANDROID_SDK_ROOT")
@@ -36,7 +49,7 @@ func pageAPK(t *testing.T, file string) string {
 	tools, _ := filepath.Glob(filepath.Join(home, "build-tools", "*"))
 	platforms, _ := filepath.Glob(filepath.Join(home, "platforms", "android-*", "android.jar"))
 	if len(tools) == 0 || len(platforms) == 0 {
-		t.Skip("the Android SDK has no build-tools or no platform to build the web view tests' app with")
+		t.Skip("the Android SDK has no build-tools or no platform to build the tests' app with")
 	}
 	slices.Sort(tools)
 	slices.Sort(platforms)
@@ -54,17 +67,15 @@ func pageAPK(t *testing.T, file string) string {
 			t.Fatal(err)
 		}
 	}
-	page, err := os.ReadFile(file)
-	if err != nil {
-		t.Fatal(err)
+	if page != nil {
+		if err := os.WriteFile(filepath.Join(assets, "page.html"), page, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := os.WriteFile(filepath.Join(assets, "page.html"), page, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	run("javac", "--release", "8", "-classpath", android, "-d", classes, filepath.Join("testdata", "webview", "Reports.java"))
-	run(filepath.Join(tool, "d8"), "--min-api", "26", "--lib", android, "--output", work, filepath.Join(classes, "example", "parcels", "reports", "Reports.class"))
+	run("javac", "--release", "8", "-classpath", android, "-d", classes, filepath.Join("testdata", folder, filepath.Base(class)+".java"))
+	run(filepath.Join(tool, "d8"), "--min-api", "26", "--lib", android, "--output", work, filepath.Join(classes, class+".class"))
 	unsigned := filepath.Join(work, "unsigned.apk")
-	run(filepath.Join(tool, "aapt2"), "link", "--debug-mode", "-I", android, "--manifest", filepath.Join("testdata", "webview", "AndroidManifest.xml"), "-A", assets, "-o", unsigned)
+	run(filepath.Join(tool, "aapt2"), "link", "--debug-mode", "-I", android, "--manifest", filepath.Join("testdata", folder, "AndroidManifest.xml"), "-A", assets, "-o", unsigned)
 	// The app's code goes into the package aapt2 made.
 	linked, err := os.ReadFile(unsigned)
 	if err != nil {
@@ -107,9 +118,9 @@ func pageAPK(t *testing.T, file string) string {
 	if err := os.WriteFile(unsigned, apk.Bytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	keystore, signed := filepath.Join(work, "debug.jks"), filepath.Join(work, "reports.apk")
+	keystore, signed := filepath.Join(work, "debug.jks"), filepath.Join(work, strings.ToLower(filepath.Base(class))+".apk")
 	run("keytool", "-genkeypair", "-keystore", keystore, "-storepass", "android", "-keypass", "android", "-alias", "debug",
-		"-dname", "CN=axx web view tests", "-keyalg", "RSA", "-validity", "3650")
+		"-dname", "CN=axx tests", "-keyalg", "RSA", "-validity", "3650")
 	run(filepath.Join(tool, "apksigner"), "sign", "--ks", keystore, "--ks-pass", "pass:android", "--out", signed, unsigned)
 	return signed
 }

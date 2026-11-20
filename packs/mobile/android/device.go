@@ -557,10 +557,11 @@ func (d *running) grant(ctx context.Context) error {
 
 func (d *running) Screen(ctx context.Context) (*mobilecore.Screen, error) {
 	src, err := d.session.Source(ctx)
-	// Now and then the UiAutomator2 server fails to read a screen that changes under it (it
-	// "cannot set AccessibilityNodeInfo's field 'mSealed'"), even with Android's hidden APIs
-	// allowed: as the file picker's list of places slid shut, or an app still starting on a busy
-	// runner (for over a second, on CI's). Read a moment later, it reads: for 5 seconds.
+	// A UiAutomator2 server that Android refuses its hidden APIs fails every read for 3.5 seconds
+	// after a toast (it "cannot set AccessibilityNodeInfo's field 'mSealed'", as it adds the toast
+	// to the screen). The server axx starts is allowed them as it starts (instrumentation). One
+	// axx did not start, a device farm's, may not be: read once the toast is over, the screen
+	// reads, so it is read again for 5 seconds.
 	for range 16 {
 		var ae *appium.Error
 		if err == nil || !errors.As(err, &ae) || !strings.Contains(ae.Message, "AccessibilityNodeInfo's field 'mSealed'") {
