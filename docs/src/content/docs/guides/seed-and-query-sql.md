@@ -408,6 +408,12 @@ services:
 - **No triggers and no JSONB containment.** Those steps fail on H2 and say so.
 - **An encrypted database (`CIPHER`) and a cluster of servers** are not ones axx can open.
 
+## SQLite
+
+SQLite locks the whole database file: for a moment while a connection reads it, and for as long as a connection's write takes. The lock a step meets is your service's, or that of another scenario running at the same time. A step that finds the file locked waits for it, for up to 10 seconds, and then fails with `database is locked`.
+
+Your service needs to wait for the file as well. A step reads the file for a moment each time it looks, and a write of the service's that lands in that moment fails at once with `database is locked` (`SQLITE_BUSY`) unless the service waits. How long it waits is SQLite's busy timeout (`PRAGMA busy_timeout`), which some libraries set for you and others leave at zero.
+
 ## Inject faults with triggers
 
 To test how your service handles database errors, install a trigger that raises an SQL state for matching inserts:
