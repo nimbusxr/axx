@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+name: wiremock-image
+description: >-
+  WireMock with axx's extensions (extensions/wiremock-openapi: a Gradle build inside Docker,
+  3 minutes on a runner), the image the parcels example's mocks run, in the runner's Docker under
+  the name the example's compose file gives it: from a cache of the image, keyed by the
+  extension's files, or built and kept (.github/actions/docker-image). With mode lookup it only
+  says whether a run has kept the image (the cached output). ci.yml's wiremock-image job builds
+  it once for a run, and the jobs that start the example wait for that job and load what it kept
+  (.github/actions/parcels-images).
+inputs:
+  mode:
+    description: "`load`, the image in the runner's Docker, or `lookup`, only whether a run kept it."
+    default: load
+outputs:
+  cached:
+    description: "`true` when a run has kept the image the extension's files make."
+    value: ${{ steps.image.outputs.cached }}
+runs:
+  using: composite
+  steps:
+    - id: image
+      uses: ./.github/actions/docker-image
+      with:
+        context: extensions/wiremock-openapi
+        tag: parcels-wiremock:local
+        scope: axx-wiremock
+        mode: ${{ inputs.mode }}

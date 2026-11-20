@@ -58,6 +58,7 @@ jobs:
       acceptance: ${{ steps.changes.outputs.acceptance }}
       workflows: ${{ steps.changes.outputs.workflows }}
       tests: ${{ steps.changes.outputs.tests }}
+      wiremock-image: ${{ steps.wiremock.outputs.cached }}
     steps:
       # A pull request is checked out as its merge into the base branch, and the merge queue's
       # group as its commit on top of it: the first parent differs by what they change.
@@ -80,6 +81,13 @@ jobs:
             scripts/ci-changes.sh --all
           fi | tee -a "$GITHUB_OUTPUT"
           if [ "$EVENT" = push ]; then echo tests=false; else echo tests=true; fi | tee -a "$GITHUB_OUTPUT"
+      # Whether a run has kept the WireMock image the parcels example's jobs load: the
+      # wiremock-image job builds it only when none has. Looked up here, in the job every other
+      # waits for, so that with the image kept no job waits for another.
+      - id: wiremock
+        uses: ./.github/actions/wiremock-image
+        with:
+          mode: lookup
       # The tree the pull request's run tests, for the merge queue to know it.
       - if: github.event_name == 'pull_request'
         run: git rev-parse 'HEAD^{tree}' > "$RUNNER_TEMP/tested-tree"
@@ -516,9 +524,36 @@ jobs:
           part: mobile-${{ matrix.part }}
           mode: save
 
-  android:
+  # WireMock with axx's extensions, the image the parcels example's mocks run, built once for the
+  # run when no run has kept it for the extension's files (.github/actions/wiremock-image): on a
+  # pull request that changes extensions/wiremock-openapi, and on main after it. The jobs that
+  # start the example (android's and acceptance) wait for this one and load what it kept. Each
+  # of them built the image itself before, at once: 3 minutes of Gradle inside Docker in twenty
+  # jobs, to one of which Maven Central answered 429 Too Many Requests. When a run has kept the
+  # image, which the changes job looks up, this job is skipped and none of them waits.
+  wiremock-image:
     needs: changes
-    if: needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'
+    if: >-
+      needs.changes.outputs.wiremock-image != 'true'
+      && (needs.changes.outputs.acceptance == 'true'
+      || (needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true'))
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/wiremock-image
+
+  android:
+    needs: [changes, wiremock-image]
+    # The wiremock-image job is skipped when a run has kept the image, and a job that needs a
+    # skipped one is skipped too unless its condition says otherwise: this one runs when that
+    # job passed or was skipped, and not when it failed (each of these would then build the
+    # image itself, all at once again).
+    if: >-
+      ${{ !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.wiremock-image.result)
+      && needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true' }}
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
     # whole example, which axx starts too. A runner runs a feature, or a shard of it (axx run
     # --shard), on one emulator, a scenario at a time: some 3 to 4 minutes' worth on a fast
@@ -1182,8 +1217,12 @@ jobs:
       - run: uv run --frozen pytest
 
   acceptance:
-    needs: changes
-    if: needs.changes.outputs.acceptance == 'true'
+    needs: [changes, wiremock-image]
+    # After the wiremock-image job, passed or skipped (a run has kept the image), as the android
+    # job: parcels' part loads its image.
+    if: >-
+      ${{ !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.wiremock-image.result)
+      && needs.changes.outputs.acceptance == 'true' }}
     # Each example's acceptance suite, the way its README runs it: axx starts the service and
     # its infrastructure with Docker Compose, runs the features and removes everything. axx is
     # built with every pack, so it prepares none. parcel-support's features and its other
@@ -1359,7 +1398,7 @@ jobs:
   # saves. (Docker's layers, Gradle's and mise's caches look after their own.)
   caches:
     if: always() && github.event_name == 'push'
-    needs: [hygiene, lint, test, integration, web, mobile, desktop, cross-build, mac-tests, acceptance, support-image]
+    needs: [hygiene, lint, test, integration, web, mobile, wiremock-image, desktop, cross-build, mac-tests, acceptance, support-image]
     runs-on: ubuntu-26.04
     permissions:
       actions: write # to delete caches
@@ -1381,7 +1420,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
     runs-on: ubuntu-26.04
     steps:
       - name: all jobs passed
