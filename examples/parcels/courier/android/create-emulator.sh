@@ -74,7 +74,7 @@ if [ "$(uname -s)" = Linux ] && [ "$abi" = x86_64 ]; then
   curl -fsSL --retry 3 --retry-all-errors -o "$latest/emulator.zip" https://dl.google.com/android/repository/emulator-linux_x64-16740729.zip
   rm -rf "$sdk/emulator"
   unzip -q "$latest/emulator.zip" -d "$sdk"
-  "$sdk/emulator/emulator" -version | head -1
+  grep Pkg.Revision "$sdk/emulator/source.properties"
 fi
 # The SDK's own avdmanager: the newest one takes its own folder for the SDK.
 tools="$sdk/cmdline-tools/latest/bin"
