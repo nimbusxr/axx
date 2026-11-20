@@ -2,6 +2,7 @@ package db2
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -17,8 +18,8 @@ import (
 // it: currentSchema, sslConnection and sslCertLocation (a file of the
 // certificates, in PEM, a TLS server's own is held to), securityMechanism,
 // of which it speaks three: a user and a password as they are (3), and
-// encrypted (7 and 9), and encryptionAlgorithm, the cipher of those two (1,
-// DES, and 2, AES). It refuses any other of these, and leaves the other
+// encrypted (7 and 9), and encryptionAlgorithm, the cipher of those two,
+// which is AES (2). It refuses any other of these, and leaves the other
 // properties to the driver they are for.
 func ParseURL(raw, user, password string) (Config, error) {
 	rest, ok := strings.CutPrefix(raw, "jdbc:")
@@ -70,12 +71,12 @@ func ParseURL(raw, user, password string) (Config, error) {
 			}
 		case "encryptionalgorithm":
 			switch value {
-			case "1":
-				cfg.Cipher = cipherDES
 			case "2":
-				cfg.Cipher = cipherAES
+				// AES, which is the cipher this client encrypts with.
+			case "1":
+				return Config{}, errors.New("db2: encryptionAlgorithm=1 asks for DES, which axx does not encrypt a password with, as a recorded login gives its key up: leave the property out, or give it 2, for AES")
 			default:
-				return Config{}, fmt.Errorf("db2: encryptionAlgorithm=%s is no cipher of DRDA's: it is 1 (DES) or 2 (AES)", value)
+				return Config{}, fmt.Errorf("db2: encryptionAlgorithm=%s is no cipher of DRDA's: axx encrypts with AES, which is 2", value)
 			}
 		case "securitymechanism":
 			switch value {

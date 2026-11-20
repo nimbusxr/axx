@@ -48,7 +48,7 @@ the skills instead: `axx skills install`.
   what H2's `Transfer` changed for it.
 - `packs/sql/internal/db2`: axx's own client of Db2, for database/sql, as Db2's Go driver needs cgo: DRDA, the protocol Db2's
   servers speak, from the standard The Open Group publishes, for Db2 for Linux, UNIX and Windows with a user and a password
-  (as they are, over TLS, or encrypted as the standard's mechanisms 7 and 9 do, with AES or DES, for a server that asks for it:
+  (as they are, over TLS, or encrypted as the standard's mechanisms 7 and 9 do, with AES, for a server that asks for it:
   DRDA, Version 5, Volume 3, DHENC has the numbers, and Db2 refuses a request that names the key's length). It names itself to the server as its own product (`productID`), never as one of IBM's: Db2 answers
   IBM's products in layouts of their own, and any other in the standard's. Its tests replay sessions recorded from a real Db2
   (`testdata/*.drda.gz`; `AXX_DB2_RECORD` records them again), and the integration tests run the pack against IBM's Db2 Community

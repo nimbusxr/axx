@@ -332,7 +332,8 @@ func TestResolveDb2(t *testing.T) {
 	for url, want := range map[string]string{
 		"jdbc:db2://localhost:50000": "names no database",
 		"jdbc:db2:parcels":           "is not a URL of a Db2 server",
-		"jdbc:db2://localhost:50000/parcels:securityMechanism=11;": "securityMechanism=11 is not one this client speaks",
+		"jdbc:db2://localhost:50000/parcels:securityMechanism=11;":  "securityMechanism=11 is not one this client speaks",
+		"jdbc:db2://localhost:50000/parcels:encryptionAlgorithm=1;": "encryptionAlgorithm=1 asks for DES, which axx does not encrypt a password with",
 	} {
 		if _, err := Resolve(url, "app", "secret"); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: %v, want %s", url, err, want)

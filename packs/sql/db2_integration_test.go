@@ -631,12 +631,9 @@ func TestDb2EncryptedPasswords(t *testing.T) {
 	if _, err := who(server, "not-the-password"); err == nil || !strings.Contains(err.Error(), "the password is not the user's") {
 		t.Errorf("a wrong password, encrypted: %v", err)
 	}
-	// Such a Db2 takes either cipher: AES, which axx asks for first, and
-	// DES when the URL names it.
-	for _, cipher := range []string{"1", "2"} {
-		if name, err := who(server+":encryptionAlgorithm="+cipher+";", password); err != nil || name != "DB2INST1" {
-			t.Errorf("encryptionAlgorithm=%s: %q, %v", cipher, name, err)
-		}
+	// The cipher is AES, whether the URL names it or not.
+	if name, err := who(server+":encryptionAlgorithm=2;", password); err != nil || name != "DB2INST1" {
+		t.Errorf("encryptionAlgorithm=2: %q, %v", name, err)
 	}
 
 	// A Db2 that takes a password encrypted with AES only.
@@ -655,9 +652,6 @@ func TestDb2EncryptedPasswords(t *testing.T) {
 		if name, err := who(url, password); err != nil || name != "DB2INST1" {
 			t.Errorf("%s on a Db2 of AES only: %q, %v", url, name, err)
 		}
-	}
-	if _, err := who(server+":encryptionAlgorithm=1;", password); err == nil || !strings.Contains(err.Error(), "not with DES") {
-		t.Errorf("DES on a Db2 of AES only: %v", err)
 	}
 	if _, err := who(server, "not-the-password"); err == nil || !strings.Contains(err.Error(), "the password is not the user's") {
 		t.Errorf("a wrong password, encrypted with AES: %v", err)

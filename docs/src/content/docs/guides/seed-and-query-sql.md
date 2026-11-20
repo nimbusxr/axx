@@ -217,7 +217,7 @@ The URL is the one IBM's JDBC driver takes, so you can give axx the URL the serv
 | `sslConnection=true` | Connects with TLS, to the port the server speaks TLS on. |
 | `sslCertLocation` | A file of certificates, in PEM, that the server's certificate is held to. Without it, that is the certificates the machine trusts. |
 | `securityMechanism` | How the user is proved: `3`, a user and a password as they are; `7`, the password encrypted; `9`, the user and the password encrypted. Without it, axx takes the way the server takes. |
-| `encryptionAlgorithm` | The cipher of an encrypted user and password: `1`, DES; `2`, AES. Without it, axx asks the server for AES, and for DES when the server takes no other. |
+| `encryptionAlgorithm` | The cipher of an encrypted user and password. axx encrypts with AES, which is `2`, with the property or without it. It refuses `1`, which is DES. |
 
 The other properties are for IBM's driver, and axx leaves them alone. A `securityMechanism` other than those three is one axx does not speak, and the step says so.
 
@@ -329,8 +329,8 @@ No setting makes a start short: most of it is Db2 starting, not the database bei
 
 ### Db2's own ways
 
-- **A user and a password.** axx logs in with a user and a password, as IBM's JDBC driver does by default. They travel as they are to a server that takes them so, and encrypted to one that does not (`AUTHENTICATION SERVER_ENCRYPT`), with no setting: with AES, and with DES for a server that takes no other. A server that takes AES only (`ALTERNATE_AUTH_ENC AES_ONLY`) gets AES. That encryption is DRDA's own, in which neither side proves who it is, and IBM's documentation says it is not for a network that is not secure: where the network is not yours, use `sslConnection=true`.
-- **What axx does not log in with.** A server that takes Kerberos or a plug-in only is not one axx can log in to, and the step says so. Under the encryption, a user and a password are in EBCDIC, so one with a character outside ASCII needs a server that takes it as it is.
+- **A user and a password.** axx logs in with a user and a password, as IBM's JDBC driver does by default. They travel as they are to a server that takes them so, and encrypted with AES to one that does not (`AUTHENTICATION SERVER_ENCRYPT`, and `ALTERNATE_AUTH_ENC AES_ONLY` too), with no setting. That encryption is DRDA's own, in which neither side proves who it is, and IBM's documentation says it is not for a network that is not secure: where the network is not yours, use `sslConnection=true`.
+- **What axx does not log in with.** axx does not encrypt a password with DES, DRDA's first cipher: a recorded login gives its key up. A server that takes Kerberos or a plug-in only, or one too old to know AES, is not one axx can log in to with an encrypted password, and the step says so. Under the encryption, a user and a password are in EBCDIC, so one with a character outside ASCII needs a server that takes it as it is.
 - **Names are in upper case.** Db2 folds a name that is not quoted to upper case, so a message names `PARCELS` and `REFERENCE`. Write names in a feature in either case.
 - **Errors are Db2's own.** A step that Db2 refuses shows Db2's message, like `SQL0204N  "DEPOT.SHELFS" is an undefined name.`
 - **Bytes are written in hex.** A `BINARY`, `VARBINARY` or `BLOB` column, and a `CHAR` or `VARCHAR` column `FOR BIT DATA`, takes and reads as `DEADBEEF`.

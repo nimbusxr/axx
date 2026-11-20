@@ -66,12 +66,8 @@ type Config struct {
 	// Mechanism is how the user is proved (securityMechanism): 3, a user and
 	// a password as they are; 7, the password encrypted; 9, both encrypted.
 	// When 0, it is as they are for a server that takes them so, and
-	// encrypted for one that does not.
+	// encrypted for one that does not. The cipher is AES.
 	Mechanism int
-	// Cipher is what encrypts them (encryptionAlgorithm): 1, DES; 2, AES.
-	// When 0, it is AES for a server that takes it, and DES for one that
-	// takes no other.
-	Cipher int
 }
 
 // Connector opens connections to one database.
@@ -318,7 +314,7 @@ func (c *conn) logIn() error {
 	// URL that names a way gets that one.
 	mechanism := c.cfg.Mechanism
 	if mechanism == 0 || mechanism == secUserPassword {
-		answer, err := c.accessSecurity(secUserPassword, rdbnam.b, nil, 0)
+		answer, err := c.accessSecurity(secUserPassword, rdbnam.b, nil)
 		if err != nil {
 			return err
 		}
@@ -354,51 +350,40 @@ func (c *conn) logIn() error {
 		if !ok || !ok2 {
 			return errors.New("db2: the server takes a user and a password encrypted, in EBCDIC, where this one has a character with no place: connect over TLS to a server that takes them as they are")
 		}
-		// The cipher: the one the URL names, or AES for a server that can
-		// take it, and DES for one that takes no other.
-		var (
-			algorithm int
-			ours      *agreement
-			theirs    []byte
-			refused   []string
-		)
-		for _, tried := range c.ciphers() {
-			side, err := newAgreement(groupOf(tried))
-			if err != nil {
-				return err
-			}
-			answer, err := c.accessSecurity(mechanism, rdbnam.b, side.public(), tried)
-			if err != nil {
-				return err
-			}
-			if !offers(answer.mechanisms, mechanism) {
-				return fmt.Errorf("db2: the server does not take security mechanism %d (it offers %s)", mechanism, mechanisms(answer.mechanisms))
-			}
-			if len(answer.key) != 0 {
-				algorithm, ours, theirs = tried, side, answer.key
-				break
-			}
-			// It takes the mechanism, and gives no key for this cipher.
-			refused = append(refused, cipherName(tried))
+		// The cipher is AES, which a server knows from level 9 of the
+		// security manager on.
+		const elsewhere = "connect over TLS to a server that takes a user and a password as they are"
+		if c.secmgr < 9 {
+			return errors.New("db2: the server takes a password encrypted, and is from before AES, the one cipher this client encrypts with: " + elsewhere)
 		}
-		if ours == nil {
-			return fmt.Errorf("db2: the server takes a password encrypted, and not with %s, which is what %s: "+
-				"connect over TLS to a server that takes a user and a password as they are", strings.Join(refused, " or "), c.cipherChoice())
-		}
-		shared, err := ours.shared(theirs)
+		ours, err := newAgreement()
 		if err != nil {
 			return err
 		}
-		key := cipherKey(algorithm, shared)
-		start := startingBlock(algorithm, mechanism, who, theirs)
-		secret, err := encrypt(algorithm, key, start, word)
+		answer, err := c.accessSecurity(mechanism, rdbnam.b, ours.public())
+		if err != nil {
+			return err
+		}
+		if !offers(answer.mechanisms, mechanism) {
+			return fmt.Errorf("db2: the server does not take security mechanism %d (it offers %s)", mechanism, mechanisms(answer.mechanisms))
+		}
+		if len(answer.key) == 0 {
+			// It takes the mechanism, and gives no key for the cipher.
+			return errors.New("db2: the server takes a password encrypted, and not with AES, the one cipher this client encrypts with: " + elsewhere)
+		}
+		shared, err := ours.shared(answer.key)
+		if err != nil {
+			return err
+		}
+		key, start := cipherKey(shared), startingBlock(answer.key)
+		secret, err := encrypt(key, start, word)
 		if err != nil {
 			return err
 		}
 		chk.param16(cpSECMEC, mechanism)
 		chk.param(cpRDBNAM, rdbnam.b)
 		if mechanism == secEncryptedUserPassword {
-			hidden, err := encrypt(algorithm, key, start, who)
+			hidden, err := encrypt(key, start, who)
 			if err != nil {
 				return err
 			}
@@ -479,34 +464,6 @@ func (c *conn) logIn() error {
 // user encrypted too.
 var encrypted = []int{secEncryptedUserPassword, secEncryptedPassword}
 
-// ciphers are the ciphers to ask a server for, in order: the one the URL
-// names, or AES and then DES. A server below level 9 of the security manager
-// knows DES only.
-func (c *conn) ciphers() []int {
-	switch {
-	case c.cfg.Cipher != 0:
-		return []int{c.cfg.Cipher}
-	case c.secmgr >= 9:
-		return []int{cipherAES, cipherDES}
-	}
-	return []int{cipherDES}
-}
-
-// cipherChoice says where the ciphers this client asked for came from.
-func (c *conn) cipherChoice() string {
-	if c.cfg.Cipher != 0 {
-		return "the URL's encryptionAlgorithm asks for"
-	}
-	return "this client speaks"
-}
-
-func cipherName(algorithm int) string {
-	if algorithm == cipherAES {
-		return "AES"
-	}
-	return "DES"
-}
-
 // securityAnswer is what a server answers a request to take a user by a
 // security mechanism: the mechanism when it takes it, or those it takes, and
 // its key for the cipher when it takes that too.
@@ -515,17 +472,14 @@ type securityAnswer struct {
 }
 
 // accessSecurity asks the server to take a user by a security mechanism,
-// with this side's key and the cipher for one that encrypts. DES is the
-// standard's default, which a request names no cipher for, so that a server
-// from before there was another reads it too.
-func (c *conn) accessSecurity(mechanism int, rdbnam, key []byte, algorithm int) (securityAnswer, error) {
+// with this side's key for one that encrypts, and AES as the cipher. A
+// request that names no cipher asks for the standard's default, DES.
+func (c *conn) accessSecurity(mechanism int, rdbnam, key []byte) (securityAnswer, error) {
 	var sec buf
 	sec.param16(cpSECMEC, mechanism)
 	sec.param(cpRDBNAM, rdbnam)
 	if key != nil {
 		sec.param(cpSECTKN, key)
-	}
-	if algorithm == cipherAES {
 		// The key's length goes with the cipher, 256 bits for AES, and the
 		// standard lets a request leave it out. Db2 refuses one that names it.
 		sec.param16(cpENCALG, cipherAES)

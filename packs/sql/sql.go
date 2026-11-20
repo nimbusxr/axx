@@ -80,7 +80,7 @@ func steps() []core.StepDef {
 				"- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.\n" +
 				"- A Db2 URL takes its properties after the database, as IBM's JDBC driver does (`jdbc:db2://host:50001/parcels:currentSchema=DEPOT;sslConnection=true;`): " +
 				"`currentSchema` sets the default schema, `sslConnection=true` connects with TLS, and `sslCertLocation` names a file of the certificates, in PEM, " +
-				"to hold the server's to. A server that takes no password as it is gets it encrypted, with AES or with DES.",
+				"to hold the server's to. A server that takes no password as it is gets it encrypted, with AES.",
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
 				Rows: []core.TableRow{
