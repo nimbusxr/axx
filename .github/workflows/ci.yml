@@ -143,6 +143,7 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: lint
+          keeps-modules: "true"
           extra-paths: ~/.cache/golangci-lint
       - run: go mod tidy -diff
       # Nothing that builds a model stub fuses a multiply and an add (arm64 would round it
@@ -209,6 +210,7 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: test
+          keeps-modules: ${{ runner.os != 'Linux' }}
       - name: the part's packages
         env:
           PART: ${{ matrix.part }}
