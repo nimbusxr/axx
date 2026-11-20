@@ -395,6 +395,12 @@ jobs:
           xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m "${packs[@]}" ./packs/models/web/...
       - if: matrix.part == 'lighthouse'
         run: xvfb-run -a scripts/gotest.sh -race -tags integration -timeout 10m ./packs/web/lighthouse/...
+      # A browser's process that ended under a test (a pause ended by itself once, which the
+      # end of the Inspector's browser, of the page's renderer or of the browser does): the
+      # kernel's log names a process it ended for want of memory, and one that crashed.
+      - if: failure()
+        name: the processes the kernel ended, and those that crashed
+        run: sudo dmesg -T | grep -i -E 'out of memory|oom-kill|killed process|segfault|general protection|trap ' | tail -n 40 || echo "the kernel's log has none"
       - if: ${{ !cancelled() && matrix.part == 'packs' }}
         uses: ./.github/actions/web-tools
         with:
