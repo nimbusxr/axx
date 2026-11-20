@@ -218,6 +218,8 @@ func TestSimulatorCaptureHearsTheRecording(t *testing.T) {
 				if strings.Contains(out, "no audio capture device") {
 					t.Skip("the simulator exposes no AVCaptureDevice for audio")
 				}
+				// How long each part of the session took, and why it failed if it did.
+				t.Log(strings.TrimSpace(out))
 			} else {
 				out, err = p.run(t, kind, file, true)
 			}
