@@ -65,6 +65,17 @@ fetch "$sdk/cmdline-tools/latest/bin/sdkmanager" "$latest" "$latest/cmdline-tool
 fetch "$latest/cmdline-tools/latest/bin/sdkmanager" "$sdk" \
   "$sdk/system-images/$platform/google_apis/$abi/system.img" "$sdk/emulator/emulator" "$sdk/platform-tools/adb" \
   -- "$image" emulator platform-tools
+# TEMPORARY, removed before this merges: on Linux, the emulator main's device has (37.2.13,
+# build 16740729) in place of the one sdkmanager installs today (37.3.10), to tell that
+# emulator from the snapshot saved at rest: adb lost the emulator in 4 of 18 android jobs with
+# both, and in none of 18 with neither.
+if [ "$(uname -s)" = Linux ] && [ "$abi" = x86_64 ]; then
+  say "TEMPORARY: the emulator of build 16740729 in place of the installed one"
+  curl -fsSL --retry 3 --retry-all-errors -o "$latest/emulator.zip" https://dl.google.com/android/repository/emulator-linux_x64-16740729.zip
+  rm -rf "$sdk/emulator"
+  unzip -q "$latest/emulator.zip" -d "$sdk"
+  "$sdk/emulator/emulator" -version | head -1
+fi
 # The SDK's own avdmanager: the newest one takes its own folder for the SDK.
 tools="$sdk/cmdline-tools/latest/bin"
 # Where the emulator looks for its devices: avdmanager may go by XDG_CONFIG_HOME instead.
