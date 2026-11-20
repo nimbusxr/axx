@@ -345,6 +345,57 @@ func TestFetchTriesAgain(t *testing.T) {
 	}
 }
 
+// A connection that fails before any answer, and one that breaks off in the middle of the
+// file, are tried again, as is a server that gave up waiting for the request (408). Any other
+// answer that refuses the request is final.
+func TestFetchTriesAgainAfterAConnectionThatFails(t *testing.T) {
+	waits := fetchWaits
+	fetchWaits = []time.Duration{time.Millisecond, time.Millisecond, time.Millisecond}
+	t.Cleanup(func() { fetchWaits = waits })
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := calls.Add(1)
+		switch {
+		case r.URL.Path == "/forbidden":
+			w.WriteHeader(http.StatusForbidden)
+		case r.URL.Path == "/dropped" && n == 1:
+			// No answer at all: the connection is closed.
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = conn.Close()
+		case r.URL.Path == "/broken" && n == 1:
+			// Half of the file, then the connection is closed.
+			w.Header().Set("Content-Length", "6")
+			_, _ = w.Write([]byte("uia"))
+			w.(http.Flusher).Flush()
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = conn.Close()
+		case r.URL.Path == "/slow" && n == 1:
+			w.WriteHeader(http.StatusRequestTimeout)
+		default:
+			_, _ = w.Write([]byte("uia2.0"))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	for _, path := range []string{"/dropped", "/broken", "/slow"} {
+		calls.Store(0)
+		if b, err := Fetch(context.Background(), srv.URL+path); err != nil || string(b) != "uia2.0" || calls.Load() != 2 {
+			t.Errorf("%s: %q %v, %d requests", path, b, err, calls.Load())
+		}
+	}
+	calls.Store(0)
+	if _, err := Fetch(context.Background(), srv.URL+"/forbidden"); err == nil || !strings.Contains(err.Error(), "403") || calls.Load() != 1 {
+		t.Errorf("a 403 is not tried again: %v, %d requests", err, calls.Load())
+	}
+}
+
 func TestWriteOnceKeepsTheFirst(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "helper.mjs")
 	for _, content := range []string{"first", "second"} {

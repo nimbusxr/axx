@@ -79,7 +79,7 @@ var client = &http.Client{Timeout: 10 * time.Minute}
 var fetchWaits = []time.Duration{2 * time.Second, 5 * time.Second, 15 * time.Second, 30 * time.Second, 60 * time.Second}
 
 // Fetch downloads url. It tries again when the network or the server fails
-// (a 5xx, a 429): a moment's trouble on the way does not fail a run.
+// (a 5xx, a 408, a 429): a moment's trouble on the way does not fail a run.
 func Fetch(ctx context.Context, url string) ([]byte, error) {
 	for i := 0; ; i++ {
 		body, again, err := fetchOnce(ctx, url)
@@ -110,7 +110,9 @@ func fetchOnce(ctx context.Context, url string) (body []byte, again bool, err er
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		again := resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests
+		// Of the answers that refuse the request (4xx), only the two that say to ask again:
+		// the server gave up waiting for it (408), or has had too many (429).
+		again := resp.StatusCode >= 500 || resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests
 		return nil, again, fmt.Errorf("download %s: %s", shown, resp.Status)
 	}
 	body, err = io.ReadAll(resp.Body)
