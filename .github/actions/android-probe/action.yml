@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: Apache-2.0
+name: android-probe
+description: >-
+  The models-android pack's probe app of the vendors' SDKs (packs/models/android/testdata/sdkprobe:
+  an APK with ML Kit's libraries, 137 MB), for the jobs whose tests install it: `start` restores
+  it, or starts building it in the background, and `finish` waits for it, keeps what it built, and
+  names it to the tests (AXX_MODELS_ANDROID_SDK_PROBE), which then build nothing.
+
+  Its build is Gradle's of an Android app from nothing: the Android Gradle plugin, Kotlin's and
+  ML Kit's libraries downloaded, each library dexed, and the APK packaged. The tests ran it
+  themselves, in every run, inside a limit of 5 minutes: a test took 2 to 3 minutes with it as a
+  rule, and twice the build was not done at 5, once before Gradle's first task and once at its
+  dex merge. So it is a cache, keyed by what makes it, the probe's files and the Gradle that
+  builds them, kept by the run that built it, on a pull request too (GitHub keeps a pull
+  request's caches for its own runs), and by main for every pull request. A build writes each of
+  Gradle's lines with its time, so that a slow one says where its time went. It has a Gradle
+  home of its own: the one the job keeps for main (setup-gradle) is the couriers' app's, and a
+  job on main that built only the probe would keep that home without what the app's build uses
+  (setup-gradle's cleanup drops what a job's builds did not use).
+inputs:
+  mode:
+    description: "`start` or `finish`."
+    required: true
+runs:
+  using: composite
+  steps:
+    - if: inputs.mode == 'start'
+      shell: bash
+      env:
+        PROBE: ${{ hashFiles('packs/models/android/testdata/sdkprobe/**', 'examples/parcels/courier/android/gradlew', 'examples/parcels/courier/android/gradle/wrapper/**') }}
+      run: echo "ANDROID_PROBE_KEY=android-probe-$PROBE" >> "$GITHUB_ENV"
+    - if: inputs.mode == 'start'
+      id: apk
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: packs/models/android/testdata/sdkprobe/build/outputs/apk/debug/axx-platform-model-probe-debug.apk
+        key: ${{ env.ANDROID_PROBE_KEY }}
+    - if: inputs.mode == 'start' && steps.apk.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        echo 0 > "$RUNNER_TEMP/probe.done"
+        echo "the probe app, as its files make it: from the cache" > "$RUNNER_TEMP/probe.log"
+    - if: inputs.mode == 'start' && steps.apk.outputs.cache-hit != 'true'
+      name: the probe app (in the background)
+      shell: bash
+      # The background step keeps its command's status (status=$?) for the wait: the shell
+      # (bash -e) would end the subshell at a failure before it wrote it. The status is Gradle's,
+      # not that of the loop that writes its lines (pipefail).
+      env:
+        GRADLE_USER_HOME: ${{ runner.temp }}/android-probe-gradle
+      run: |
+        echo "ANDROID_PROBE_BUILT=true" >> "$GITHUB_ENV"
+        (status=0
+          examples/parcels/courier/android/gradlew -p packs/models/android/testdata/sdkprobe --no-daemon --console=plain --stacktrace assembleDebug 2>&1 \
+            | while IFS= read -r line; do printf '%(%H:%M:%S)T %s\n' -1 "$line"; done > "$RUNNER_TEMP/probe.log" || status=$?
+          echo "$status" > "$RUNNER_TEMP/probe.done") &
+
+    - if: inputs.mode == 'finish'
+      name: wait for the probe app
+      shell: bash
+      # For 5 minutes: a build still going then has had those and the job's setting up, 3 more.
+      run: |
+        for _ in $(seq 150); do [ -f "$RUNNER_TEMP/probe.done" ] && break; sleep 2; done
+        cat "$RUNNER_TEMP/probe.log"
+        [ "$(cat "$RUNNER_TEMP/probe.done" 2> /dev/null)" = 0 ] || { echo "::error::the probe app was not built"; exit 1; }
+        echo "AXX_MODELS_ANDROID_SDK_PROBE=$GITHUB_WORKSPACE/packs/models/android/testdata/sdkprobe/build/outputs/apk/debug/axx-platform-model-probe-debug.apk" >> "$GITHUB_ENV"
+    - if: inputs.mode == 'finish' && env.ANDROID_PROBE_BUILT == 'true'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: packs/models/android/testdata/sdkprobe/build/outputs/apk/debug/axx-platform-model-probe-debug.apk
+        key: ${{ env.ANDROID_PROBE_KEY }}
