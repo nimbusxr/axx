@@ -1154,11 +1154,16 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
+      # The build cache only. Linux's module cache is lint's to keep: this job runs on Linux too
+      # and ends first, so when it saved the modules it took the key, with the modules axx's
+      # build needs and without the ones only tests or lint need, which every job then
+      # downloaded.
       - if: ${{ !cancelled() && matrix.build == 'gtk3' && matrix.display == 'x11' }}
         uses: ./.github/actions/go-cache
         with:
           build: desktop
           mode: save
+          modules: "false"
 
   cross-build:
     needs: changes
