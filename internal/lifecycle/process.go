@@ -159,7 +159,14 @@ func (m *Manager) launch(a *service, argv []string) (*process, error) {
 		close(p.done)
 		if !p.stopping.Load() {
 			p.exitedOnItsOwn.Store(true)
-			m.log.Warn("service exited on its own", "service", name, "status", describeExit(p.state))
+			// A command that ends well is how many services start: docker
+			// compose up -d, a script that sets something up. One that fails,
+			// or is killed, is worth a warning.
+			if p.state != nil && p.state.ExitCode() == 0 {
+				m.log.Debug("service's command ended", "service", name)
+			} else {
+				m.log.Warn("service exited on its own", "service", name, "status", describeExit(p.state))
+			}
 		}
 	}()
 	return p, nil
