@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -114,20 +115,27 @@ func springboardStatus(udid string) string {
 // springboardReport is what the library reported in the simulator's SpringBoard as it runs now,
 // and the library that reported it: "" from an earlier axx's, which names none.
 func springboardReport(udid string) (status, lib string) {
+	_, status, lib = springboardProcess(udid)
+	return status, lib
+}
+
+// springboardProcess is springboardReport, with the process id of the SpringBoard that reported
+// (a simulator's processes are the Mac's): 0 when none that runs now did.
+func springboardProcess(udid string) (pid int, status, lib string) {
 	data, err := os.ReadFile(filepath.Join(springboardStatuses(), udid))
 	if err != nil {
-		return "", ""
+		return 0, "", ""
 	}
 	first, rest, _ := strings.Cut(string(data), "\n")
-	pid, status, _ := strings.Cut(strings.TrimSpace(first), " ")
-	n, err := strconv.Atoi(pid)
+	id, status, _ := strings.Cut(strings.TrimSpace(first), " ")
+	n, err := strconv.Atoi(id)
 	if err != nil {
-		return "", ""
+		return 0, "", ""
 	}
 	if p, err := os.FindProcess(n); err != nil || p.Signal(syscall.Signal(0)) != nil {
-		return "", "" // a SpringBoard of an earlier boot
+		return 0, "", "" // a SpringBoard of an earlier boot
 	}
-	return status, strings.TrimSpace(rest)
+	return n, status, strings.TrimSpace(rest)
 }
 
 // springboardBootedWithLibrary detects earlier axx versions' boot-time library:
@@ -171,10 +179,22 @@ func (p *pool) loadSpringboard(ctx context.Context, d *device, lib string) {
 		}
 		// SpringBoard, started again, serves apps' requests for notifications a while later, as
 		// after a boot.
-		if !d.set.notificationsServed(ctx, d.udid, since, min(p.boot, notificationsWait)) {
+		by, served := d.set.notificationsServedBy(ctx, d.udid, since, min(p.boot, notificationsWait))
+		if !served {
 			p.suite.Logger().Warn("the iOS simulator does not serve notifications yet; an app that asks for them may get no dialog", "simulator", d.name, "waited", min(p.boot, notificationsWait), "log", d.set.notificationsUnserved(ctx, d.udid, since))
 		}
-		p.suite.Logger().Info("started the simulator's SpringBoard again, with axx's library", "simulator", d.name, "took", time.Since(started).Round(time.Second))
+		said := []any{"simulator", d.name, "took", time.Since(started).Round(time.Second)}
+		// The log is read from a second before SpringBoard was started again, and a SpringBoard
+		// that had booted seconds before may have logged its notification server in that second:
+		// the entry is then the replaced SpringBoard's, and says nothing of the one started
+		// again, which is taken for ready a moment into its start. WebDriverAgent, launched
+		// next, once never answered on a simulator whose SpringBoard was started again five
+		// seconds after its boot, in three seconds; whether it was launched too early is not
+		// known. The line says when the entry was the replaced SpringBoard's.
+		if now, _, _ := springboardProcess(d.udid); served && now != 0 && len(by) > 0 && !slices.Contains(by, now) {
+			said = append(said, "notifications", fmt.Sprintf("the log has them served by the SpringBoard that was replaced (pid %d), not yet by the one started again (pid %d)", by[0], now))
+		}
+		p.suite.Logger().Info("started the simulator's SpringBoard again, with axx's library", said...)
 	}
 	switch status := springboardStatus(d.udid); status {
 	case "ok":
