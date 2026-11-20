@@ -214,6 +214,13 @@ runs:
         for _ in $(seq 450); do [ -f "$RUNNER_TEMP/device.done" ] && break; sleep 2; done
         cat "$RUNNER_TEMP/device.log"
         [ "$(cat "$RUNNER_TEMP/device.done" 2> /dev/null)" = 0 ] || { df -h /; tail -n 40 "$ANDROID_AVD_HOME/parcels-pixel-snapshot.log" 2> /dev/null || true; ps -o pid,ppid,stat,wchan:32,etime,args -p "$(pgrep -d, -f 'create-emulator|emulator|qemu|adb')" || true; echo "::error::the emulator's device was not made"; exit 1; }
+        # What the device is made of: its script installs the SDK's newest emulator, platform
+        # tools and system image of the day it runs, so a device kept in November is not one
+        # made today, and a fault that came with one of them shows here.
+        for package in emulator platform-tools system-images/android-35/google_apis/x86_64; do
+          echo "the device's $package: $(grep -h -e '^Pkg.Revision=' -e '^Pkg.BuildId=' "$ANDROID_HOME/$package/source.properties" 2> /dev/null | tr '\n' ' ')"
+        done
+        "$ANDROID_HOME/platform-tools/adb" version | sed -n 1,2p
     - if: inputs.mode == 'finish' && inputs.save-emulator == 'true' && env.COURIER_DEVICE_MADE == 'true'
       id: device-paths
       shell: bash
