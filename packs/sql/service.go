@@ -13,6 +13,7 @@ import (
 	goora "github.com/sijms/go-ora/v2"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/sql/internal/db2"
 	"github.com/nimbusxr/axx/packs/sql/internal/h2"
 )
 
@@ -152,6 +153,8 @@ func openDB(s *core.Suite, t Target) (*dbsql.DB, error) {
 			db = dbsql.OpenDB(oracleSession{goora.NewConnector(t.DSN)})
 		case t.H2 != nil:
 			db = dbsql.OpenDB(h2.NewConnector(*t.H2))
+		case t.Db2 != nil:
+			db = dbsql.OpenDB(db2.NewConnector(*t.Db2))
 		default:
 			var err error
 			if db, err = dbsql.Open(t.Dialect.Driver, t.DSN); err != nil {

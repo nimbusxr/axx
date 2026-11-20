@@ -15,9 +15,9 @@ import (
 // ddlSchema is statically parsed DDL: table names to ordered columns, from committed SQL,
 // never a live database. It reads a migration history (a folder's files applied in order) or
 // the schema a database's own tool wrote (pg_dump, mysqldump, SqlPackage, Oracle's
-// DBMS_METADATA, SQLite's sqlite_master), in the SQL of PostgreSQL, MySQL, SQL Server, Oracle
-// and SQLite: CREATE TABLE, ALTER TABLE, DROP TABLE and table renames. Every other statement
-// is skipped.
+// DBMS_METADATA, Db2's db2look, SQLite's sqlite_master), in the SQL of PostgreSQL, MySQL, SQL
+// Server, Oracle, Db2 and SQLite: CREATE TABLE, ALTER TABLE, DROP TABLE and table renames.
+// Every other statement is skipped.
 //
 // A column is required when the database refuses an INSERT that leaves it out: it is NOT
 // NULL (or in the primary key) with no DEFAULT, and the database does not fill it itself.
@@ -28,6 +28,9 @@ type ddlSchema struct {
 	mysql bool
 	// sqlite reads a primary key as SQLite does: it allows NULL, and an INTEGER one is the rowid.
 	sqlite bool
+	// current is the schema a file's SET CURRENT SCHEMA (Db2's) or SET SCHEMA names: where
+	// the tables it creates after that land, when they name none.
+	current string
 }
 
 type ddlColumn struct {
@@ -183,7 +186,19 @@ func (s *ddlSchema) key(name string) (string, bool) {
 			return schema + "." + name, true
 		}
 	}
-	return "", false
+	// A database whose default schema is the user's own (Db2, Oracle) has no name for it
+	// that a tool leaves out: db2look writes every table with its schema. A name with no
+	// schema is the one table of that name, when one schema has it.
+	found := ""
+	for k := range s.tables {
+		if _, table, qualified := strings.Cut(k, "."); qualified && table == name {
+			if found != "" {
+				return "", false
+			}
+			found = k
+		}
+	}
+	return found, found != ""
 }
 
 func (s *ddlSchema) table(name string) *ddlTable {
@@ -275,6 +290,7 @@ func parseDDL(path string) (*ddlSchema, error) {
 		s.sqlite = s.sqlite || slices.ContainsFunc(statements[i], isSQLite)
 	}
 	for i, f := range files {
+		s.current = "" // a session's, and each file is one
 		for _, stmt := range statements[i] {
 			s.apply(stmt, f)
 		}
@@ -361,6 +377,15 @@ func (s *ddlSchema) apply(stmt []sqlToken, file string) {
 			}
 		}
 		return
+	case c.accept("SET", "CURRENT", "SCHEMA"), c.accept("SET", "SCHEMA"):
+		c.acceptSymbol("=")
+		if t := c.peek(0); t.isName() || t.kind == sqlString {
+			s.current = strings.TrimRight(strings.ToLower(t.text), " ")
+			if slices.Contains(defaultSchemas, s.current) {
+				s.current = ""
+			}
+		}
+		return
 	case c.accept("EXEC"), c.accept("EXECUTE"):
 		if name := c.name(); name == "sp_rename" || strings.HasSuffix(name, ".sp_rename") {
 			s.spRename(c)
@@ -400,6 +425,9 @@ func (s *ddlSchema) createTable(c *sqlCursor, file string) bool {
 	name := c.name()
 	if name == "" || temporary || strings.HasPrefix(name, "#") || strings.HasPrefix(name, "temp.") {
 		return true
+	}
+	if s.current != "" && !strings.Contains(name, ".") {
+		name = s.current + "." + name
 	}
 	if k, ok := s.key(name); ok {
 		if ifNotExists && !replace {
@@ -702,7 +730,11 @@ func (s *ddlSchema) alterTable(c *sqlCursor, file string) {
 	// verb is the last ADD or DROP and what it took (COLUMN, CONSTRAINT), which SQL Server's
 	// actions after it go on with.
 	var verb []sqlToken
+	var actions [][]sqlToken
 	for _, action := range splitCommas(c.rest()) {
+		actions = append(actions, splitClauses(action)...)
+	}
+	for _, action := range actions {
 		a := &sqlCursor{toks: action}
 		_ = a.accept("WITH", "CHECK") || a.accept("WITH", "NOCHECK")
 		first := a.peek(0)
@@ -722,6 +754,40 @@ func (s *ddlSchema) alterTable(c *sqlCursor, file string) {
 		}
 		k = s.alterAction(k, a, only)
 	}
+}
+
+// splitClauses splits what Db2 and Oracle write with no comma between two actions: ADD
+// COLUMN a ... ADD COLUMN b ..., DROP COLUMN a DROP COLUMN b, ALTER COLUMN a ... ALTER COLUMN
+// b ..., ADD CONSTRAINT ... DROP FOREIGN KEY .... A second action starts at an ADD, DROP or
+// ALTER that says COLUMN, at an ADD or DROP of a constraint, and, after an ADD or a DROP,
+// at an ADD of a column that does not say COLUMN (Db2's ADD a INT ADD b INT). What an
+// action says of one column (PostgreSQL's ALTER COLUMN c DROP DEFAULT, ADD GENERATED)
+// starts none.
+func splitClauses(action []sqlToken) [][]sqlToken {
+	var out [][]sqlToken
+	depth, start := 0, 0
+	adds := len(action) > 0 && (action[0].is("ADD") || action[0].is("DROP"))
+	for i, t := range action {
+		switch {
+		case t.isSymbol("("):
+			depth++
+		case t.isSymbol(")"):
+			depth--
+		}
+		if depth != 0 || i == start || i+1 >= len(action) {
+			continue
+		}
+		next := action[i+1]
+		verb := t.is("ADD") || t.is("DROP")
+		switch {
+		case (verb || t.is("ALTER")) && next.is("COLUMN"),
+			verb && (next.is("CONSTRAINT") || next.is("FOREIGN") || next.is("PRIMARY") || next.is("UNIQUE")),
+			adds && t.is("ADD") && next.isName() && !next.is("GENERATED") && !next.is("SCOPE"):
+			out = append(out, action[start:i])
+			start = i
+		}
+	}
+	return append(out, action[start:])
 }
 
 // alterAction applies one action of ALTER TABLE, returning the table's name after it.

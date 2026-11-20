@@ -64,10 +64,11 @@ func triggerSteps() []core.StepDef {
 			doc = "Make inserts of matching rows into the table store the row and still fail with that SQLSTATE, " +
 				"like a write that succeeded but reported a failure.\n\n"
 		}
-		doc += "- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n"
+		doc += "- A BEFORE INSERT trigger raises the error, so the database must be PostgreSQL, Oracle or Db2. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short. " +
+			"Db2 reports the SQLSTATE with its own code for an error a trigger raises, `SQL0438N`.\n"
 		if v.insert {
 			doc += "- The row is committed through a second connection before the error, with the `dblink` extension, " +
-				"which the step creates when the database lacks it; on Oracle, in an autonomous transaction.\n"
+				"which the step creates when the database lacks it; on Oracle and Db2, in an autonomous transaction.\n"
 		}
 		if v.limited {
 			doc += "- Only that many matching inserts fail; the ones after them succeed.\n"
@@ -149,7 +150,8 @@ func writeTriggerSteps(event, writes, holds string) []core.StepDef {
 	for _, limited := range []bool{false, true} {
 		id, limit := "sql.trigger."+event+".raise", ""
 		doc := "Make " + writes + " of matching rows in the table fail with that SQLSTATE, to test how the service handles database errors. The row stays as it was.\n\n" +
-			"- A BEFORE " + upper + " trigger raises the error, so the database must be PostgreSQL or Oracle. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short.\n"
+			"- A BEFORE " + upper + " trigger raises the error, so the database must be PostgreSQL, Oracle or Db2. On Oracle, the code is an ORA error: `ORA-20001`, or `20001` for short. " +
+			"Db2 reports the SQLSTATE with its own code for an error a trigger raises, `SQL0438N`.\n"
 		if event == onUpdate {
 			doc += "- Its conditions are on the row as the update would leave it, so `weight_grams` is the new weight, and a column the update does not change has the value it had.\n"
 		} else {
@@ -212,8 +214,11 @@ func (svc *Service) createTrigger(ctx context.Context, event, table, sqlState st
 	if d.Oracle {
 		return svc.createOracleTrigger(ctx, event, table, sqlState, maxInvocations, insertRow, t)
 	}
+	if d.Name == db2db.Name {
+		return svc.createDb2Trigger(ctx, event, table, sqlState, maxInvocations, insertRow, t)
+	}
 	if !d.Postgres {
-		return fmt.Errorf("Unsupported database type for triggers. Only PostgreSQL and Oracle are currently supported. URL: %s", svc.URL) //nolint:staticcheck // user-facing message
+		return fmt.Errorf("Unsupported database type for triggers. Only PostgreSQL, Oracle and Db2 are currently supported. URL: %s", svc.URL) //nolint:staticcheck // user-facing message
 	}
 	if strings.HasPrefix(sqlState, "ORA-") {
 		return fmt.Errorf("%s is an Oracle error: PostgreSQL's are five-character SQLSTATEs, like 40001", sqlState)
@@ -328,6 +333,9 @@ func (svc *Service) verifyTrigger(sc *core.Scenario, event string, index int, ta
 	if svc.Target.Dialect.Oracle {
 		q = oracleRaisedQuery(tr)
 	}
+	if svc.Target.Dialect.Name == db2db.Name {
+		q = db2RaisedQuery(tr)
+	}
 	got := -1
 	err := poll(sc, within, func() (bool, error) {
 		var n int
@@ -361,6 +369,9 @@ func (svc *Service) dropTriggers(ctx context.Context) error {
 	}
 	if svc.Target.Dialect.Oracle {
 		return svc.dropOracleTriggers(ctx, trs)
+	}
+	if svc.Target.Dialect.Name == db2db.Name {
+		return svc.dropDb2Triggers(ctx, trs)
 	}
 	conn, err := svc.DB.Conn(ctx)
 	if err != nil {

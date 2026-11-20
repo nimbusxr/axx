@@ -104,6 +104,7 @@ func TestInitSuggestsFaultsOtelAndOracle(t *testing.T) {
 		{"faults", "    image: ghcr.io/shopify/toxiproxy:2.13.0"},
 		{"otel", "    image: otel/opentelemetry-collector:0.164.0"},
 		{"sql", "    image: gvenzl/oracle-free:23-slim-faststart"},
+		{"sql", "    image: icr.io/db2_community/db2:12.1.5.0"},
 	} {
 		found := false
 		for _, s := range composeSignals {
@@ -117,6 +118,11 @@ func TestInitSuggestsFaultsOtelAndOracle(t *testing.T) {
 		"github.com/sijms/go-ora/v2 v2.9.0",
 		`    runtimeOnly("com.h2database:h2")`,
 		"      <groupId>com.h2database</groupId>",
+		`    runtimeOnly("com.ibm.db2:jcc")`,
+		"      <groupId>com.ibm.db2</groupId>",
+		"github.com/ibmdb/go_ibm_db v0.5.4",
+		`    "ibm_db": "^3.3.0",`,
+		"ibm-db==3.2.6",
 	} {
 		found := false
 		for _, s := range dependencySignals {

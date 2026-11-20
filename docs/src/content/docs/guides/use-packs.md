@@ -20,7 +20,7 @@ added rest, sql
 $ axx pack list
 this project's packs (axx-packs.yaml):
   rest              31 steps   REST requests and responses, OpenAPI validation
-  sql               17 steps   SQL databases (PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, H2, SQLite): seeds, selections, locks, triggers
+  sql               17 steps   SQL databases (PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Db2, H2, SQLite): seeds, selections, locks, triggers
 
 axx's packs it does not use (`axx pack show <name>`: what one reaches, its settings and steps):
   mock              WireMock services and their OpenAPI contracts

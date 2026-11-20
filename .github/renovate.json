@@ -43,6 +43,13 @@
     },
     {
       "customType": "regex",
+      "description": "The Db2 the sql pack's integration tests run, IBM's Db2 Community Edition, pinned by its digest. A new release merges when those tests pass on it; the client's recorded sessions (packs/sql/internal/db2/testdata) are of the release they were recorded on, and are recorded again on the new one.",
+      "managerFilePatterns": ["/^packs/sql/db2_integration_test\\.go$/"],
+      "matchStrings": ["const db2Image = \"(?<depName>[^:\"@]+):(?<currentValue>[^\"@]+)@(?<currentDigest>sha256:[a-f0-9]+)\""],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
       "description": "The Delve axx builds for --debug-steps. It must support the Go release axx is built with.",
       "managerFilePatterns": ["/^internal/cli/debugsteps\\.go$/"],
       "matchStrings": ["const delveVersion = \"(?<currentValue>[^\"]+)\""],

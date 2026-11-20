@@ -382,7 +382,7 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 	d := svc.Target.Dialect
 	// Before the transaction, which holds its connection (maxConnections).
 	types := map[string]map[string]string{}
-	if d.Oracle || d.Name == sqlserver.Name || d.Name == h2db.Name {
+	if d.Oracle || d.Name == sqlserver.Name || d.Name == h2db.Name || d.Name == db2db.Name {
 		for _, t := range ds.Tables {
 			table, err := Ident(t.Name)
 			if err != nil {
@@ -424,6 +424,8 @@ func (svc *Service) insert(ctx context.Context, ds *Dataset, now time.Time) erro
 					vals[j] = oracleSeedValue(types[table], c, vals[j])
 				case d.Name == h2db.Name:
 					vals[j] = h2SeedValue(types[table], c, vals[j])
+				case d.Name == db2db.Name:
+					vals[j] = db2SeedValue(types[table], c, vals[j])
 				}
 			}
 			override, err := overrides.prepare(ctx, table, cols)

@@ -1,6 +1,6 @@
 // Package sql provides database steps: services, seeds, selections (with
 // polling and JSONB containment), JSON column assertions, row locks and
-// trigger fault injection, before a row's insert, update or delete (PostgreSQL and Oracle).
+// trigger fault injection, before a row's insert, update or delete (PostgreSQL, Oracle and Db2).
 package sql
 
 import (
@@ -38,7 +38,7 @@ func (pack) Manifest() core.Manifest {
 		Name:      "sql",
 		Namespace: "sql",
 		Doc: "Seed, query and assert on relational databases. PostgreSQL is fully supported (including JSONB and " +
-			"trigger fault injection); Oracle has all of it but JSONB; MySQL/MariaDB, SQL Server and H2 support seeds, selections, row counts and locks, " +
+			"trigger fault injection); Oracle and Db2 have all of it but JSONB; MySQL/MariaDB, SQL Server and H2 support seeds, selections, row counts and locks, " +
 			"and SQLite all of them but locks. JDBC URLs (jdbc:postgresql://...) are accepted as-is.",
 		Params: []core.ParamType{
 			{
@@ -71,12 +71,16 @@ func steps() []core.StepDef {
 				"- The scheme of the `url` says which database it is: PostgreSQL (`postgres://`, `postgresql://`, `jdbc:postgresql:`), " +
 				"MySQL or MariaDB (`mysql://`, `jdbc:mysql:`, `jdbc:mariadb:`), SQL Server (`sqlserver://`, `jdbc:sqlserver:`), " +
 				"Oracle (`oracle://host:1521/service`, `jdbc:oracle:thin:@//host:1521/service`), " +
+				"Db2 (`jdbc:db2://host:50000/database`, `db2://host:50000/database`), " +
 				"H2 (`jdbc:h2:tcp://host:9092/~/parcels` for an H2 server's database, `jdbc:h2:file:./data/parcels;AUTO_SERVER=TRUE` for a file " +
 				"database its service opened with that setting) " +
 				"or SQLite (`sqlite:`, `file:`, `jdbc:sqlite:`).\n" +
 				"- An H2 database in a service's memory (`jdbc:h2:mem:`), or a file opened without `AUTO_SERVER=TRUE`, is that service's alone: " +
 				"the step says what URL to give the service for its test runs.\n" +
-				"- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.",
+				"- A PostgreSQL URL connects without TLS unless it sets `sslmode`; its `currentSchema` sets the default schema.\n" +
+				"- A Db2 URL takes its properties after the database, as IBM's JDBC driver does (`jdbc:db2://host:50001/parcels:currentSchema=DEPOT;sslConnection=true;`): " +
+				"`currentSchema` sets the default schema, `sslConnection=true` connects with TLS, and `sslCertLocation` names a file of the certificates, in PEM, " +
+				"to hold the server's to. A server that takes no password as it is gets it encrypted, with AES.",
 			Table: &core.TableDoc{
 				Columns: []string{"property", "value"},
 				Rows: []core.TableRow{
@@ -84,7 +88,7 @@ func steps() []core.StepDef {
 					{Name: "user", Takes: "the user axx connects as; SQLite ignores it, but the table needs it all the same", Required: true},
 					{Name: "password", Takes: "the user's password, with the cell left empty for a user that has none, like H2's `sa`; SQLite ignores it, but the table needs it all the same", Required: true},
 					{Name: "schema", Takes: "a schema, kept for code that builds on the pack; the steps don't use it, so name tables `schema.table` " +
-						"(or set a PostgreSQL URL's `currentSchema`)"},
+						"(or set a PostgreSQL or Db2 URL's `currentSchema`)"},
 				},
 				Note: "`url`, `user` and `password` can take `${env:…}` and `${sys:…}` references.",
 			},
@@ -773,7 +777,7 @@ func whereClauseOf(t *core.Table, prefix string, compare func(left, column strin
 func typeMismatch(err error) error {
 	var pg interface{ SQLState() string }
 	var ms interface{ SQLErrorNumber() int32 }
-	if errors.As(err, &pg) && pg.SQLState() == "42883" || errors.As(err, &ms) && ms.SQLErrorNumber() == 245 || h2Code(err) == h2DataConversion {
+	if errors.As(err, &pg) && pg.SQLState() == "42883" || errors.As(err, &ms) && ms.SQLErrorNumber() == 245 || h2Code(err) == h2DataConversion || db2Conversions[db2Code(err)] {
 		return fmt.Errorf("%w; a value must be of its column's type: a text column's number is in double quotes (\"10115\"), "+
 			"a decimal column's is written 12.0, and an integer column's 12", err)
 	}
