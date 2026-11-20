@@ -796,10 +796,10 @@ jobs:
   mac-tests:
     needs: changes
     if: (needs.changes.outputs.mobile == 'true' || needs.changes.outputs.models == 'true') && needs.changes.outputs.tests == 'true'
-    # The tests the Mac jobs run (ios, coreml), built for macOS here, as axx builds for it (no
-    # cgo), with a build cache of its own, for the Mac jobs to download (.github/actions/mac-tests):
-    # each took 85 to 100 seconds of its ten minutes restoring Go's module cache and building them,
-    # with no build cache, on a runner of three cores.
+    # The tests the Mac jobs run (ios, coreml, webllm), built for macOS here, as axx builds for it
+    # (no cgo), with a build cache of its own, for the Mac jobs to download
+    # (.github/actions/mac-tests): each took 85 to 100 seconds of its ten minutes restoring Go's
+    # module cache and building them, with no build cache, on a runner of three cores.
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -1117,12 +1117,16 @@ jobs:
           key: ${{ steps.windows-builds-key.outputs.key }}
 
   webllm:
-    needs: changes
+    needs: [changes, mac-tests]
     if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
     # The models-core pack's MLC stubs in WebLLM, on a Mac's GPU (Metal, through Chromium's
     # WebGPU): a stub is of its real model's size (GBs), and a runner takes a tenth of them by
-    # their times, 5 to 6 minutes' worth (Mistral 7B's alone), after some 2 of setting up, so
-    # that no job runs past 10; -v logs each model's time, which the models' seconds record.
+    # their times, 5 to 6 minutes' worth (Mistral 7B's alone), after half a minute of setting
+    # up, so that no job runs past 10; the test logs each model's time, which the models'
+    # seconds record. The test is the mac-tests job's build, as the ios and coreml jobs' are:
+    # each part restored Go's module cache before (2 minutes on this runner, 1.2 GB) and built
+    # the test with no build cache (half a minute), and took 7.5 to 8.5 minutes as a rule, and
+    # over 10 on a slower runner.
     name: webllm (${{ matrix.shard }}/10)
     runs-on: xcode-27
     timeout-minutes: 40
@@ -1134,13 +1138,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      # gotestsum, which runs the test that the mac-tests job built.
       - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
         with:
-          install_args: "go"
+          install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - uses: ./.github/actions/go-cache
-      - run: go test -tags integration -timeout 10m -v -run TestWebLLM ./packs/models/core/format/mlc/
+      - uses: ./.github/actions/mac-tests
+      - run: GOTEST_FORMAT=standard-verbose scripts/gotest.sh packs/models/core/format/mlc/mlc.test -test.timeout=10m -test.run=TestWebLLM
         env:
           AXX_WEBLLM_SHARD: ${{ matrix.shard }}/10
 
