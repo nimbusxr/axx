@@ -8,6 +8,9 @@ description: >-
   The module cache is what go.sum says, so it is keyed by go.sum. The build cache changes with
   every commit, and a cache's key is written once: each push to main keeps its own, by commit,
   and a run restores the newest one (for its go.sum, else any).
+
+  A job that restores the module cache then downloads the modules of go.mod it lacks, trying a
+  failed download again (scripts/go-mod-download.sh), so that the job's builds download none.
 inputs:
   build:
     description: >-
@@ -40,6 +43,14 @@ runs:
         path: ${{ steps.go.outputs.mod }}
         key: go-mod-${{ runner.os }}-${{ hashFiles('go.sum') }}
         restore-keys: go-mod-${{ runner.os }}-
+    # The modules the restored cache lacks: those a pull request updates, or all of them when
+    # the restore broke off. Downloaded here, a download that fails is tried again; left to the
+    # build, it failed the job, since the go command asks once. With every module there, this
+    # takes a fraction of a second.
+    - if: inputs.mode == 'restore' && inputs.modules == 'true'
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: bash scripts/go-mod-download.sh
     - if: inputs.mode == 'restore' && inputs.build != ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

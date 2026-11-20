@@ -1215,6 +1215,9 @@ jobs:
           install_args: "go golangci-lint"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      # The service's modules, which no cache keeps: a download that fails is tried again. (The
+      # tidy check still asks once for the few modules that only its dependencies' tests need.)
+      - run: ../../../scripts/go-mod-download.sh
       - run: go mod tidy -diff
       - run: go test ./...
       - run: golangci-lint run
