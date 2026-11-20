@@ -5,6 +5,7 @@ import (
 	dbsql "database/sql"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,4 +164,42 @@ func TestScenariosAtOnceShareAnSQLiteFile(t *testing.T) {
 			t.Error(err)
 		}
 	}
+}
+
+// A file that stays locked for longer than a step waits is not a table with no
+// column types. The step says that it could not read them, where it once went
+// on, and selected by a value of any type when the lock had gone by then.
+func TestALockedSQLiteFileIsNotATableWithNoTypes(t *testing.T) {
+	h := sqliteDB(t)
+	service := sqliteService(t, h)
+	svc, err := Context(h.SC).Service("parcels-db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The same file, for steps that do not wait: the lock outlasts them at once.
+	path, _, _ := strings.Cut(svc.Target.DSN, "?")
+	h.OK("a nowait-db database with the following properties:",
+		[][]string{{"url", "sqlite:" + path + "?_pragma=busy_timeout(0)"}, {"user", "u"}, {"password", "p"}})
+	const selectNow = "a selection of rows is retrieved from the pickups table on nowait-db where:"
+	ofAnotherType := [][]string{{"postcode", "10115"}}
+	// Its connection has read the schema, as one a scenario has used has: what it
+	// then needs of the file is the table itself.
+	h.OK(selectNow, [][]string{{"postcode", `"10115"`}})
+
+	ctx := context.Background()
+	conn, err := service.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, "BEGIN EXCLUSIVE"); err != nil {
+		t.Fatal(err)
+	}
+	_ = h.Fails(selectNow, "could not read the table's column types: database is locked", ofAnotherType)
+	_ = h.Fails("within 1s a selection of at least 1 row is retrieved from the pickups table on nowait-db where:",
+		"could not read the table's column types: database is locked", ofAnotherType)
+	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
+		t.Fatal(err)
+	}
+	_ = h.Fails(selectNow, `postcode is text in pickups (TEXT): write "10115"`, ofAnotherType)
 }
