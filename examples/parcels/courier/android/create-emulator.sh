@@ -6,6 +6,8 @@
 # processor, for this machine's processor.
 #   usage: ./create-emulator.sh     (needs the Android SDK: ANDROID_HOME)
 set -euo pipefail
+# TEMPORARY, removed before this merges: this line makes CI's device anew, with the emulator
+# sdkmanager installs today (37.3.10), to tell that emulator from the snapshot's change in #372.
 
 sdk=${ANDROID_HOME:-${ANDROID_SDK_ROOT:?set ANDROID_HOME to the Android SDK}}
 case "$(uname -m)" in
