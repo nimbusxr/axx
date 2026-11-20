@@ -41,8 +41,15 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.go.outputs.mod }}
-        key: go-mod-${{ runner.os }}-${{ hashFiles('go.sum') }}
-        restore-keys: go-mod-${{ runner.os }}-
+        # v2: the caches saved since the step below is here. go mod download keeps a small file
+        # of each module that a build does not (its .info), and with those in the cache the
+        # step asks the proxy for nothing. The caches from before (the second restore key) are
+        # read until main has saved one: with them the step asks for those files, one for
+        # each module (228 of them, in 6 seconds on a MacBook).
+        key: go-mod-v2-${{ runner.os }}-${{ hashFiles('go.sum') }}
+        restore-keys: |
+          go-mod-v2-${{ runner.os }}-
+          go-mod-${{ runner.os }}-
     # The modules the restored cache lacks: those a pull request updates, or all of them when
     # the restore broke off. Downloaded here, a download that fails is tried again; left to the
     # build, it failed the job, since the go command asks once. With every module there, this
@@ -70,7 +77,7 @@ runs:
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.go.outputs.mod }}
-        key: go-mod-${{ runner.os }}-${{ hashFiles('go.sum') }}
+        key: go-mod-v2-${{ runner.os }}-${{ hashFiles('go.sum') }}
     - if: >-
         inputs.mode == 'save' && inputs.build != ''
         && github.event_name == 'push' && github.ref == 'refs/heads/main'
