@@ -57,6 +57,48 @@ fetch() {
   return 1
 }
 
+# On Linux with an x86_64 processor, which is CI's runners, the emulator is the build named
+# here, and not the one sdkmanager installs that day. Build 16970787 (37.3.10), which
+# sdkmanager has installed since November 2026, drops adb's connection to a busy device there:
+# the write of the device's adb daemon to the host fails ("host-14: connection terminated:
+# write failed" in the device's log), and with the connection go the shells adb runs on the
+# device and the ports it forwards, the UiAutomator2 server's among them. On CI it did in 2 of
+# 34 jobs with a device made as before, and in 6 of 34 with its snapshot saved at rest; build
+# 16740729 (37.2.13) in none of 34. On a Mac the newest is left: 14 runs of a scenario on a
+# loaded emulator there lost no connection. A newer build is named here once CI's jobs show it
+# keeps the connection (an android job warns of each loss).
+emulator_build=16740729
+emulator_version=37.2.13
+emulator_sha256=cbc7c3cfb83220b8a0f9c513fdab557712e74d339ec19ddffa43f23350ae9bdd
+# Google's repository of SDK packages, or a copy of it (ANDROID_REPOSITORY_URL).
+repository=${ANDROID_REPOSITORY_URL:-https://dl.google.com/android/repository}
+
+# named_emulator puts the named build of the emulator in the SDK, in place of the one sdkmanager
+# installed: its archive from Google's repository, checked against its SHA-256. The archive has
+# no package.xml, which sdkmanager writes and avdmanager asks for ("emulator" package must be
+# installed): the installed one's is kept, with the named build's version in it.
+named_emulator() {
+  if grep -qx "Pkg.BuildId=$emulator_build" "$sdk/emulator/source.properties" 2> /dev/null; then return 0; fi
+  local zip="$latest/emulator.zip"
+  say "installing the emulator's build $emulator_build"
+  limited 900 curl -fsSL --retry 3 --retry-all-errors -o "$zip" "$repository/emulator-linux_x64-$emulator_build.zip" || {
+    echo "cannot download the emulator's build $emulator_build from $repository" >&2
+    return 1
+  }
+  echo "$emulator_sha256  $zip" | sha256sum -c --quiet || {
+    echo "the emulator's archive from $repository is not the build $emulator_build that this script names" >&2
+    return 1
+  }
+  local major minor micro
+  IFS=. read -r major minor micro <<< "$emulator_version"
+  sed -E -e "s|<major>[0-9]+</major>|<major>$major</major>|" -e "s|<minor>[0-9]+</minor>|<minor>$minor</minor>|" \
+    -e "s|<micro>[0-9]+</micro>|<micro>$micro</micro>|" "$sdk/emulator/package.xml" > "$latest/package.xml" || return 1
+  rm -rf "$sdk/emulator"
+  unzip -q "$zip" -d "$sdk" || return 1
+  mv "$latest/package.xml" "$sdk/emulator/package.xml"
+  grep -qx "Pkg.BuildId=$emulator_build" "$sdk/emulator/source.properties"
+}
+
 # Google's newest packages need its newest command-line tools: the SDK's own fetch them into a
 # folder of their own, and are left as they are.
 latest=$(mktemp -d)
@@ -65,17 +107,7 @@ fetch "$sdk/cmdline-tools/latest/bin/sdkmanager" "$latest" "$latest/cmdline-tool
 fetch "$latest/cmdline-tools/latest/bin/sdkmanager" "$sdk" \
   "$sdk/system-images/$platform/google_apis/$abi/system.img" "$sdk/emulator/emulator" "$sdk/platform-tools/adb" \
   -- "$image" emulator platform-tools
-# TEMPORARY, removed before this merges: on Linux, the emulator main's device has (37.2.13,
-# build 16740729) in place of the one sdkmanager installs today (37.3.10), to tell that
-# emulator from the snapshot saved at rest: adb lost the emulator in 4 of 18 android jobs with
-# both, and in none of 18 with neither.
-if [ "$(uname -s)" = Linux ] && [ "$abi" = x86_64 ]; then
-  say "TEMPORARY: the emulator of build 16740729 in place of the installed one"
-  curl -fsSL --retry 3 --retry-all-errors -o "$latest/emulator.zip" https://dl.google.com/android/repository/emulator-linux_x64-16740729.zip
-  rm -rf "$sdk/emulator"
-  unzip -q "$latest/emulator.zip" -d "$sdk"
-  grep Pkg.Revision "$sdk/emulator/source.properties"
-fi
+if [ "$(uname -s)-$abi" = Linux-x86_64 ]; then named_emulator; fi
 # The SDK's own avdmanager: the newest one takes its own folder for the SDK.
 tools="$sdk/cmdline-tools/latest/bin"
 # Where the emulator looks for its devices: avdmanager may go by XDG_CONFIG_HOME instead.
