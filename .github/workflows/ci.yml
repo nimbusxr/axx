@@ -472,8 +472,8 @@ jobs:
         # emulator takes 1.5 to 2 minutes here, the torn label's 3 to 3.5, and the two shortest
         # (the recordings' and the delivery under a toast) a minute each: a part has two of
         # them, that one, or those two with a third. With no tests to run, one part builds them,
-        # and keeps the couriers' app and the models-android pack's probe app for the rest (the
-        # courier-device job keeps the emulator's device).
+        # and keeps their build cache, the couriers' app and the models-android pack's probe
+        # app for the rest (the courier-device job keeps the emulator's device).
         # The hosted parts run five of the emulator's parts again through an axx host, in the
         # tests' process (AXX_TEST_HOSTED): the host's side of the pack leases the emulator and
         # starts the app, as for a run in an agent's sandbox. They are the parts with the model
@@ -524,15 +524,23 @@ jobs:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      # A build cache of this job's own, of its tests' builds with the race detector. The job
+      # restored the acceptance job's before, 1.3 GB of axx built without it, of which a build
+      # with it reads nothing: every part compiled its tests' 700 packages, for 60 to 90 seconds.
       - uses: ./.github/actions/go-cache
         with:
-          build: acceptance
+          build: mobile
       - name: the tests, built
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
         run: |
-          case "$PART" in
-            models-*) go test -race -tags integration -run '^$' ./packs/models/android/... ;;
-            *) go test -race -tags integration -run '^$' ./packs/mobile/... ;;
+          # With no tests to run, both kinds of part's, for the build cache the job then keeps.
+          case "$TESTS-$PART" in
+            true-models-*) packages=(./packs/models/android/...) ;;
+            true-*) packages=(./packs/mobile/...) ;;
+            *) packages=(./packs/mobile/... ./packs/models/android/...) ;;
           esac
+          go test -race -tags integration -run '^$' "${packages[@]}"
       - uses: ./.github/actions/courier-android
         with:
           mode: finish
@@ -601,6 +609,13 @@ jobs:
         with:
           part: mobile-${{ matrix.part }}
           mode: save
+      # The tests' build cache, kept on main, where this part builds both kinds of part's.
+      - if: ${{ !cancelled() && matrix.part == 'emulator-1' }}
+        uses: ./.github/actions/go-cache
+        with:
+          build: mobile
+          mode: save
+          modules: "false"
 
   # WireMock with axx's extensions, the image the parcels example's mocks run, built once for the
   # run when no run has kept it for the extension's files (.github/actions/wiremock-image): on a
