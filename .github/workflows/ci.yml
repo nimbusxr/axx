@@ -1072,6 +1072,14 @@ jobs:
             if (-not (Test-Path $k)) { New-Item $k -Force | Out-Null }
             Set-ItemProperty -Path $k -Name Value -Value Allow
           }
+      # Go's caches where the test job has them on Windows: a cache is restored to the path it
+      # was saved from, so with Go's own paths this job never found the module cache, and
+      # downloaded every module of go.mod, for 1.5 to 5 minutes.
+      - name: "Go's caches on the D: drive"
+        shell: pwsh
+        run: |
+          "GOCACHE=$env:RUNNER_TEMP\go-build" >> $env:GITHUB_ENV
+          "GOMODCACHE=$env:RUNNER_TEMP\go-mod" >> $env:GITHUB_ENV
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
