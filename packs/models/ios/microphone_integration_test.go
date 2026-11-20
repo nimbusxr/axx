@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nimbusxr/axx/core"
 	modelscore "github.com/nimbusxr/axx/packs/models/core"
@@ -209,12 +210,18 @@ func TestSimulatorCaptureHearsTheRecording(t *testing.T) {
 			var out string
 			var err error
 			if kind == "capture-session" {
+				began := time.Now()
 				id := p.install(t)
+				installed := time.Since(began)
 				cmd := exec.CommandContext(t.Context(), "xcrun", "simctl", "launch", "--console", p.device, id, kind, file)
 				cmd.Env = append(os.Environ(), "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES="+p.lib, "SIMCTL_CHILD_AXX_MODELS_DIR="+p.dir, "SIMCTL_CHILD_AXX_MODELS_MICROPHONE=1")
 				var data []byte
 				data, err = cmd.CombinedOutput()
 				out = string(data)
+				// The probe says how long its session took; the rest of this is the simulator
+				// installing and launching it, 12 to 26 seconds of it on CI's Mac.
+				t.Logf("the probe was installed and allowed the microphone in %s, and launched and ended in %s",
+					installed.Round(100*time.Millisecond), (time.Since(began) - installed).Round(100*time.Millisecond))
 				if strings.Contains(out, "no audio capture device") {
 					t.Skip("the simulator exposes no AVCaptureDevice for audio")
 				}
