@@ -1086,10 +1086,16 @@ jobs:
     # the desk, on X11 and, in a GNOME session of its own, on Wayland: the baseline that keeps every
     # toolkit working. It runs in the desk's image, which draws what the screenshots kept show. The
     # macOS and Windows builds run on developers' machines. A failure leaves its report, the
-    # traces and the screenshots the run took.
+    # traces and the screenshots the run took, and so does a run that does not end: the feature
+    # has until 9 minutes of the job, a little under the job's 10, and is then interrupted
+    # (scripts/depot-desk-ci.sh). The slowest parts are Tauri's, which build the desk with Cargo
+    # for 2 minutes first: their jobs take 5.5 to 7.5 minutes as a rule, and one took 9 minutes
+    # 43 seconds, after 5 minutes of setting up; the others take 7 at most. A desk once hung for
+    # 23 minutes under a limit of 45, and the job, cancelled by hand, left neither a log nor a
+    # report.
     name: desktop (${{ matrix.build }}, ${{ matrix.display }})
     runs-on: ubuntu-26.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: read
@@ -1103,6 +1109,8 @@ jobs:
         # does for a run in an agent's sandbox, once what stands in for its person approved it.
         include: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '[{"build":"gtk3","display":"x11-hosted"}]' || '[]') }}
     steps:
+      # When the job started, for the feature's limit.
+      - run: echo "JOB_STARTED=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -1126,15 +1134,13 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD: ${{ matrix.build }}
           DISPLAY_SERVER: ${{ matrix.display }}
+        # Until 9 minutes of the job: interrupting a run that has not ended takes up to 25
+        # seconds more, and the upload of what it left the rest.
         run: |
           echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
-          mkdir -p "$RUNNER_TEMP/out"
-          # GNOME Shell takes /run/systemd/seats for logind's, which a container has not.
-          docker run --rm --shm-size=1g --tmpfs /run/systemd \
-            -v "$PWD/examples/parcels/depot-desk:/src:ro" -v "$RUNNER_TEMP/axx:/usr/local/bin/axx:ro" -v "$RUNNER_TEMP/out:/out" \
-            "$IMAGE" depot-desk "$BUILD" "$DISPLAY_SERVER" --format progress --format junit:/out/junit.xml \
-            --format html:/out/report.html --set packs.desktop-core.traces=failed
-      - if: failure()
+          scripts/depot-desk-ci.sh "$IMAGE" "$BUILD" "$DISPLAY_SERVER" "$RUNNER_TEMP/axx" "$RUNNER_TEMP/out" "$((JOB_STARTED + 540 - $(date +%s)))"
+      # Of a run that failed, and of one the job's own limit ended, or a person.
+      - if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: desktop-${{ matrix.build }}-${{ matrix.display }}

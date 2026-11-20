@@ -67,9 +67,10 @@ while ! $all && ! $none && IFS= read -r f; do
   case "$f" in
     examples/parcels/* | extensions/wiremock-openapi/*) mobile=true ;;
   esac
-  # The depot desk's feature runs against every build of the desk.
+  # The depot desk's feature runs against every build of the desk, through the script that
+  # limits its run.
   case "$f" in
-    examples/parcels/depot-desk/*) desktop=true ;;
+    examples/parcels/depot-desk/* | scripts/depot-desk-ci.sh) desktop=true ;;
   esac
   # Core ML stubs and the Apple platform adapters (iOS's, including their real courier app, and
   # the Mac's).
