@@ -848,6 +848,15 @@ jobs:
         uses: ./.github/actions/simulator-mac
         with:
           mode: report
+      # The crash reports the Mac wrote during a job that failed, which the report above lists a
+      # line each: of a WebDriverAgent that never answered, say.
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: failure-ios-${{ matrix.tests }}
+          path: ${{ runner.temp }}/failure/
+          if-no-files-found: ignore
+          retention-days: 7
 
   coreml:
     needs: [changes, mac-tests]
@@ -931,6 +940,15 @@ jobs:
         uses: ./.github/actions/simulator-mac
         with:
           mode: report
+      # The crash reports the Mac wrote during a job that failed, which the report above lists a
+      # line each: of the process that went as the tests' simulator stopped being booted, say.
+      - if: ${{ failure() && matrix.part != 'mac' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: failure-coreml-${{ matrix.part }}
+          path: ${{ runner.temp }}/failure/
+          if-no-files-found: ignore
+          retention-days: 7
 
   windows-models:
     needs: changes

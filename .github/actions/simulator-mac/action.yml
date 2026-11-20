@@ -14,7 +14,8 @@ description: >-
 
   The record: every 30 seconds, the Mac's load and the processes busiest then (the simulator's
   processes are the Mac's, marked as the simulator's), the simulator's first boot included; and at
-  the end, the processes that took the most time.
+  the end, the processes that took the most time, the crash reports macOS wrote meanwhile, and
+  what the runner's log says of cancelling the job (scripts/mac-job-report.sh).
 inputs:
   mode:
     description: "`start` or `report`."
@@ -52,3 +53,10 @@ runs:
         cat "$RUNNER_TEMP/load.log"
         echo "the processes that took the most processor time:"
         ps -A -o time=,ucomm=,command= | awk '{ n = split($1, t, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + t[i]; printf "%8.0f s  %s%s\n", s, $2, index($0, "CoreSimulator") ? " (simulator)" : "" }' | sort -rn | head -30
+    # The reports macOS wrote since the load's record began (of a process that crashed, hung or
+    # was ended: the simulator's are among them), and what the runner's log says of cancelling
+    # the job. The reports are copied for the job to keep when it failed.
+    - if: inputs.mode == 'report'
+      name: the Mac's crash reports, and the runner's word on a cancelled job
+      shell: bash
+      run: scripts/mac-job-report.sh "$RUNNER_TEMP/load.log" "$RUNNER_TEMP/failure/reports"
