@@ -983,8 +983,25 @@ func TestTheServersEndIsInItsLog(t *testing.T) {
 	}
 	dir := t.TempDir()
 	adb := filepath.Join(dir, "adb")
+	// adb's server's log, where adb keeps it: it lost the device, which is why the server ended.
+	t.Setenv("TMPDIR", dir)
+	// (Another device's line and one of an hour ago stay out.)
+	const stamp = "01-02 15:04:05.000"
+	now := time.Now()
+	if err := os.WriteFile(adbLog(), []byte(
+		now.Add(-time.Hour).Format(stamp)+" 1 2 I adb : transport.cpp:1116 resetting transport 0x75 emulator-5554\n"+
+			now.Add(-time.Second).Format(stamp)+" 1 2 I adb : transport.cpp:1222 emulator-5554: connection terminated: read failed\n"+
+			now.Add(-time.Second).Format(stamp)+" 1 2 I adb : transport.cpp:1222 emulator-5556: connection terminated: read failed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// adb does not have the device when it is first asked, and has it when asked again.
 	script := `#!/bin/sh
 case "$*" in
+*get-state*) if [ -e "` + dir + `/asked" ]; then echo device; else touch "` + dir + `/asked"; echo "error: device offline" >&2; exit 1; fi;;
+*"ps -A"*) printf '%s\n' '  PID     ELAPSED NAME' '  412       00:03 adbd' ' 12:35:23 up 9 min,  0 users';;
+*"-b kernel"*) printf '%s\n' \
+  "10-14 22:50:38.000 0 0 I init    : starting service 'adbd'..." \
+  '10-14 22:50:38.100 0 0 I binder  : release 4211';;
 *"-b crash"*) ;;
 *"-b events"*) printf '%s\n' \
   '10-14 22:50:41.100  1 2 I am_kill : [0,4211,io.appium.uiautomator2.server,-800,lmk]' \
@@ -993,6 +1010,8 @@ case "$*" in
 *"main,system"*) printf '%s\n' \
   '10-14 22:50:40.900 500 500 I lowmemorykiller: Kill io.appium.uiautomator2.server (4211), rss 412MB' \
   '10-14 22:50:40.950 600 600 D WifiService: scan done' \
+  '10-14 22:50:38.200 412 412 I adbd    : host-15: connection terminated: read failed' \
+  '10-14 22:50:38.300 412 412 I adbd    : adbd service requested shell,v2,raw:getprop' \
   '10-14 22:50:41.000 300 300 I ActivityManager: Process io.appium.uiautomator2.server (pid 4211) has died';;
 esac
 `
@@ -1002,6 +1021,12 @@ esac
 	p := &pool{sdk: &sdk{adb: adb}}
 	end := p.endOf(t.Context(), "emulator-5554")
 	for _, want := range []string{
+		"adb did not have the device when the server ended, and had it again ",
+		"emulator-5554: connection terminated: read failed",
+		"  412       00:03 adbd",
+		"up 9 min",
+		"I adbd    : host-15: connection terminated: read failed",
+		"init    : starting service 'adbd'",
 		"the device's crash log: nothing",
 		"am_kill : [0,4211,io.appium.uiautomator2.server,-800,lmk]",
 		"am_proc_died: [0,4211,io.appium.uiautomator2.server,915,3]",
@@ -1012,7 +1037,7 @@ esac
 			t.Errorf("the server's end:\n%s\nwants %q", end, want)
 		}
 	}
-	for _, noise := range []string{"com.google.android.gms", "WifiService"} {
+	for _, noise := range []string{"com.google.android.gms", "WifiService", "emulator-5556", "binder  : release", "service requested", "resetting transport"} {
 		if strings.Contains(end, noise) {
 			t.Errorf("the server's end:\n%s\nhas %q", end, noise)
 		}

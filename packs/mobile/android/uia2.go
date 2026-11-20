@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -308,10 +310,25 @@ func (p *pool) installServer(ctx context.Context, serial string, apks []string) 
 	return nil
 }
 
-// endOf is what the device says of how a process of the UiAutomator2 server ended: a crash, in
-// its crash log; a kill (the low-memory killer, a force-stop), in its events and its system log.
+// endOf is how a process of the UiAutomator2 server ended. adb's side first: a server also ends
+// when adb loses the device, with nothing wrong on the device at all, so whether adb had the
+// device then, what its own log says of it, and how long the device's adb daemon has run (one
+// started again is seconds old on a device that has been up for minutes). Then what the device
+// says: a crash, in its crash log; a kill (the low-memory killer, a force-stop), in its events
+// and its system log; and its adb daemon's and its kernel's lines.
 func (p *pool) endOf(ctx context.Context, serial string) string {
 	var b strings.Builder
+	if state, err := p.sdk.run(ctx, serial, "get-state"); err == nil && strings.TrimSpace(state) == "device" {
+		fmt.Fprintf(&b, "adb has the device.\n")
+	} else {
+		lost := time.Now()
+		if p.sdk.waitOnline(ctx, serial, 10*time.Second) == nil {
+			fmt.Fprintf(&b, "adb did not have the device when the server ended, and had it again %s later.\n", time.Since(lost).Round(100*time.Millisecond))
+		} else {
+			fmt.Fprintf(&b, "adb did not have the device when the server ended, nor 10s later.\n")
+		}
+	}
+	fmt.Fprintf(&b, "adb's own log of the device in the last two minutes (%s): %s\n", adbLog(), adbSays(serial, time.Now()))
 	section := func(title string, args []string, keep func(string) bool) {
 		out, err := p.sdk.run(ctx, serial, args...)
 		if err != nil {
@@ -348,7 +365,73 @@ func (p *pool) endOf(ctx context.Context, serial string) string {
 		about("am_kill", "am_proc_died", "am_crash", "am_anr", "am_low_memory", "uiautomator2"))
 	section("the device's log of the server and its end", []string{"logcat", "-d", "-b", "main,system", "-t", "5000"},
 		about("uiautomator2", "UiAutomator", "lowmemorykiller", "lmkd", "Force stopping", "Killing", "FATAL", "AndroidRuntime", "DEBUG", "crash_dump", "Fatal signal"))
+	section("the device's adb daemon, how long it has run, and the device", []string{"shell", "ps -A -o PID,ETIME,NAME | grep -w -e adbd -e ETIME; uptime"}, nil)
+	// The daemon logs each connection's end and why ("host-15: connection terminated: read
+	// failed"), and each command asked of it, which is left out: there are hundreds.
+	section("the device's adb daemon's log", []string{"logcat", "-d", "-b", "main,system", "-t", "5000"}, func(l string) bool {
+		return strings.Contains(l, " adbd") && !strings.Contains(l, "adbd service requested")
+	})
+	// The kernel's log is the device's to give: a phone's own build keeps it to itself.
+	section("the device's kernel on its adb daemon and its memory", []string{"logcat", "-d", "-b", "kernel", "-t", "2000"},
+		about("service 'adbd'", "vsock", "Out of memory", "oom-kill", "lowmemorykiller"))
 	return b.String()
+}
+
+// adbLog is the file adb's server writes its log to: adb.log in the temporary folder on Windows,
+// adb.UID.log in TMPDIR or /tmp elsewhere (adb's own rule). It is the server's folder that
+// counts, which is this one when axx or a tool run as it is started the server.
+func adbLog() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(os.TempDir(), "adb.log")
+	}
+	dir := os.Getenv("TMPDIR")
+	if dir == "" {
+		dir = "/tmp"
+	}
+	return filepath.Join(dir, "adb."+strconv.Itoa(os.Getuid())+".log")
+}
+
+// adbSays is what adb's server's log has of a device in the two minutes before now: when it lost
+// its connection to it and why ("emulator-5554: connection terminated: read failed"). The log
+// has the day and the time of each line, and no year.
+func adbSays(serial string, now time.Time) string {
+	f, err := os.Open(adbLog())
+	if err != nil {
+		return "no such file"
+	}
+	defer func() { _ = f.Close() }()
+	// The log grows for as long as the server runs: its end is what is asked.
+	const end = 256 << 10
+	if st, err := f.Stat(); err == nil && st.Size() > end {
+		_, _ = f.Seek(-end, io.SeekEnd)
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return "cannot read it: " + err.Error()
+	}
+	const stamp = "01-02 15:04:05.000"
+	var lines []string
+	for _, l := range strings.Split(string(data), "\n") {
+		if !strings.Contains(l, serial) || len(l) < len(stamp) {
+			continue
+		}
+		at, err := time.ParseInLocation(stamp, l[:len(stamp)], now.Location())
+		if err != nil {
+			continue
+		}
+		at = at.AddDate(now.Year(), 0, 0)
+		if age := now.Sub(at); age < -time.Minute || age > 2*time.Minute {
+			continue
+		}
+		lines = append(lines, strings.TrimSpace(l))
+	}
+	if len(lines) == 0 {
+		return "nothing of it"
+	}
+	if len(lines) > 20 {
+		lines = lines[len(lines)-20:]
+	}
+	return "\n" + strings.Join(lines, "\n")
 }
 
 // stop ends the server's instrumentation.
