@@ -832,12 +832,15 @@ jobs:
         run: scripts/ios-simulator.sh
       # The tests share that simulator, kept booted from one to the next, as a run's worker has
       # one. Each prints the packs' log (how long the simulator took to get ready, each part, and
-      # each step), and a failed one the end of its logs and the screen it read. Without the race
-      # detector: on three cores it doubled the tests' time (783 s against 405 s, measured on a VM
-      # of this runner's size), and the Android jobs run the shared mobile code with it.
+      # each step), and a failed one the end of its logs and the screen it read; the screens its
+      # failed steps attached it writes into AXX_TEST_FAILURES, which the job keeps when it
+      # fails. Without the race detector: on three cores it doubled the tests' time (783 s
+      # against 405 s, measured on a VM of this runner's size), and the Android jobs run the
+      # shared mobile code with it.
       - env:
           SELECT: ${{ matrix.select }}
           AXX_TEST_HOSTED: ${{ matrix.hosted }}
+          AXX_TEST_FAILURES: ${{ runner.temp }}/failure
         run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh packs/mobile/ios/ios.test -test.timeout=10m "$SELECT"
       - if: ${{ !cancelled() && !matrix.hosted }}
         uses: ./.github/actions/simulator-builds
@@ -848,8 +851,9 @@ jobs:
         uses: ./.github/actions/simulator-mac
         with:
           mode: report
-      # The crash reports the Mac wrote during a job that failed, which the report above lists a
-      # line each: of a WebDriverAgent that never answered, say.
+      # What a job that failed leaves: the crash reports the Mac wrote during it, which the report
+      # above lists a line each (of a WebDriverAgent that never answered, say), and the screens
+      # the tests' failed steps attached.
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
