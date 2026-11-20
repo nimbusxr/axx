@@ -700,6 +700,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      # How busy the runner is, from here on, and the emulator while the scenarios run: a runner
+      # took 11 minutes to restore the caches below, which the others restore in 2.
+      - uses: ./.github/actions/android-load
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
@@ -764,8 +767,6 @@ jobs:
       - uses: ./.github/actions/android-builds
         with:
           part: android-${{ matrix.feature }}
-      # How busy the runner and the emulator are while the scenarios run.
-      - uses: ./.github/actions/android-load
       - working-directory: examples/parcels/acceptance
         env:
           FEATURE: ${{ matrix.feature }}
