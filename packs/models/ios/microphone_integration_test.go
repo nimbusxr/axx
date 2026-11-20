@@ -3,6 +3,7 @@
 package modelsios
 
 import (
+	"bufio"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -109,10 +110,54 @@ func (p *microphoneProbe) install(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(bundle, "Info.plist"), []byte(plist), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"install", p.device, bundle}, {"privacy", p.device, "grant", "microphone", bundleID}} {
-		if out, err := exec.CommandContext(t.Context(), "xcrun", append([]string{"simctl"}, args...)...).CombinedOutput(); err != nil {
-			t.Fatalf("authorize capture probe: %v: %s", err, out)
+	if out, err := exec.CommandContext(t.Context(), "xcrun", "simctl", "install", p.device, bundle).CombinedOutput(); err != nil {
+		t.Fatalf("install capture probe: %v: %s", err, out)
+	}
+	// The simulator ends an app that runs as what the app is allowed changes, and it does so
+	// a moment after simctl has returned: seconds on a slow Mac, where the probe, launched
+	// right after it was allowed the microphone, was ended four seconds into its session,
+	// without a word and with no report (CI's Mac, twice in a day). So the probe is launched
+	// once to wait, and allowed the microphone as it waits: that run is the one the simulator
+	// ends, and when it has, nothing is left to end the run the test is after.
+	waiting := exec.CommandContext(t.Context(), "xcrun", "simctl", "launch", "--console", p.device, bundleID, "waiting", "unused")
+	said, err := waiting.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := waiting.Start(); err != nil {
+		t.Fatalf("launch capture probe to wait: %v", err)
+	}
+	ended := make(chan struct{})
+	up := make(chan struct{})
+	go func() {
+		defer close(ended)
+		lines := bufio.NewScanner(said)
+		for lines.Scan() {
+			if lines.Text() == "waiting" {
+				close(up)
+			}
 		}
+		_ = waiting.Wait()
+	}()
+	select {
+	case <-up:
+	case <-ended:
+		t.Fatal("the capture probe, launched to wait, ended before it said it waits")
+	case <-time.After(time.Minute):
+		t.Fatal("the capture probe, launched to wait, did not say it waits within a minute")
+	}
+	if out, err := exec.CommandContext(t.Context(), "xcrun", "simctl", "privacy", p.device, "grant", "microphone", bundleID).CombinedOutput(); err != nil {
+		t.Fatalf("authorize capture probe: %v: %s", err, out)
+	}
+	allowed := time.Now()
+	select {
+	case <-ended:
+		t.Logf("the simulator ended the waiting probe %s after it was allowed the microphone", time.Since(allowed).Round(100*time.Millisecond))
+	case <-time.After(30 * time.Second):
+		// A simulator that ends nothing has nothing to end later either.
+		t.Log("the simulator did not end the waiting probe within 30s of allowing it the microphone")
+		_ = exec.Command("xcrun", "simctl", "terminate", p.device, bundleID).Run()
+		<-ended
 	}
 	t.Cleanup(func() { _ = exec.Command("xcrun", "simctl", "uninstall", p.device, bundleID).Run() })
 	return bundleID

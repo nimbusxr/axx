@@ -374,6 +374,14 @@ int main(int argc, const char **argv) {
         printf("%s\n", error.description.UTF8String);
       return 0;
     }
+    // waiting does nothing for a minute: a test has the simulator end this run,
+    // by what it allows the app, before the run it is after.
+    if ([kind isEqual:@"waiting"]) {
+      printf("waiting\n");
+      fflush(stdout);
+      runFor(60);
+      return 0;
+    }
     if ([kind hasPrefix:@"capture-"])
       return capture(kind, url);
     if (![kind hasPrefix:@"speech"]) {
