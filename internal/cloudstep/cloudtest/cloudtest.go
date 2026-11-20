@@ -123,6 +123,8 @@ type Harness struct {
 	SC  *core.Scenario
 	// Sink records what the scenarios log and attach.
 	Sink *Sink
+	// log keeps what the packs log.
+	log *logBuffer
 	// hooks are the packs' step hooks, which run around each step.
 	hooks []core.Hook
 	// line is the line of the scenario's last step in its feature file.
@@ -282,7 +284,7 @@ func newHarness(t *testing.T, config map[string]any, services map[string]string,
 		},
 	}
 	suite := core.NewSuite(opts)
-	h = &Harness{t: t, reg: reg, packs: packs, Suite: suite, Dir: dir, Sink: sink, hooks: hooks}
+	h = &Harness{t: t, reg: reg, packs: packs, Suite: suite, Dir: dir, Sink: sink, log: log, hooks: hooks}
 	if os.Getenv(HostedEnv) != "" {
 		hosted(t, h, suite, packs, opts)
 	}
@@ -348,12 +350,15 @@ func (h *Harness) NewScenarioWithin(limit time.Duration) *core.Scenario {
 	return h.SC
 }
 
+// Logged is what the packs logged so far, a line for each message.
+func (h *Harness) Logged() string { return h.log.String() }
+
 // In returns a harness that runs steps in another scenario of the same run,
 // for scenarios running side by side. Use Step (not OK or Fails) from other
 // goroutines. It takes only what does not change as h runs steps, so it can
 // be called while h runs one.
 func (h *Harness) In(sc *core.Scenario) *Harness {
-	return &Harness{t: h.t, reg: h.reg, packs: h.packs, Suite: h.Suite, Dir: h.Dir, SC: sc, Sink: h.Sink, hooks: h.hooks, line: 1}
+	return &Harness{t: h.t, reg: h.reg, packs: h.packs, Suite: h.Suite, Dir: h.Dir, SC: sc, Sink: h.Sink, log: h.log, hooks: h.hooks, line: 1}
 }
 
 // ValueFails checks that a value in a step's own text that the rule cannot read

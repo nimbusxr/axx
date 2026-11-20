@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -243,16 +244,91 @@ func TestFailedScenariosPauseWhenAskedTo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The two seconds start before the page's: a scenario that ends as its
+	// page closes has waited them.
+	start := time.Now()
 	go func() {
 		time.Sleep(2 * time.Second)
 		_ = pg.Close()
 	}()
-	start := time.Now()
 	if err := h.End("failed"); err != nil {
 		t.Fatal(err)
 	}
 	if waited := time.Since(start); waited < 2*time.Second {
 		t.Errorf("the failed scenario did not pause: it ended after %s", waited)
+	}
+	// The pack says what ended the pause: of one that ends early, its log,
+	// which a failed test prints, says why.
+	if !strings.Contains(h.Logged(), ": its page closed") {
+		t.Error("the pack does not say that the pause ended as its page closed")
+	}
+}
+
+// A pause says what ended it, for the person whose scenario went on: the
+// Inspector, the page as it closed, or the page as it crashed.
+func TestAPauseSaysWhatEndedIt(t *testing.T) {
+	needsScreen(t)
+	for _, c := range []struct {
+		name string
+		end  func(s *session, pg playwright.Page)
+		want string
+		warn bool
+	}{
+		{name: "resumed", want: "it was resumed in Playwright's Inspector, or the Inspector closed", end: func(s *session, _ playwright.Page) {
+			if d, err := s.ctx.Debugger(); err == nil {
+				_ = d.Resume()
+			}
+		}},
+		{name: "closed", want: "its page closed", end: func(_ *session, pg playwright.Page) { _ = pg.Close() }},
+		// Chromium crashes the page that opens this address.
+		{name: "crashed", want: "its page crashed", warn: true, end: func(_ *session, pg playwright.Page) { _, _ = pg.Goto("chrome://crash") }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			h, app := newConfigured(t, "chromium", &Config{PauseOnFailure: true})
+			h.OK("the portal web app with the following properties:", app)
+			h.OK(`the "/browser.html" page is opened`)
+			_ = h.Fails(`within 1s the page shows "Browser: headless"`, `The page does not show "Browser: headless"`)
+			s, err := current(h.SC)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pg, err := s.page()
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Once the scenario is paused, what the case does ends the pause;
+			// a scenario that never pauses ends as it would without one.
+			paused := make(chan bool, 1)
+			go func() {
+				d, err := s.ctx.Debugger()
+				for range 200 {
+					if err != nil {
+						break
+					}
+					if pd, err := d.PausedDetails(); err == nil && pd != nil {
+						c.end(s, pg)
+						paused <- true
+						return
+					}
+					time.Sleep(50 * time.Millisecond)
+				}
+				paused <- false
+			}()
+			if err := h.End("failed"); err != nil {
+				t.Fatal(err)
+			}
+			if !<-paused {
+				t.Fatal("the failed scenario did not pause")
+			}
+			level := "INFO"
+			if c.warn {
+				level = "WARN"
+			}
+			said := regexp.MustCompile(`level=` + level + ` msg="the scenario \\"test\\" goes on after [0-9.ms]+: ` + regexp.QuoteMeta(c.want) + `"`)
+			if !said.MatchString(h.Logged()) {
+				t.Errorf("the pack does not say that %s", c.want)
+			}
+		})
 	}
 }
 
