@@ -129,7 +129,11 @@ func moovBox(c Clip, samples, marks []mp4Sample, chapters []Chapter, d time.Dura
 	}
 	mvhd := fullBox("mvhd", 0, u32(0), u32(0), u32(1000), dur, u32(0x10000), u16(0x100), make([]byte, 10), matrix, make([]byte, 24), u32(next))
 	w, h := uint32(c.Width), uint32(c.Height) //nolint:gosec // a screen's size
-	tkhd := fullBox("tkhd", 3, u32(0), u32(0), u32(1), u32(0), dur, make([]byte, 8), u16(0), u16(0), u16(0), u16(0), matrix, u32(w<<16), u32(h<<16))
+	turned := matrix
+	if len(c.Matrix) == len(matrix) {
+		turned = c.Matrix
+	}
+	tkhd := fullBox("tkhd", 3, u32(0), u32(0), u32(1), u32(0), dur, make([]byte, 8), u16(0), u16(0), u16(0), u16(0), turned, u32(w<<16), u32(h<<16))
 	mdhd := fullBox("mdhd", 0, u32(0), u32(0), u32(1000), dur, u16(0x55c4), u16(0)) // und
 	hdlr := fullBox("hdlr", 0, u32(0), []byte("vide"), make([]byte, 12), []byte("VideoHandler\x00"))
 	vmhd := fullBox("vmhd", 1, u16(0), make([]byte, 6))
