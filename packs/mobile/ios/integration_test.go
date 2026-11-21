@@ -162,6 +162,16 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 		}
 		p.release(d)
 	}
+	// A WebDriverAgent that ended as it started and was launched again is in the packs' log,
+	// which a test that passes does not print: the test says so itself, with what became of
+	// it, so that CI's runs that got over it show it too.
+	t.Cleanup(func() {
+		for _, l := range strings.Split(h.Logged(), "\n") {
+			if strings.Contains(l, "WebDriverAgent ended as it started") {
+				t.Logf("on this test's simulator: %s", l)
+			}
+		}
+	})
 	// The scenario starts now, with all of its time. It ends before the test's other cleanups
 	// run: a failure's report is made before it does, while the app runs.
 	h.NewScenarioWithin(scenarioLimit)

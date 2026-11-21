@@ -953,7 +953,21 @@ jobs:
           SELECT: ${{ matrix.select }}
           AXX_TEST_HOSTED: ${{ matrix.hosted }}
           AXX_TEST_FAILURES: ${{ runner.temp }}/failure
-        run: GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh packs/mobile/ios/ios.test -test.timeout=10m "$SELECT"
+        # (The tests' output is kept for the step after this one; with pipefail, a test that
+        # fails still fails the step.)
+        run: |
+          set -o pipefail
+          GOTEST_FORMAT=standard-verbose GOTEST_SLOWEST=1s scripts/gotest.sh packs/mobile/ios/ios.test -test.timeout=10m "$SELECT" | tee "$RUNNER_TEMP/ios-tests.log"
+      # A WebDriverAgent that ended as it started, which axx launched again: a test that then
+      # passed says it in its log only. A warning on the run's page says so, with what became
+      # of it, so that why it ends shows in the runs that pass too.
+      - if: ${{ !cancelled() }}
+        name: a WebDriverAgent that ended as it started
+        run: |
+          if grep -q 'WebDriverAgent ended as it started' "$RUNNER_TEMP/ios-tests.log" 2> /dev/null; then
+            echo "::warning::WebDriverAgent ended as it started in this job, and axx launched it again: this step's log has what became of it"
+            grep -A 45 'WebDriverAgent ended as it started' "$RUNNER_TEMP/ios-tests.log"
+          fi
       - if: ${{ !cancelled() && !matrix.hosted }}
         uses: ./.github/actions/simulator-builds
         with:
