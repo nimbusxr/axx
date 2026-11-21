@@ -32,8 +32,10 @@ type Config struct {
 type TLSConfig struct {
 	// Verify turns TLS certificate verification on. It is off by default
 	// (relaxed HTTPS validation), so services with self-signed certificates
-	// work out of the box.
-	Verify bool `json:"verify,omitempty"`
+	// work out of the box. Unset, a run says once for each host that is not
+	// this machine that its certificate goes unverified; false says that is
+	// meant, and nothing is said.
+	Verify *bool `json:"verify,omitempty"`
 }
 
 // OpenAPIConfig holds OpenAPI validation defaults.
@@ -51,7 +53,7 @@ const configSchema = `{
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "verify": {"type": "boolean", "description": "Verify TLS certificates (default false)."}
+        "verify": {"type": "boolean", "description": "Verify TLS certificates (default false). Unset, a run says once for each host other than this machine that its certificate goes unverified; false says that is meant."}
       }
     },
     "openapi": {
@@ -90,14 +92,20 @@ func load(s *core.Suite) (*settings, error) {
 		tr := http.DefaultTransport.(*http.Transport).Clone()
 		// Certificate verification is off unless packs.rest.tls.verify is set
 		// (relaxed HTTPS validation).
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: !c.TLS.Verify} //nolint:gosec // documented default, opt in with packs.rest.tls.verify
+		verify := c.TLS.Verify != nil && *c.TLS.Verify
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: !verify} //nolint:gosec // documented default, opt in with packs.rest.tls.verify
 		s.OnClose(func(context.Context) error {
 			tr.CloseIdleConnections()
 			return nil
 		})
+		var transport http.RoundTripper = tr
+		// Left unset, the default is said where it matters: for a host that is not this machine.
+		if c.TLS.Verify == nil {
+			transport = &unverified{next: tr, log: s.Logger()}
+		}
 		return &settings{
 			levels: levels,
-			client: &http.Client{Transport: tr, CheckRedirect: checkRedirect},
+			client: &http.Client{Transport: transport, CheckRedirect: checkRedirect},
 			specs:  &specCache{m: map[string]*specEntry{}},
 		}, nil
 	})
