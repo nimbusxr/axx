@@ -7,6 +7,8 @@
 
 # axx
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16989/badge)](https://www.bestpractices.dev/projects/16989)
+
 **axx** ("axxeptance") is the open-source behavioral verification layer for agentic software
 factories: an acceptance testing framework that verifies running software against executable
 acceptance criteria, black-box, independent of the language, architecture or agent that built it.
