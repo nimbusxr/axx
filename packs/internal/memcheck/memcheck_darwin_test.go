@@ -19,7 +19,11 @@ func TestALibrarysOverflowIsReported(t *testing.T) {
 		t.Skip("needs Xcode's compiler")
 	}
 	work := t.TempDir()
-	reports := t.TempDir()
+	// A folder with a space in its name, as a person's may have.
+	reports := filepath.Join(t.TempDir(), "the reports")
+	if err := os.Mkdir(reports, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv(Env, reports)
 
 	write := func(name, text string) string {

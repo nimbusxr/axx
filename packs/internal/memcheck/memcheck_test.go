@@ -5,6 +5,7 @@ package memcheck
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -40,12 +41,22 @@ func TestCheckedBuild(t *testing.T) {
 }
 
 func TestSourceNamesTheFolder(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), `a "quoted" folder`)
-	t.Setenv(Env, dir)
-	got := string(Source())
-	want := `log_path=` + strings.ReplaceAll(filepath.Join(dir, "report"), `"`, `\"`)
-	if !strings.Contains(got, "__asan_default_options") || !strings.Contains(got, want) {
-		t.Errorf("Source() = %s, want the checker's options with %s", got, want)
+	for _, name := range []string{"reports", "a folder", `a "quoted" folder`, "the checker's folder"} {
+		dir := filepath.Join(t.TempDir(), name)
+		t.Setenv(Env, dir)
+		path := filepath.Join(dir, "report")
+		// As the checker reads its options: the path whole, in quotes it has none of.
+		want := "log_path='" + path + "' abort_on_error=1"
+		if strings.Contains(path, "'") {
+			want = `log_path="` + path + `" abort_on_error=1`
+		}
+		if got := options(); got != want {
+			t.Errorf("options() = %s, want %s", got, want)
+		}
+		// And as C reads the source: a function that returns them, as a string literal.
+		if got, c := string(Source()), strconv.Quote(want); !strings.Contains(got, "__asan_default_options") || !strings.Contains(got, c) {
+			t.Errorf("Source() = %s, want the checker's options as %s", got, c)
+		}
 	}
 }
 

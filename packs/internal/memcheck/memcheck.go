@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 // Env names the folder the reports go to. Empty, nothing is checked.
@@ -70,8 +71,18 @@ const SourceName = "axx-memcheck.c"
 // process for as it starts. Reports go to files in Dir (report.<pid>), not to an app's standard
 // error, which no test reads.
 func Source() []byte {
-	options := "log_path=" + filepath.Join(Dir(), "report") + ":abort_on_error=1"
-	return []byte("const char *__asan_default_options(void) { return " + strconv.Quote(options) + "; }\n")
+	return []byte("const char *__asan_default_options(void) { return " + strconv.Quote(options()) + "; }\n")
+}
+
+// options are the checker's, as it reads them: apart by spaces, the path in quotes, as a path
+// has colons on Windows (the checker's other separator) and may have spaces anywhere.
+func options() string {
+	path := filepath.Join(Dir(), "report")
+	quote := "'"
+	if strings.Contains(path, quote) {
+		quote = `"`
+	}
+	return "log_path=" + quote + path + quote + " abort_on_error=1"
 }
 
 // Reports are the files the checker wrote, one for each process it found a problem in.
