@@ -6,20 +6,16 @@ name: mac-mini
 # self-hosted runner (label mac-mini) in the mac-mini runner group, which only this file, as it is
 # on main, may use: the group names it.
 #
-# Pull requests run here through pull_request_target, which always runs main's copy of this file,
-# never the pull request's: a pull request cannot change what runs on the mini, or where. Only
+# Pull requests run here through the runners workflow (runners.yml), which calls this file as it
+# is on main: the jobs are main's copy, never the pull request's, as the runner group lets in this
+# file at main and nothing else. A pull request cannot change what runs on the mini, or where. Only
 # pull requests from this repository's own branches run, which only people with write access can
 # push; a fork's never does, nor a bot's dependency update: they run once they are merged.
 on:
-  pull_request_target: # zizmor: ignore[dangerous-triggers] main's copy only, and the gate below keeps out forks and bots
-    types: [opened, synchronize, reopened]
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
-  # A pull request's own workflow can call this file as it is on main (`uses: …/mac-mini.yml@main`):
-  # the jobs are then still main's copy, as the runner group lets in this file at main and nothing
-  # else, and the gate below reads the caller's event. That needs no pull_request_target.
+  # runners.yml, for a pull request: the gate below reads the caller's event.
   workflow_call:
 
 permissions:
@@ -27,25 +23,22 @@ permissions:
 
 # One runner: runs queue for it. A pull request's newer push cancels its older run.
 concurrency:
-  group: mac-mini-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request_target' || github.event_name == 'pull_request' }}
+  group: mac-mini-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Which jobs a pull request needs, from the files it changes, with main's scripts/ci-changes.sh
-  # (pull_request_target checks out main) and the pull request's list of files: nothing of the
+  # (the job checks out main) and the pull request's list of files: nothing of the
   # pull request's is checked out here. A push to main runs the jobs for what a bot's merged pull
   # request changed (bots' pull requests do not run here); everyone else's ran before the merge,
   # so their pushes run nothing. Manual runs run every job.
   changes:
-    # The gate: main only (a manual run from another branch could not use the mini anyway); for
-    # pull requests, this repository's branches, not a bot's; for pushes, a bot's merge.
-    # Called from a pull request's workflow (its event is pull_request, its ref the pull request's),
-    # the same: a pull request for main from this repository's branches, not a bot's.
+    # The gate. A push and a manual run: main only (a manual run from another branch could not use
+    # the mini anyway), and of pushes, a bot's merge. A pull request, whose workflow called this
+    # one (the event and the ref are the caller's): one for main, from this repository's branches,
+    # not a bot's.
     if: >-
       (github.ref == 'refs/heads/main' && (
-      (github.event_name == 'pull_request_target' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.user.type != 'Bot') ||
       (github.event_name == 'push' && endsWith(github.event.head_commit.author.name, '[bot]')) ||
       github.event_name == 'workflow_dispatch')) ||
       (github.event_name == 'pull_request' &&
@@ -62,8 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # Main's scripts, for a pull request too (pull_request_target's default; a caller's
-          # pull_request would check out the pull request).
+          # Main's scripts, for a pull request too (by default it would check out the pull request).
           ref: ${{ github.event.pull_request.base.ref || github.sha }}
           fetch-depth: 2 # a push's merge and the commit before it
           persist-credentials: false
@@ -74,7 +66,7 @@ jobs:
           REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$EVENT" = pull_request_target ] || [ "$EVENT" = pull_request ]; then
+          if [ "$EVENT" = pull_request ]; then
             gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' | scripts/ci-changes.sh
           elif [ "$EVENT" = push ] && files=$(git diff --name-only HEAD^1 HEAD); then
             printf '%s\n' "$files" | scripts/ci-changes.sh
@@ -90,7 +82,7 @@ jobs:
     # couriers' iOS app on simulators it makes. The mini keeps what ci.yml's ios job restores
     # every time (WebDriverAgent, the simulators and the iOS runtime's shared cache), its
     # Go and mise caches, and the compose file's images and build cache: nothing is restored or
-    # saved. GitHub's cache is not used at all, as a pull_request_target run would write main's.
+    # saved. GitHub's cache is not used at all.
     # Three simulators run scenarios at once: on the mini, a suite of 38 iOS scenarios took 17m48s
     # on one simulator, 11m20s on two and 9m56s on three.
     runs-on: [self-hosted, macOS, ARM64, mac-mini]
@@ -117,8 +109,7 @@ jobs:
             -c filter.lfs.clean="git-lfs clean -- %f" -c filter.lfs.smudge="git-lfs smudge -- %f" \
             -c filter.lfs.process="git-lfs filter-process" -c filter.lfs.required=true \
             lfs pull
-      # The steps that run it put it on their own PATH: a pull_request_target workflow does not
-      # write $GITHUB_PATH.
+      # The steps that run it put it on their own PATH.
       - name: axx, with every pack
         run: go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
       - name: the couriers' app
@@ -188,8 +179,7 @@ jobs:
         with:
           install_args: "go"
           cache: false
-      # The steps that run it put it on their own PATH: a pull_request_target workflow does not
-      # write $GITHUB_PATH.
+      # The steps that run it put it on their own PATH.
       - name: axx, with every pack
         run: go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
       - name: the desk's build
