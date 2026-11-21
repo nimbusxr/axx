@@ -60,6 +60,15 @@ type Screen struct {
 	HasPointer bool
 }
 
+// CaretFielder is a Process whose app can show a text cursor it gives no place for: GTK 4,
+// before 4.16, says at which character its text's cursor is, and not where on the screen.
+// Window cannot hide such a cursor. CaretField is the focused text field in the picture
+// Window last gave, in its pixels, when its cursor has no place: a comparison takes a cursor's
+// column in it for what it is, on in one picture and off in the other.
+type CaretFielder interface {
+	CaretField() (image.Rectangle, bool)
+}
+
 // Process is an app as it runs on its desktop.
 type Process interface {
 	// Find returns the controls of kind k named name in the app's windows,

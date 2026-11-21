@@ -138,6 +138,14 @@ type traced struct {
 	s *scenario
 }
 
+// CaretField is the process's own, when it has one (CaretFielder).
+func (t traced) CaretField() (image.Rectangle, bool) {
+	if cf, ok := t.Process.(CaretFielder); ok {
+		return cf.CaretField()
+	}
+	return image.Rectangle{}, false
+}
+
 func (t traced) Front() error { t.s.tracing.Wait(); return t.Process.Front() }
 func (t traced) Away() error  { t.s.tracing.Wait(); return t.Process.Away() }
 func (t traced) Leave() error { t.s.tracing.Wait(); return t.Process.Leave() }
