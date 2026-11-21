@@ -490,7 +490,7 @@ jobs:
         # starts the app, as for a run in an agent's sandbox. They are the parts with the model
         # stubs and the camera (1), a whole delivery (2), documents (3), notifications (6) and
         # the scrolls of a web page and of a long list (7).
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "emulator-6", "emulator-7", "emulator-8", "models-1", "models-2", "models-3", "models-lab-1", "models-lab-2", "models-lab-3", "models-lab-4", "models-lab-5", "models-lab-6", "models-lab-7", "models-lab-8", "models-lab-9", "models-lab-10", "models-lab-11", "models-lab-12", "models-lab-13", "models-lab-14", "models-lab-15", "models-lab-16", "models-lab-17", "models-lab-18", "models-lab-19", "models-lab-20", "models-lab-21", "models-lab-22", "models-lab-23", "models-lab-24", "models-lab-25", "models-lab-26", "models-lab-27", "models-lab-28", "models-lab-29", "models-lab-30", "hosted-emulator-1", "hosted-emulator-2", "hosted-emulator-3", "hosted-emulator-6", "hosted-emulator-7"]' || '["emulator-1"]') }}
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["emulator-1", "emulator-2", "emulator-3", "emulator-4", "emulator-5", "emulator-6", "emulator-7", "emulator-8", "models-1", "models-2", "models-3", "models-lab-1", "models-lab-2", "models-lab-3", "models-lab-4", "models-lab-5", "models-lab-6", "models-lab-7", "models-lab-8", "models-lab-9", "models-lab-10", "models-lab-11", "models-lab-12", "hosted-emulator-1", "hosted-emulator-2", "hosted-emulator-3", "hosted-emulator-6", "hosted-emulator-7"]' || '["emulator-1"]') }}
     env:
       PART: ${{ matrix.part }}
       AXX_TEST_HOSTED: ${{ startsWith(matrix.part, 'hosted-') && '1' || '' }}
@@ -613,7 +613,7 @@ jobs:
             models-1) select=(-run '^TestAndroidSpeechTellsOneSpeakersPhrasesApart$') ;;
             models-2) select=(-run '^TestAndroidAppLaunchHook$') ;;
             # TEMPORARY, removed before this merges: the capture test, three times in each of
-            # thirty parts, to see on CI's runners what the device says when its probe hears
+            # twelve parts, to see on CI's runners what the device says when its probe hears
             # silence (it did in two of three reads, once).
             models-lab-*) select=(-run '^TestAndroidCaptureHearsTheRecording$' -count=3) ;;
             *) select=(-skip '^(TestAndroidSpeechTellsOneSpeakersPhrasesApart|TestAndroidAppLaunchHook)$') ;;
