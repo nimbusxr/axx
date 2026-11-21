@@ -1,17 +1,16 @@
-executorch==1.5.1
-torch==2.14.1
+executorch==1.6.0
+torch==2.15.0
 # ExecuTorch needs torchao: PyPI's wheel of it, on every platform. --torch-backend would
 # take PyTorch's CPU build of it to compile, which it does not look for to install.
 torchao @ https://files.pythonhosted.org/packages/c4/4d/485477bb8f05bd501016059c6d8abd742f830cb1b24ab7704e086c7cc35a/torchao-0.18.0-py3-none-any.whl
 # certifi's first release without the root CAs whose intermediate CAs' keys were compromised
-# (GHSA-6q48-6c7w-9gw2): newer than the rest (--exclude-newer-package).
+# (GHSA-6q48-6c7w-9gw2).
 certifi>=2026.10.19
-# filelock's first release whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8): newer
-# than the rest (--exclude-newer-package).
+# filelock's first release whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8).
 filelock>=4.2.1
 # setuptools's first release that keeps a legacy wheel's namespace packages in the environment
-# (GHSA-xmj3-9gf7-h52w): newer than the rest (--exclude-newer-package).
+# (GHSA-xmj3-9gf7-h52w).
 setuptools>=84.1.0
 # Hydra's first release whose legacy target blacklist refuses PyYAML's unsafe loaders
-# (GHSA-wf6j-7hvr-gr93): newer than the rest (--exclude-newer-package).
+# (GHSA-wf6j-7hvr-gr93).
 hydra-core>=1.3.8

@@ -1,13 +1,12 @@
 openai-whisper==20250625
-torch==2.14.1
+torch==2.15.0
 # more-itertools of two weeks or more.
-more-itertools==11.1.0
+more-itertools==11.2.1
 # certifi's first release without the root CAs whose intermediate CAs' keys were compromised
-# (GHSA-6q48-6c7w-9gw2): newer than the rest (--exclude-newer-package).
+# (GHSA-6q48-6c7w-9gw2).
 certifi>=2026.10.19
-# filelock's first release whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8): newer
-# than the rest (--exclude-newer-package).
+# filelock's first release whose lock follows no planted link (GHSA-v4x8-3wr5-3wq8).
 filelock>=4.2.1
 # setuptools's first release that keeps a legacy wheel's namespace packages in the environment
-# (GHSA-xmj3-9gf7-h52w): newer than the rest (--exclude-newer-package).
+# (GHSA-xmj3-9gf7-h52w).
 setuptools>=84.1.0
