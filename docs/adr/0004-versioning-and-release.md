@@ -40,6 +40,19 @@ The WireMock extension and the two editor plugins counted versions of their own 
   `axx-wiremock-v<version>`, `axx-wiremock-<version>-all.jar`. Earlier tags are
   `wiremock-openapi-v<version>`.
 
+## What "frozen" means for a schema (2026-11-21)
+
+The schemas of axx.yaml and the fixture spec files are a contract with every project's files: a
+file a schema accepted is one it goes on accepting. A schema may grow (a new property, a new
+value of an enum, a looser limit, another form of a value) and may not take back what a file
+could say (a property gone or of another type, a value of an enum gone, a tighter limit, a
+property newly required).
+
+`TestSchemaContract` holds each schema to its frozen copy in `testdata/schemas`, by that rule
+(`internal/schemacompat`). What a schema gains is frozen with `-update`, which refuses a change
+that breaks. Until `v1.0.0` the owner may decide on one, with `-break`; from `v1.0.0` on, one
+needs a new major version, as the criteria below say.
+
 ## GA criteria for v1.0.0
 
 The `axx.yaml` v1 schema, CLI JSON/exit-code contract and deprecation

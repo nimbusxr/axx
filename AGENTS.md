@@ -323,6 +323,11 @@ the skills instead: `axx skills install`.
   recorded behavior oracles. **Never edit either by hand**: they define correct behavior. A new
   step joins the catalog with `go test ./internal/engine -run TestStepCatalog -update`, which
   only adds entries.
+- `testdata/schemas`: the frozen copies of the schemas of axx.yaml and the fixture spec files.
+  **Never edit them by hand.** A schema may grow and may not take back what a file could say
+  (`internal/schemacompat`, ADR 0004): after `go generate`, `go test ./schemas -run
+  TestSchemaContract -update` freezes what it gained, and refuses a change that breaks; one the
+  owner decided on is frozen with `-break`.
 - `testdata/openapi-agreement`: exchanges that both OpenAPI validators (the REST pack's and the
   WireMock extension's) must report with the same keys; both test suites read it.
 

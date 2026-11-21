@@ -16,3 +16,16 @@ var files embed.FS
 func Read(name string) ([]byte, error) {
 	return files.ReadFile("v0/" + name)
 }
+
+// Names are the published file names of the schemas.
+func Names() []string {
+	entries, err := files.ReadDir("v0")
+	if err != nil {
+		panic(err) // embedded in the binary
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	return names
+}
