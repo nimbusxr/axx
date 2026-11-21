@@ -40,6 +40,11 @@ The WireMock extension and the two editor plugins counted versions of their own 
   `axx-wiremock-v<version>`, `axx-wiremock-<version>-all.jar`. Earlier tags are
   `wiremock-openapi-v<version>`.
 
+## GA criteria for v1.0.0
+
+The `axx.yaml` v1 schema, CLI JSON/exit-code contract and deprecation
+policy are frozen, and agent-eval success meets its target.
+
 ## Deprecation policy (2026-11-21)
 
 - Nothing is removed within a major version.
@@ -52,8 +57,3 @@ The WireMock extension and the two editor plugins counted versions of their own 
 
 The policy is published as the docs' "Deprecation policy" page. A deprecated step warns today
 (`axx lint`'s deprecated steps check, AXX-E0839, in `axx validate` and `axx run` too).
-
-## GA criteria for v1.0.0
-
-The `axx.yaml` v1 schema, CLI JSON/exit-code contract and deprecation
-policy are frozen, and agent-eval success meets its target.
