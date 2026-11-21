@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2026112101](https://github.com/nimbusxr/axx/compare/axx-wiremock-v0.1.7...axx-wiremock-v0.7.2026112101) (2026-11-21)
+
+
+### Features
+
+* the WireMock extension and the editor plugins take axx's major and minor in their versions ([#388](https://github.com/nimbusxr/axx/issues/388)) ([6a76d0a](https://github.com/nimbusxr/axx/commit/6a76d0a7da6da055c26897fde7f4b51194393eb3))
+
 ## [0.1.7](https://github.com/nimbusxr/axx/compare/wiremock-openapi-v0.1.6...wiremock-openapi-v0.1.7) (2026-11-21)
 
 

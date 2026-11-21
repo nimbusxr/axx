@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2026112101](https://github.com/nimbusxr/axx/compare/vscode-v0.1.0...vscode-v0.7.2026112101) (2026-11-21)
+
+
+### Miscellaneous Chores
+
+* **vscode:** released for axx 0.7
+
 ## 0.1.0 (2026-11-21)
 
 
