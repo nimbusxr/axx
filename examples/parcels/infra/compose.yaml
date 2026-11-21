@@ -19,7 +19,7 @@ name: parcels
 # `image: ghcr.io/nimbusxr/axx-wiremock:<version>` in place of this uses the published one.
 x-wiremock: &wiremock
   build:
-    context: ../../../extensions/wiremock-openapi
+    context: ../../../extensions/axx-wiremock
   image: parcels-wiremock:local
 
 services:

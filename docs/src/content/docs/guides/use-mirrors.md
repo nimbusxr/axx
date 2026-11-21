@@ -110,7 +110,7 @@ Axx pulls no images itself: your project's compose files name them, and Docker p
 ```yaml title="compose.yaml"
 services:
   carriers:
-    image: registry.example.com/ghcr/nimbusxr/axx-wiremock:0.1.5
+    image: registry.example.com/ghcr/nimbusxr/axx-wiremock:0.7
 ```
 
 Axx's own images are `ghcr.io/nimbusxr/axx` (Axx, for CI) and `ghcr.io/nimbusxr/axx-wiremock` (WireMock with Axx's extension, for [mocks](/guides/mock-dependencies/)). Both are on GitHub's container registry, `ghcr.io`, which a registry can mirror as it mirrors Docker Hub.

@@ -21,7 +21,7 @@
     {
       "customType": "regex",
       "description": "WireMock in the axx-wiremock image. WIREMOCK_SHA256 needs a manual update; the image build fails until it matches.",
-      "managerFilePatterns": ["/^extensions/wiremock-openapi/Dockerfile$/"],
+      "managerFilePatterns": ["/^extensions/axx-wiremock/Dockerfile$/"],
       "matchStrings": ["ARG WIREMOCK_VERSION=(?<currentValue>\\S+)"],
       "depNameTemplate": "org.wiremock:wiremock-standalone",
       "datasourceTemplate": "maven"

@@ -149,7 +149,7 @@ public class OpenApiValidatorExtension implements ResponseTransformerV2, AdminAp
     /** What axx (or anyone) needs to know about this extension. */
     Map<String, Object> info() {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("name", "axx-wiremock-openapi");
+        m.put("name", "axx-wiremock");
         m.put("version", version());
         m.put("format", FORMAT);
         m.put("mode", settings.mode().label());

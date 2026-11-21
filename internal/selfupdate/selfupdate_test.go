@@ -52,7 +52,7 @@ func TestNewestHasItsFilesUp(t *testing.T) {
 
 func TestReleasesAreTheCLIsPublishedOnes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`[{"tag_name":"v0.4.0"},{"tag_name":"intellij-v0.2.2"},{"tag_name":"wiremock-openapi-v0.1.0"},{"tag_name":"vscode-v0.1.0"},{"tag_name":"nightly"},{"tag_name":"v0.5.0","draft":true},{"tag_name":"v0.3.1"}]`))
+		_, _ = w.Write([]byte(`[{"tag_name":"v0.4.0"},{"tag_name":"intellij-v0.2.2"},{"tag_name":"wiremock-openapi-v0.1.0"},{"tag_name":"axx-wiremock-v0.7.2026112101"},{"tag_name":"vscode-v0.1.0"},{"tag_name":"nightly"},{"tag_name":"v0.5.0","draft":true},{"tag_name":"v0.3.1"}]`))
 	}))
 	defer srv.Close()
 	c := &Client{API: srv.URL, HTTP: srv.Client()}

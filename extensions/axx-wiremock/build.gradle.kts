@@ -82,7 +82,7 @@ tasks.withType<JavaCompile>().configureEach {
 // The fat jar that goes on WireMock's classpath: the extension plus the validator and its
 // dependencies. WireMock is excluded (compileOnly).
 tasks.shadowJar {
-    archiveBaseName = "axx-wiremock-openapi"
+    archiveBaseName = "axx-wiremock"
     archiveClassifier = "all"
 
     // Merge META-INF/services files; for every other duplicate the first copy wins.
@@ -99,7 +99,7 @@ tasks.shadowJar {
     // placeholders, so whichever jar comes first on the classpath wins and messages degrade to
     // "id: required property '{1}' not found". Renaming our copy of the bundle (its resource
     // files and the base-name constant) makes the messages independent of classpath order.
-    relocate(SimpleRelocator("^jsv-messages", "axx-wiremock-openapi-jsv-messages", rawString = true))
+    relocate(SimpleRelocator("^jsv-messages", "axx-wiremock-jsv-messages", rawString = true))
     // The same validator's classes get a package of their own: another jar on WireMock's
     // classpath (a mounted extension, the MCP SDK in the tests) may bring networknt 3.x, whose
     // classes have the same names and another API.
@@ -107,7 +107,7 @@ tasks.shadowJar {
 
     manifest {
         attributes(
-            "Implementation-Title" to "axx-wiremock-openapi",
+            "Implementation-Title" to "axx-wiremock",
             "Implementation-Version" to project.version,
             "Implementation-Vendor" to "NimbusXR",
         )
@@ -115,7 +115,7 @@ tasks.shadowJar {
 }
 
 tasks.jar {
-    archiveBaseName = "axx-wiremock-openapi"
+    archiveBaseName = "axx-wiremock"
 }
 
 // The published contracts the mocks' answers are validated against in the tests, pinned by commit

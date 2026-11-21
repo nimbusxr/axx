@@ -58,6 +58,12 @@ for `extensions/`, the IntelliJ plugin for `ide/intellij/`, the VS Code extensio
 releases the plugin and not axx. A commit that changes one of those folders and axx's own code
 still releases axx.
 
+axx's versions count. The other three take axx's major and minor and a stamp of the day,
+`0.7.2026112101`, so that a version says which axx it is for and its third number is none to
+match (ADR 0004). When axx moves to another major or minor, the same release PR releases all
+three for it. `scripts/release-please` holds the plugin that gives release-please these
+versions, with its tests (`npm test`).
+
 Nothing is published (releases, images, the Homebrew cask, the IntelliJ plugin, the VS Code extension, the nightly
 build, the docs site, Scorecard results) unless the `AXX_PUBLISH` repository variable is
 `true`. Until then, every run of `release.yml` is a dry run, and so is every manual run and

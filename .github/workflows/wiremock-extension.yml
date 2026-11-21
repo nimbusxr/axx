@@ -11,20 +11,20 @@ name: wiremock-extension
 on:
   pull_request:
     paths:
-      - extensions/wiremock-openapi/**
+      - extensions/axx-wiremock/**
       - testdata/openapi-agreement/**
       - .github/workflows/wiremock-extension.yml
   push:
     branches: [main]
     paths:
-      - extensions/wiremock-openapi/**
+      - extensions/axx-wiremock/**
       - testdata/openapi-agreement/**
       - .github/workflows/wiremock-extension.yml
   workflow_dispatch:
   workflow_call:
     inputs:
       tag:
-        description: release tag to build (wiremock-openapi-v<version>)
+        description: release tag to build (axx-wiremock-v<version>)
         type: string
         required: true
       version:
@@ -50,7 +50,7 @@ env:
 
 defaults:
   run:
-    working-directory: extensions/wiremock-openapi
+    working-directory: extensions/axx-wiremock
 
 jobs:
   test:
@@ -72,8 +72,8 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: wiremock-openapi-test-reports
-          path: extensions/wiremock-openapi/build/reports/tests/
+          name: axx-wiremock-test-reports
+          path: extensions/axx-wiremock/build/reports/tests/
           retention-days: 7
 
   image:
@@ -93,7 +93,7 @@ jobs:
               mirrors = ["mirror.gcr.io"]
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
-          context: extensions/wiremock-openapi
+          context: extensions/axx-wiremock
           load: true
           tags: axx-wiremock:ci
           cache-from: type=gha,scope=axx-wiremock
@@ -158,7 +158,7 @@ jobs:
       - id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
-          context: extensions/wiremock-openapi
+          context: extensions/axx-wiremock
           platforms: linux/amd64,linux/arm64
           push: ${{ !inputs.dry-run }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -207,16 +207,16 @@ jobs:
       - if: ${{ !inputs.dry-run }}
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
-          subject-path: extensions/wiremock-openapi/build/libs/axx-wiremock-openapi-${{ inputs.version }}-all.jar
+          subject-path: extensions/axx-wiremock/build/libs/axx-wiremock-${{ inputs.version }}-all.jar
       - if: ${{ !inputs.dry-run }}
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
           VERSION: ${{ inputs.version }}
-        run: gh release upload "${TAG}" "build/libs/axx-wiremock-openapi-${VERSION}-all.jar" --clobber
+        run: gh release upload "${TAG}" "build/libs/axx-wiremock-${VERSION}-all.jar" --clobber
       - if: ${{ inputs.dry-run }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: axx-wiremock-openapi-jar
-          path: extensions/wiremock-openapi/build/libs/axx-wiremock-openapi-${{ inputs.version }}-all.jar
+          name: axx-wiremock-jar
+          path: extensions/axx-wiremock/build/libs/axx-wiremock-${{ inputs.version }}-all.jar
           retention-days: 14

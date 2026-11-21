@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 name: wiremock-image
 description: >-
-  WireMock with axx's extensions (extensions/wiremock-openapi: a Gradle build inside Docker,
+  WireMock with axx's extensions (extensions/axx-wiremock: a Gradle build inside Docker,
   3 minutes on a runner), the image the parcels example's mocks run, in the runner's Docker under
   the name the example's compose file gives it: from a cache of the image, keyed by the
   extension's files, or built and kept (.github/actions/docker-image). With mode lookup it only
@@ -22,7 +22,7 @@ runs:
     - id: image
       uses: ./.github/actions/docker-image
       with:
-        context: extensions/wiremock-openapi
+        context: extensions/axx-wiremock
         tag: parcels-wiremock:local
         scope: axx-wiremock
         mode: ${{ inputs.mode }}

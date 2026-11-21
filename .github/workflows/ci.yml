@@ -20,7 +20,7 @@ on:
       - examples/**/*.gradle.kts
       - examples/**/gradle/**
       - examples/**/gradle.properties
-      - extensions/wiremock-openapi/**
+      - extensions/axx-wiremock/**
       # the emulator's device (the courier-device job)
       - examples/parcels/courier/android/create-emulator.sh
       # the models-android pack's probe app (.github/actions/android-probe)
@@ -630,7 +630,7 @@ jobs:
 
   # WireMock with axx's extensions, the image the parcels example's mocks run, built once for the
   # run when no run has kept it for the extension's files (.github/actions/wiremock-image): on a
-  # pull request that changes extensions/wiremock-openapi, and on main after it. The jobs that
+  # pull request that changes extensions/axx-wiremock, and on main after it. The jobs that
   # start the example (android's and acceptance) wait for this one and load what it kept. Each
   # of them built the image itself before, at once: 3 minutes of Gradle inside Docker in twenty
   # jobs, to one of which Maven Central answered 429 Too Many Requests. When a run has kept the

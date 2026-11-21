@@ -18,7 +18,7 @@ COPY gradle ./gradle
 COPY src/main ./src/main
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew --no-daemon --console=plain shadowJar -Pversion="${VERSION}" \
-    && cp build/libs/axx-wiremock-openapi-*-all.jar /axx-wiremock-openapi.jar
+    && cp build/libs/axx-wiremock-*-all.jar /axx-wiremock.jar
 
 # WireMock and its gRPC extension, from Maven Central. A download is tried again until its sha256
 # is the one pinned here, so a transfer that goes wrong is fetched again, and never used. The
@@ -57,7 +57,7 @@ ARG VERSION=0.1.0-SNAPSHOT
 LABEL org.opencontainers.image.title="axx-wiremock" \
       org.opencontainers.image.description="WireMock standalone with the axx OpenAPI validation extension (stubs with metadata.openApiSpecSource are validated against their OpenAPI spec), WireMock's gRPC extension (gRPC services from the descriptor sets in grpc/), GraphQL services and subgraphs mocked field by field from their schema (GRAPHQL_SCHEMA_SOURCE), AI models (the model-request matcher and the model-answer transformer), answered in the format of OpenAI, Anthropic, Gemini, Bedrock or Ollama, MCP servers mocked from their description (MCP_SERVER_SOURCE) with tool calls answered by stubs, and A2A agents mocked from their agent card (A2A_AGENT_CARD_SOURCE) with messages answered by stubs." \
       org.opencontainers.image.source="https://github.com/nimbusxr/axx" \
-      org.opencontainers.image.url="https://github.com/nimbusxr/axx/tree/main/extensions/wiremock-openapi" \
+      org.opencontainers.image.url="https://github.com/nimbusxr/axx/tree/main/extensions/axx-wiremock" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.vendor="NimbusXR" \
       org.opencontainers.image.version="${VERSION}"
@@ -66,7 +66,7 @@ COPY --from=jars --chmod=644 /jars/wiremock-standalone.jar /var/wiremock/wiremoc
 
 # The bundled extension lives in lib/ so that mounting jars into /var/wiremock/extensions adds
 # extensions instead of hiding this one.
-COPY --from=build --chmod=644 /axx-wiremock-openapi.jar /var/wiremock/lib/axx-wiremock-openapi.jar
+COPY --from=build --chmod=644 /axx-wiremock.jar /var/wiremock/lib/axx-wiremock.jar
 # On the classpath after wiremock-standalone.jar, so WireMock's classes are the ones loaded,
 # and only when the root dir has a grpc folder (entrypoint.sh).
 COPY --from=jars --chmod=644 /jars/wiremock-grpc-extension.jar /var/wiremock/grpc/wiremock-grpc-extension.jar

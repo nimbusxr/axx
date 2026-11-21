@@ -6,7 +6,7 @@ import "github.com/nimbusxr/axx/internal/oaslevel"
 // can be set on: the keys of the findings the axx WireMock extension records,
 // and their prefixes. The extension validates with the Atlassian swagger
 // request validator (openapi-request-validator-core, see
-// extensions/wiremock-openapi/build.gradle.kts): its message keys, a schema
+// extensions/axx-wiremock/build.gradle.kts): its message keys, a schema
 // failure keyed by the JSON Schema validator's message key (networknt
 // json-schema-validator), and the extension's own validation.spec, for a
 // specification it cannot use.

@@ -196,15 +196,15 @@ browser at it. The host ports are the ones the features use:
 | Service | Image | Host port | Purpose |
 | --- | --- | --- | --- |
 | `app` | built from `../app` | 8400, 8410 | the parcels API under `/api`, the shop portal under `/portal`, OpenAPI at `/openapi.json`, health at `/health`, JSON-RPC at `/rpc`, GraphQL at `/graphql`, its MCP server at `/mcp`, its A2A agent at `/a2a` (card at `/.well-known/agent-card.json`); the tracking API over gRPC on 8410 |
-| `address-service` | built from `extensions/wiremock-openapi` | 8081 | WireMock with Axx's OpenAPI validation extension: the mocked address service |
-| `courier` | built from `extensions/wiremock-openapi` | 8082 | the mocked courier, checked against `openapi/courier.yaml`: express collections (JSON) and pickups (a form) |
-| `shops` | built from `extensions/wiremock-openapi` | 8083 | the mocked shops' systems, checked against `openapi/shop-webhooks.yaml`: the signed webhooks of deliveries |
-| `rating` | built from `extensions/wiremock-openapi` | 8084 | the mocked rating service of the partner carrier, over gRPC (WireMock's gRPC extension) |
-| `shop-directory` | built from `extensions/wiremock-openapi` | 8085 | the shops subgraph, which another team owns, mocked field by field from its schema |
+| `address-service` | built from `extensions/axx-wiremock` | 8081 | WireMock with Axx's OpenAPI validation extension: the mocked address service |
+| `courier` | built from `extensions/axx-wiremock` | 8082 | the mocked courier, checked against `openapi/courier.yaml`: express collections (JSON) and pickups (a form) |
+| `shops` | built from `extensions/axx-wiremock` | 8083 | the mocked shops' systems, checked against `openapi/shop-webhooks.yaml`: the signed webhooks of deliveries |
+| `rating` | built from `extensions/axx-wiremock` | 8084 | the mocked rating service of the partner carrier, over gRPC (WireMock's gRPC extension) |
+| `shop-directory` | built from `extensions/axx-wiremock` | 8085 | the shops subgraph, which another team owns, mocked field by field from its schema |
 | `supergraph` | built from `supergraph/` | (none) | composes the supergraph from the subgraphs' SDL, as a team composes in CI |
 | `gateway` | `ghcr.io/graphql-hive/gateway:2.15.1` | 4000 | the federated graph's gateway (Hive Gateway), which serves the supergraph |
-| `models` | built from `extensions/wiremock-openapi` | 8086 | the model the parcel assistant asks, mocked in the format of its requests (OpenAI's API) |
-| `partner-carrier` | built from `extensions/wiremock-openapi` | 8087 | the partner carrier's MCP server and A2A agent, which the service asks about parcels beyond the EU, mocked from their description and card |
+| `models` | built from `extensions/axx-wiremock` | 8086 | the model the parcel assistant asks, mocked in the format of its requests (OpenAI's API) |
+| `partner-carrier` | built from `extensions/axx-wiremock` | 8087 | the partner carrier's MCP server and A2A agent, which the service asks about parcels beyond the EU, mocked from their description and card |
 | `postgres` | `postgres:16` | 5432 | parcels, manifest lines, pickups and shops' settings |
 | `mongo` | `mongo:7` | 27017 | depot scans and the tracking read model |
 | `kafka` | `apache/kafka-native:4.4.0` | 9092 | single-node KRaft broker |
@@ -217,7 +217,7 @@ browser at it. The host ports are the ones the features use:
 | `exports` | `busybox:1.37` | (none) | empties `exports/`, and makes it writable, before the service starts |
 
 The address service mock builds the WireMock extension from this repository
-(`extensions/wiremock-openapi`). The same image is published as
+(`extensions/axx-wiremock`). The same image is published as
 `ghcr.io/nimbusxr/axx-wiremock`; replace `build:` with `image:` to use it instead. It checks every
 call against `openapi/address-service.yaml` (`OPENAPI_SPEC_SOURCE`) in `report` mode: the service
 gets the stubs' answers unchanged, and a call that breaks the contract fails the scenario that

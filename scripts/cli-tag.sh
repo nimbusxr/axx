@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Prints the CLI's newest release tag (v0.1.0...), or v0.0.0 before the first release. The
 # WireMock extension, the IntelliJ plugin and the VS Code extension are tagged on the same
-# commits (wiremock-openapi-v..., intellij-v..., vscode-v...), so GoReleaser must not guess from
+# commits (axx-wiremock-v..., intellij-v..., vscode-v...), so GoReleaser must not guess from
 # `git describe`:
 #
 #   GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser release --snapshot --clean

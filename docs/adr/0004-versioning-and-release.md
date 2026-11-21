@@ -15,9 +15,30 @@
   images and the Homebrew cask `nimbusxr/tap/axx`.
 - Because `releases/latest` skips pre-releases, install scripts and `setup-axx` resolve
   versions via the releases list API.
-- The JVM components (the WireMock extension and the IntelliJ plugin) are separate
-  release-please components with their own tags.
+- What ships beside axx (the WireMock extension, the IntelliJ plugin, the VS Code extension) are
+  separate release-please components with their own tags, versioned as below.
 - A rolling `nightly` pre-release is built from `main`.
+
+## Versions of what ships beside axx (2026-11-21)
+
+The WireMock extension and the two editor plugins counted versions of their own (`0.1.7`,
+`0.3.12`), and nothing in them said which axx they were for. Their versions now do:
+
+- **`<axx major>.<axx minor>.<stamp>`**, `0.7.2026112101`: the first two numbers are axx's; the
+  third is the day of the release and which release of that day it was, as one number. It is a
+  stamp, not a patch number: a third number that counted beside axx's would read as one to match.
+- A component that changed is released with a new stamp. When axx moves to another major or
+  minor, every component is released for it in the same release PR, changed or not.
+- One form for every store: the VS Code Marketplace takes three numbers and no suffix, and the
+  stamp is a valid third number everywhere (the image's tag, the jar, both plugin stores). It
+  fits 32 bits, and versions sort as they were released.
+- release-please keeps the release PR, the changelogs and the tags. A plugin of ours
+  (`scripts/release-please/stamp.mjs`) gives it these versions before it plans the PR, so
+  `release.yml` runs release-please as a library (`release.mjs`) where it ran the action, which
+  cannot load a plugin.
+- The WireMock extension's folder, tags and jar are named after its image: `extensions/axx-wiremock`,
+  `axx-wiremock-v<version>`, `axx-wiremock-<version>-all.jar`. Earlier tags are
+  `wiremock-openapi-v<version>`.
 
 ## GA criteria for v1.0.0
 
