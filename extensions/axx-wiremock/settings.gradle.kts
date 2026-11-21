@@ -14,4 +14,4 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "axx-wiremock-openapi"
+rootProject.name = "axx-wiremock"

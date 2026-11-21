@@ -1,0 +1,13 @@
+{
+  "name": "axx-release-please",
+  "private": true,
+  "description": "release-please with axx's versions for the components that ship beside it; release.yml runs it",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "release-please": "17.11.2"
+  }
+}

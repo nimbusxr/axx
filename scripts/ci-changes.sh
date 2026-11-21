@@ -65,7 +65,7 @@ while ! $all && ! $none && IFS= read -r f; do
   esac
   # The parcels example's Android scenarios run on an emulator, against the whole example.
   case "$f" in
-    examples/parcels/* | extensions/wiremock-openapi/*) mobile=true ;;
+    examples/parcels/* | extensions/axx-wiremock/*) mobile=true ;;
   esac
   # The depot desk's feature runs against every build of the desk, through the script that
   # limits its run.
@@ -92,7 +92,7 @@ while ! $all && ! $none && IFS= read -r f; do
   # The examples' acceptance suites: axx, the examples, and the WireMock extension the parcels
   # example builds its mocks from.
   case "$f" in
-    cmd/* | core/* | internal/* | packs/* | go.mod | go.sum | mise.toml | examples/* | extensions/wiremock-openapi/*)
+    cmd/* | core/* | internal/* | packs/* | go.mod | go.sum | mise.toml | examples/* | extensions/axx-wiremock/*)
       acceptance=true ;;
   esac
   case "$f" in

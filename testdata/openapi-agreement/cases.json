@@ -1,5 +1,5 @@
 {
-  "description": "Exchanges validated against spec.yaml by both OpenAPI validators (packs/rest and extensions/wiremock-openapi), with the keys both must report. A body that is not a string is sent as JSON.",
+  "description": "Exchanges validated against spec.yaml by both OpenAPI validators (packs/rest and extensions/axx-wiremock), with the keys both must report. A body that is not a string is sent as JSON.",
   "cases": [
     {
       "name": "a valid exchange",

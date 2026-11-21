@@ -318,7 +318,7 @@ Then the mocked partner-carrier mcp server's shipment_status tool was called wit
 And the mocked partner-carrier a2a agent was sent a message containing 'PX-A2A-9206' 1 time
 ```
 
-All settings are in the [extension's README](https://github.com/nimbusxr/axx/tree/main/extensions/wiremock-openapi). To test your own MCP server or A2A agent, see [Test MCP servers](/guides/test-mcp/) and [Test A2A agents](/guides/test-a2a/).
+All settings are in the [extension's README](https://github.com/nimbusxr/axx/tree/main/extensions/axx-wiremock). To test your own MCP server or A2A agent, see [Test MCP servers](/guides/test-mcp/) and [Test A2A agents](/guides/test-a2a/).
 
 ## Check the dependency's contract
 
@@ -327,7 +327,7 @@ A mock that answers something the real API never would makes a test pass for the
 ```yaml title="infra/compose.yaml (excerpt)"
 services:
   address-service:
-    image: ghcr.io/nimbusxr/axx-wiremock:0.1
+    image: ghcr.io/nimbusxr/axx-wiremock:0.7   # the same first two numbers as your axx
     ports: ["8081:8080"]
     environment:
       OPENAPI_SPEC_SOURCE: /var/openapi/address-service.yaml
@@ -389,6 +389,6 @@ Scenario: Quotes keep working when the address service sends a field it has not 
 
 The scenario step only reaches calls the scenario checks with a mock step: the end-of-run check cannot tell which scenario made a call. When a scenario relaxes a mocked service but checks none of its calls, Axx warns at the end of that scenario, and if one of its calls breaks the rule anyway, the run report names the scenario that meant to relax it.
 
-The more specific place wins. Without the extension's `report` mode (`fail`, its default), a call that breaks the contract also gets an HTTP 500 listing the findings; Axx reports it the same way. All settings, the admin endpoints and how the image is versioned are in the [extension's README](https://github.com/nimbusxr/axx/tree/main/extensions/wiremock-openapi).
+The more specific place wins. Without the extension's `report` mode (`fail`, its default), a call that breaks the contract also gets an HTTP 500 listing the findings; Axx reports it the same way. All settings, the admin endpoints and how the image is versioned are in the [extension's README](https://github.com/nimbusxr/axx/tree/main/extensions/axx-wiremock).
 
 Keep mock response bodies schema-valid as the provider's API evolves with [fixture factories](/guides/fixture-factories/): the `json` family can use an OpenAPI component as its schema, which is how the example generates `postcode-remote.json` from `infra/wiremock/__files/postcodes.factory.yaml`.

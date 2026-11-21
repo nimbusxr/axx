@@ -189,11 +189,11 @@ If you start WireMock with `--disable-extensions-scanning`, name the extension e
 
 The extension needs **Java 21** or later and WireMock **3.13.x standalone**. The official
 `wiremock/wiremock` image runs Java 17, so it cannot load the extension. Every release attaches the
-fat jar (`axx-wiremock-openapi-<version>-all.jar`) to its GitHub release. Put it on the classpath
+fat jar (`axx-wiremock-<version>-all.jar`) to its GitHub release. Put it on the classpath
 next to `wiremock-standalone.jar`:
 
 ```sh
-java -cp 'wiremock-standalone.jar:axx-wiremock-openapi-0.1.0-all.jar' wiremock.Run --verbose
+java -cp 'wiremock-standalone.jar:axx-wiremock-0.1.0-all.jar' wiremock.Run --verbose
 ```
 
 With the Java API, register it with `extensions(OpenApiValidatorExtension.class)` or
@@ -427,15 +427,20 @@ agent's answer, written simply:
 
 ## Versions
 
-The extension is versioned on its own (SemVer), next to axx: merging its release-please PR tags
-`wiremock-openapi-v<version>` and publishes:
+The extension's version says which axx it is for: its first two numbers are axx's major and
+minor, and its third is a stamp, the day of the release and which release of that day it was
+(`0.7.2026112101`). The third number is not one to match: any `0.7` extension goes with any
+`0.7` axx. Merging the release PR tags `axx-wiremock-v<version>` and publishes:
 
 | Image tag | Moves? | Use it for |
 | --- | --- | --- |
-| `<version>`, e.g. `0.1.0` | never | reproducible setups; bump it on purpose |
-| `<major>.<minor>`, e.g. `0.1` | with every patch release of that line | compose files that should get fixes |
+| `<major>.<minor>`, e.g. `0.7` | with every release for that axx | the one to use: the same first two numbers as your axx |
+| `<version>`, e.g. `0.7.2026112101` | never | reproducible setups; bump it on purpose |
 | `latest` | with every release | trying things out, never CI |
 | `edge` | with every change on `main` | testing unreleased changes |
+
+A fix to the extension gets a new stamp, and when axx moves to another major or minor, the
+extension is released for it the same day, changed or not.
 
 Each extension version pins one WireMock version (`WIREMOCK_VERSION` in the `Dockerfile`); a
 WireMock upgrade is an extension release. Until `1.0.0` a minor version may break things, as in
@@ -443,13 +448,12 @@ axx itself.
 
 **axx and the extension.** axx reads the extension's records through two things only: the
 `openapi-validation` sub-event and its `format` number. New fields in a record keep the format; a
-change axx must understand gets a new format number and a new minor (before 1.0) or major
+change axx must understand gets a new format number, with axx's next minor (before 1.0) or major
 version. axx reads one format and says so when a mock records another, with the versions to line
 up. `GET /__admin/openapi-validation` shows the version and format of a running mock.
 
-| axx | axx-wiremock | Findings format |
-| --- | --- | --- |
-| 0.1.x | 0.1.x | 1 |
+Before `0.7`, the extension counted its own versions (`0.1.0` to `0.1.7`, tags
+`wiremock-openapi-v<version>`), which went with axx `0.1` to `0.7`; all of them record format 1.
 
 ## Building
 
@@ -458,7 +462,7 @@ build: run it from this directory.
 
 ```sh
 ./gradlew test        # unit and integration tests (against the shaded jar)
-./gradlew shadowJar   # build/libs/axx-wiremock-openapi-<version>-all.jar
+./gradlew shadowJar   # build/libs/axx-wiremock-<version>-all.jar
 docker build -t axx-wiremock:dev .
 ./smoke-test.sh axx-wiremock:dev
 ```

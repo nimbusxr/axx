@@ -16,6 +16,8 @@ Axx's steps are defined inside the `axx` binary, not in your project, so an edit
 
 The steps are the ones your project loads, custom packs included ([Choose packs](/guides/use-packs/)). The server finds the project's `axx.yaml` itself, even when it is in a subdirectory of the folder you opened.
 
+Each plugin's version starts with the major and minor of the axx it was released for (`0.7.…`); its third number is the day of its release.
+
 ## IntelliJ IDEA
 
 Needs IntelliJ IDEA 2026.1.4 or later (or another JetBrains IDE of that version).

@@ -18,10 +18,10 @@
       ],
       "changelog-path": "CHANGELOG.md"
     },
-    "extensions/wiremock-openapi": {
+    "extensions/axx-wiremock": {
       "release-type": "simple",
       "package-name": "axx-wiremock",
-      "component": "wiremock-openapi",
+      "component": "axx-wiremock",
       "include-component-in-tag": true,
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
@@ -49,8 +49,17 @@
       "package-name": "axx-vscode",
       "component": "vscode",
       "include-component-in-tag": true,
-      "changelog-path": "CHANGELOG.md",
-      "initial-version": "0.1.0"
+      "changelog-path": "CHANGELOG.md"
     }
-  }
+  },
+  "plugins": [
+    {
+      "type": "axx-stamp",
+      "components": [
+        "axx-wiremock",
+        "intellij",
+        "vscode"
+      ]
+    }
+  ]
 }

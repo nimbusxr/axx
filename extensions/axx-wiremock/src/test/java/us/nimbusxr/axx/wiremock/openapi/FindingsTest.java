@@ -223,7 +223,7 @@ class FindingsTest {
         assertThat(response.statusCode()).isEqualTo(200);
         Map<String, Object> info = ProblemBody.read(response.body());
         assertThat(info)
-                .containsEntry("name", "axx-wiremock-openapi")
+                .containsEntry("name", "axx-wiremock")
                 .containsEntry("format", OpenApiValidatorExtension.FORMAT)
                 .containsEntry("mode", "report")
                 .containsKey("version");

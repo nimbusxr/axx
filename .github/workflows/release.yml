@@ -29,6 +29,8 @@ on:
       - internal/tools/androidscroll/**
       - .github/workflows/wiremock-extension.yml
       - .github/workflows/intellij-plugin.yml
+      - scripts/release-please/**
+      - .release-please-manifest.json
       # What the VS Code extension's listing and package are made of.
       - ide/vscode/package.json
       - ide/vscode/.vscodeignore
@@ -54,9 +56,9 @@ jobs:
       dry-run: ${{ steps.mode.outputs.dry-run }}
       axx: ${{ steps.rp.outputs.release_created || steps.dry.outputs.axx }}
       axx_tag: ${{ steps.rp.outputs.tag_name }}
-      wiremock: ${{ steps.rp.outputs['extensions/wiremock-openapi--release_created'] || steps.dry.outputs.wiremock }}
-      wiremock_tag: ${{ steps.rp.outputs['extensions/wiremock-openapi--tag_name'] }}
-      wiremock_version: ${{ steps.rp.outputs['extensions/wiremock-openapi--version'] || steps.dry.outputs.wiremock_version }}
+      wiremock: ${{ steps.rp.outputs['extensions/axx-wiremock--release_created'] || steps.dry.outputs.wiremock }}
+      wiremock_tag: ${{ steps.rp.outputs['extensions/axx-wiremock--tag_name'] }}
+      wiremock_version: ${{ steps.rp.outputs['extensions/axx-wiremock--version'] || steps.dry.outputs.wiremock_version }}
       intellij: ${{ steps.rp.outputs['ide/intellij--release_created'] || steps.dry.outputs.intellij }}
       intellij_tag: ${{ steps.rp.outputs['ide/intellij--tag_name'] }}
       intellij_version: ${{ steps.rp.outputs['ide/intellij--version'] || steps.dry.outputs.intellij_version }}
@@ -87,41 +89,49 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
           permission-issues: write
-      - if: steps.mode.outputs.dry-run == 'false'
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
-        id: rp
-        with:
-          token: ${{ steps.app.outputs.token }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-
-      # Dry run: the release PR release-please would open, read-only, and every component
-      # built at the version its next release would get.
-      - if: steps.mode.outputs.dry-run == 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # release-please, from scripts/release-please: the library the action runs, with axx's
+      # versions for the components that ship beside it (stamp.mjs), which the action cannot load.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - if: steps.mode.outputs.dry-run == 'true'
-        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           install_args: "node"
           cache: false # this job also publishes
+      - name: install release-please
+        working-directory: scripts/release-please
+        run: npm ci --no-audit --no-fund --ignore-scripts
+      - if: steps.mode.outputs.dry-run == 'false'
+        id: rp
+        working-directory: scripts/release-please
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: node release.mjs release
+
+      # Dry run: the plugin's tests, then the release PR release-please would open, read-only: for
+      # a pull request, as its own branch has release-please-config.json and its commits. Every
+      # component is then built as a release would build it.
+      - if: steps.mode.outputs.dry-run == 'true'
+        working-directory: scripts/release-please
+        run: npm test
       - if: steps.mode.outputs.dry-run == 'true'
         name: release-please (dry run)
+        working-directory: scripts/release-please
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          # A pull request of this repository's: its branch. A fork's has no branch here.
+          TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || 'main' }}
         run: |
           out=$(mktemp)
           status=0
-          npx -y release-please@17.11.2 release-pr --dry-run --token "$GH_TOKEN" --repo-url "$REPO" \
-            --target-branch main --config-file release-please-config.json \
-            --manifest-file .release-please-manifest.json >"$out" 2>&1 || status=$?
+          node release.mjs dry-run >"$out" 2>&1 || status=$?
           cat "$out"
           {
             echo "### release-please (dry run)"
             echo
-            echo "What release-please would do on \`main\` (it reads the branch on GitHub, not this checkout):"
+            echo "What release-please would do on \`$TARGET_BRANCH\` (it reads the branch on GitHub, not this checkout):"
             echo
             echo '```'
             cat "$out"
@@ -135,7 +145,7 @@ jobs:
           {
             echo "axx=true"
             echo "wiremock=true"
-            echo "wiremock_version=$(version extensions/wiremock-openapi)"
+            echo "wiremock_version=$(version extensions/axx-wiremock)"
             echo "intellij=true"
             echo "intellij_version=$(version ide/intellij)"
             echo "vscode=true"
@@ -480,7 +490,7 @@ jobs:
 
   # ghcr.io/nimbusxr/axx-wiremock:<version>, :<major>.<minor> and :latest, plus the fat jar
   # attached to the release. A dry run builds both without publishing.
-  wiremock-openapi:
+  axx-wiremock:
     needs: release-please
     if: needs.release-please.outputs.wiremock == 'true'
     permissions:

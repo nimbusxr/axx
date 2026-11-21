@@ -313,8 +313,12 @@ the skills instead: `axx skills install`.
   compares the values `core.ParseValue` reads; `internal/jsonassert` checks them at a document's
   JSONPaths, and `internal/tablevalue` builds the object a table's paths and values make, for the
   steps that send one they make from scratch.
-- `extensions/wiremock-openapi`, `ide/intellij`: JVM parts (the WireMock extension and the IntelliJ plugin).
+- `extensions/axx-wiremock`, `ide/intellij`: JVM parts (the WireMock extension and the IntelliJ plugin).
 - `ide/vscode`: the VS Code extension (TypeScript). Both editor clients run `axx lsp` (`internal/lsp`).
+- `scripts/release-please`: release-please as `release.yml` runs it (`release.mjs`), with the plugin
+  (`stamp.mjs`) that versions what ships beside axx, `extensions/axx-wiremock` and the two editor
+  plugins: axx's major and minor, then a stamp of the day (`0.7.2026112101`; ADR 0004). Keep the
+  three in its `components`, and a new component that ships beside axx too.
 - `testdata/steps.json`: the frozen catalog of the step text of axx's packs. `testdata/oracles`:
   recorded behavior oracles. **Never edit either by hand**: they define correct behavior. A new
   step joins the catalog with `go test ./internal/engine -run TestStepCatalog -update`, which
