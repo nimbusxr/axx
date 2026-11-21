@@ -151,6 +151,11 @@ func (h *hostSide) ops() map[string]hostwire.Handler {
 				return err
 			}
 			a.PNG, a.Scale = encodePNG(img), scale
+			if cf, ok := p.Process.(CaretFielder); ok {
+				if field, ok := cf.CaretField(); ok {
+					a.CaretField = &field
+				}
+			}
 			return nil
 		}),
 		"proc.tree": h.proc(func(p *served, a *procAnswer, _ procParams) error {

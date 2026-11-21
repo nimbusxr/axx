@@ -251,6 +251,16 @@ func looksLike(sc *core.Scenario, app string, p Process, name string, wait time.
 			if last.SameSize && float64(last.Differ) <= cfg.tolerance*float64(last.Pixels) {
 				return nil
 			}
+			// A text cursor the app gives no place for, on in one of the two and off in the
+			// other: no difference, whichever of them the screenshot was taken with.
+			if r, ok := unplacedCaret(p, expected, b); ok {
+				caret = r
+				expected, b = HideCaret(expected, r), HideCaret(b, r)
+				shot, last = b, imagediff.Compare(expected, b, imagediff.Options{})
+				if last.SameSize && float64(last.Differ) <= cfg.tolerance*float64(last.Pixels) {
+					return nil
+				}
+			}
 		}
 		if time.Now().After(deadline) {
 			break
@@ -340,6 +350,27 @@ func blinked(a, b image.Image) (image.Rectangle, bool) {
 		return image.Rectangle{}, false
 	}
 	return image.Rect(box.Min.X-1, box.Min.Y-2, box.Max.X+1, box.Max.Y+2), true
+}
+
+// unplacedCaret is where a screenshot and a look differ by a text cursor alone, in the focused
+// text field of an app that gives its cursor no place (CaretFielder): what Window could not
+// hide, and what no wait for a blink finds once the cursor has stopped blinking (GTK's does,
+// after ten seconds).
+func unplacedCaret(p Process, expected, look image.Image) (image.Rectangle, bool) {
+	cf, ok := p.(CaretFielder)
+	if !ok {
+		return image.Rectangle{}, false
+	}
+	field, ok := cf.CaretField()
+	if !ok {
+		return image.Rectangle{}, false
+	}
+	r, ok := blinked(expected, look)
+	// The column as blinked gives it, a pixel or two past the cursor each way.
+	if !ok || !r.In(field.Inset(-3)) {
+		return image.Rectangle{}, false
+	}
+	return r, true
 }
 
 // restWait is how long a look taken as a screenshot stays the same before it
