@@ -10,7 +10,7 @@ import (
 
 // patchRevision names the patched driver: prepared drivers of an earlier
 // revision are prepared again.
-const patchRevision = 5
+const patchRevision = 6
 
 // Playwright's Inspector and recorder speak Playwright's languages; these
 // patches teach them the steps of the web-core pack. They apply to exactly the

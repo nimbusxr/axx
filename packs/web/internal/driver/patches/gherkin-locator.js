@@ -1,4 +1,4 @@
-class {
+(class {
   generateLocator(base, kind, body, options = {}) {
     const quoted = (text) => {
       if (text instanceof RegExp)
@@ -80,4 +80,4 @@ class {
       throw new Error("no step finds an element inside another");
     return parts[0];
   }
-}
+})

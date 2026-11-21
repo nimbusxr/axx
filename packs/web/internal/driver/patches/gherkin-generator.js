@@ -1,4 +1,4 @@
-class {
+(class {
   constructor() {
     this.id = "axx";
     this.groupName = "axx";
@@ -115,4 +115,4 @@ class {
     }
     return [["comment", action.name + " has no step"]];
   }
-}
+})

@@ -174,6 +174,24 @@ func TestTheGherkinLanguage(t *testing.T) {
 	}
 }
 
+// Each patch is JavaScript on its own too, so that what reads the repository's JavaScript
+// (the code scanning) reads the patches: a class a patch gives is in parentheses, not bare.
+func TestEachPatchParsesOnItsOwn(t *testing.T) {
+	dir, err := Ensure(context.Background(), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := filepath.Glob("patches/*.js")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no patches: %v", err)
+	}
+	for _, file := range files {
+		if out, err := exec.Command(filepath.Join(dir, "node"), "--check", file).CombinedOutput(); err != nil {
+			t.Errorf("%s does not parse: %v\n%s", file, err, out)
+		}
+	}
+}
+
 func mustJSON(t *testing.T, v any) string {
 	t.Helper()
 	b, err := json.Marshal(v)
