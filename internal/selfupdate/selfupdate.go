@@ -111,8 +111,9 @@ func (r Release) has(name string) bool {
 	return false
 }
 
-// cliTag matches the CLI's tags: the WireMock extension and the IntelliJ plugin
-// have releases of their own (wiremock-openapi-v*, intellij-v*), and nightly.
+// cliTag matches the CLI's tags: the WireMock extension, the IntelliJ plugin and the
+// VS Code extension have releases of their own (wiremock-openapi-v*, intellij-v*,
+// vscode-v*), and nightly.
 var cliTag = regexp.MustCompile(`^v\d`)
 
 // Releases lists the CLI's published releases, newest first. Every 0.x release

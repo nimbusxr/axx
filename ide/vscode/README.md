@@ -44,6 +44,8 @@ in the Testing view.
 
 ## Requirements
 
+VS Code 1.125 or later, or an editor built on that version.
+
 Axx must be installed and on your `PATH`, in a version that has the `axx lsp` command and the
 `teamcity` report format (check with `axx lsp --help` and `axx run --help`). See
 [Install Axx](https://axx.nimbusxr.us/guides/install/). If it's installed somewhere else, set
