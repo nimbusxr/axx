@@ -3,18 +3,18 @@ name: codeql
 
 # A pull request analyzes what it changes (the release PR too), and one that changes no language's
 # files the workflows: every merged change has a code scanning result. What it merges is not
-# analyzed again. The weekly run analyzes main whole, the baseline the Security tab shows, and so
+# analyzed again. The nightly run analyzes main whole, the baseline the Security tab shows, and so
 # does a manual run.
 on:
   pull_request:
   schedule:
-    - cron: "17 4 * * 1"
+    - cron: "17 4 * * *"
   workflow_dispatch:
 
 permissions: {}
 
 jobs:
-  # A pull request analyzes the languages it changes (scripts/ci-changes.sh); the weekly run
+  # A pull request analyzes the languages it changes (scripts/ci-changes.sh); the nightly run
   # analyzes them all. Go has no build-free mode: CodeQL's autobuild builds the
   # module with the Go version go.mod asks for.
   languages:
