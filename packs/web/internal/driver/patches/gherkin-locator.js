@@ -1,9 +1,15 @@
 (class {
   generateLocator(base, kind, body, options = {}) {
+    // A step's quoted text has \" for a quote and no other escape (Cucumber's rule, which axx
+    // keeps): a backslash is a backslash. So one before a quote, or the last, has no way in, and
+    // neither has a line break.
     const quoted = (text) => {
       if (text instanceof RegExp)
         throw new Error("no step finds an element by a pattern");
-      return JSON.stringify(String(text));
+      text = String(text);
+      if (/\\"|\\$|[\r\n]/.test(text))
+        throw new Error("no step writes this name");
+      return '"' + text.split('"').join('\\"') + '"';
     };
     switch (kind) {
       case "frame-locator":
