@@ -30,12 +30,12 @@ type Config struct {
 
 // TLSConfig configures HTTPS.
 type TLSConfig struct {
-	// Verify turns TLS certificate verification on. It is off by default
-	// (relaxed HTTPS validation), so services with self-signed certificates
-	// work out of the box. Unset, a run says once for each host that is not
-	// this machine that its certificate goes unverified; false says that is
-	// meant, and nothing is said.
-	Verify *bool `json:"verify,omitempty"`
+	// Verify is what a certificate that does not verify does to a request:
+	// warn (the default) says so and lets it go on, so services with
+	// certificates of their own work out of the box; error fails it; ignore
+	// verifies nothing. true and false are the earlier names of error and
+	// ignore.
+	Verify Verify `json:"verify,omitempty"`
 }
 
 // OpenAPIConfig holds OpenAPI validation defaults.
@@ -53,7 +53,7 @@ const configSchema = `{
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "verify": {"type": "boolean", "description": "Verify TLS certificates (default false). Unset, a run says once for each host other than this machine that its certificate goes unverified; false says that is meant."}
+        "verify": {"enum": ["warn", "error", "ignore", true, false], "description": "What a TLS certificate that does not verify does to a request: warn (the default) says so once for each host and lets the request go on; error fails it; ignore verifies nothing. true and false are the earlier names of error and ignore."}
       }
     },
     "openapi": {
@@ -90,18 +90,17 @@ func load(s *core.Suite) (*settings, error) {
 			return nil, fmt.Errorf("openapi.levels: %w", err)
 		}
 		tr := http.DefaultTransport.(*http.Transport).Clone()
-		// Certificate verification is off unless packs.rest.tls.verify is set
-		// (relaxed HTTPS validation).
-		verify := c.TLS.Verify != nil && *c.TLS.Verify
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: !verify} //nolint:gosec // documented default, opt in with packs.rest.tls.verify
+		// Only packs.rest.tls.verify: error has a certificate that does not verify fail its
+		// request (relaxed HTTPS validation).
+		verify := c.TLS.Verify.orWarn()
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: verify != VerifyError} //nolint:gosec // documented default: warn says which certificates do not verify, error fails them
 		s.OnClose(func(context.Context) error {
 			tr.CloseIdleConnections()
 			return nil
 		})
 		var transport http.RoundTripper = tr
-		// Left unset, the default is said where it matters: for a host that is not this machine.
-		if c.TLS.Verify == nil {
-			transport = &unverified{next: tr, log: s.Logger()}
+		if verify == VerifyWarn {
+			transport = &warned{next: tr, log: s.Logger(), verify: verifies}
 		}
 		return &settings{
 			levels: levels,

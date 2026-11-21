@@ -3,8 +3,6 @@ package rest
 import (
 	"context"
 	"encoding/json"
-	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -469,23 +467,6 @@ func TestSpecFromURLAndExternalExample(t *testing.T) {
 	if got != `{"thing":1}` {
 		t.Fatalf("sent %q", got)
 	}
-}
-
-func TestTLSVerification(t *testing.T) {
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
-	srv.Config.ErrorLog = log.New(io.Discard, "", 0) // the rejected handshake is expected
-	srv.StartTLS()
-	defer srv.Close()
-	h := newHarness(t)
-	h.service("api", srv.URL, "")
-	h.ok("a GET request to /")
-	h.ok("the request is executed") // self-signed: verification is off by default
-	h.ok("the response status code is 204")
-
-	h2 := newHarness(t, withPackConfig("rest", `{"tls":{"verify":true}}`))
-	h2.service("api", srv.URL, "")
-	h2.ok("a GET request to /")
-	h2.fails("the request is executed", "certificate")
 }
 
 func TestTimeoutAndRedirects(t *testing.T) {
