@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+name: nightly
+description: >-
+  What a job's tests left for the nightly run (scripts/gotest.sh, with AXX_NIGHTLY): the profiles
+  of the statements they ran, kept for the coverage job to add up, and the memory checker's
+  reports, each a fault in axx's C, C++ or Objective-C, which fail the job and are kept with it.
+  A job that left neither does nothing here.
+runs:
+  using: composite
+  steps:
+    - id: left
+      shell: bash
+      run: |
+        temp=${RUNNER_TEMP//\\//} # a Windows runner's, for bash
+        # A name of its own for each job of a matrix.
+        echo "name=$GITHUB_JOB-$RANDOM$RANDOM" >> "$GITHUB_OUTPUT"
+        if compgen -G "$temp/coverage/*.out" > /dev/null; then
+          echo "coverage=true" >> "$GITHUB_OUTPUT"
+        fi
+        if compgen -G "$temp/memcheck/report.*" > /dev/null; then
+          echo "faults=true" >> "$GITHUB_OUTPUT"
+          for report in "$temp"/memcheck/report.*; do
+            echo "::error::The memory checker found a fault in axx's native code ($(basename "$report")): its report is below, and kept with the run."
+            sed -n '1,80p' "$report"
+          done
+        fi
+    - if: steps.left.outputs.coverage == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      with:
+        name: coverage-${{ steps.left.outputs.name }}
+        path: ${{ runner.temp }}/coverage/*.out
+        retention-days: 3
+    - if: steps.left.outputs.faults == 'true'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      with:
+        name: memory-faults-${{ steps.left.outputs.name }}
+        path: ${{ runner.temp }}/memcheck/report.*
+        retention-days: 30
+    - if: steps.left.outputs.faults == 'true'
+      shell: bash
+      run: exit 1
