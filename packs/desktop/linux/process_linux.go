@@ -27,6 +27,9 @@ type proc struct {
 	in  seat
 	// wayland is whether the app runs on a Wayland desktop.
 	wayland bool
+	// cut is where the picture Window last gave starts on the screen: the window's corner, or
+	// the screen's own for a picture of all of it.
+	cut image.Point
 	// root is the app on the accessibility bus, from its first window on;
 	// c is the bus, tray the desktop's tray, and trayOpen whether the menu of
 	// the app's icon there is open.
@@ -584,6 +587,7 @@ func (p *proc) Window() (image.Image, float64, error) {
 	}
 	w := p.window()
 	if w == nil {
+		p.cut = image.Point{}
 		return shot, 1, nil // a tray app with no window: the screen
 	}
 	r := w.Extents()
@@ -592,12 +596,14 @@ func (p *proc) Window() (image.Image, float64, error) {
 	if x, ok := p.in.Window(p.pid); ok {
 		r = atspi.Rect{X: int32(x.Min.X), Y: int32(x.Min.Y), Width: int32(x.Dx()), Height: int32(x.Dy())}
 	} else if !placed(r) || p.flutter {
+		p.cut = image.Point{}
 		if at, ok := p.caret(); ok {
 			return desktopcore.HideCaret(shot, at), 1, nil
 		}
 		return shot, 1, nil
 	}
 	rect := image.Rect(int(r.X), int(r.Y), int(r.X+r.Width), int(r.Y+r.Height)).Intersect(shot.Bounds())
+	p.cut = rect.Min
 	out := image.NewRGBA(image.Rect(0, 0, rect.Dx(), rect.Dy()))
 	draw.Draw(out, out.Bounds(), shot, rect.Min, draw.Src)
 	if at, ok := p.caret(); ok {
@@ -606,12 +612,9 @@ func (p *proc) Window() (image.Image, float64, error) {
 	return out, 1, nil
 }
 
-// caret is where the text cursor of the window's focused text is on the
-// screen: a column a few pixels wide, a line high. A line said to be outside
-// its text is the text's height: the cursor is in it.
-func (p *proc) caret() (image.Rectangle, bool) {
-	// The innermost element that has the focus: a web view has it, and the
-	// field in its page.
+// focusedText is the innermost element of the window that has the focus: a web view has it,
+// and the field in its page.
+func (p *proc) focusedText() *atspi.Element {
 	var f *atspi.Element
 	n := 0
 	var walk func(e *atspi.Element) bool
@@ -634,6 +637,32 @@ func (p *proc) caret() (image.Rectangle, bool) {
 	if w := p.window(); w != nil {
 		walk(w)
 	}
+	return f
+}
+
+// CaretField is the focused text field in the picture Window last gave, when it has a cursor
+// the app gives no place for (GTK 4 before 4.16): Window could not hide it
+// (desktopcore.CaretFielder).
+func (p *proc) CaretField() (image.Rectangle, bool) {
+	f := p.focusedText()
+	if f == nil || !f.HasCaret() {
+		return image.Rectangle{}, false
+	}
+	if _, known := f.Caret(); known {
+		return image.Rectangle{}, false
+	}
+	t := f.Extents()
+	if !placed(t) {
+		return image.Rectangle{}, false
+	}
+	return image.Rect(int(t.X), int(t.Y), int(t.X+t.Width), int(t.Y+t.Height)).Sub(p.cut), true
+}
+
+// caret is where the text cursor of the window's focused text is on the
+// screen: a column a few pixels wide, a line high. A line said to be outside
+// its text is the text's height: the cursor is in it.
+func (p *proc) caret() (image.Rectangle, bool) {
+	f := p.focusedText()
 	if f == nil {
 		return image.Rectangle{}, false
 	}

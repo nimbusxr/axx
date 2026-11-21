@@ -68,7 +68,7 @@ func TestCatalogCoversSource(t *testing.T) {
 	}
 	for _, e := range Catalog() {
 		if _, ok := used[e.Code]; !ok {
-			t.Errorf("catalog entry %s is not used anywhere; remove it", e.Code)
+			t.Errorf("catalog entry %s is not used anywhere; remove it, and when the owner decided that axx no longer reports it, retire it (TestCLIContract -retire)", e.Code)
 		}
 		if e.Title == "" || e.Meaning == "" || e.Fix == "" {
 			t.Errorf("%s: title, meaning and fix are required", e.Code)
