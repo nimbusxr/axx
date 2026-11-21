@@ -14,7 +14,14 @@ name: reatan
 on:
   push:
     branches: [main]
+  # By hand, or for a pull request, whose own run hands it over (`gh workflow run`, with its
+  # number): starting a workflow takes a token that writes, which a fork's pull request never has.
   workflow_dispatch:
+    inputs:
+      pr:
+        description: A pull request's number, to run its code. Empty runs main's.
+        type: string
+        required: false
   # runners.yml, for a pull request: the gate below reads the caller's event.
   workflow_call:
 
@@ -23,8 +30,8 @@ permissions:
 
 # One runner: runs queue for it. A pull request's newer push cancels its older run.
 concurrency:
-  group: reatan-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: reatan-${{ github.event_name }}-${{ github.event.inputs.pr || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event.inputs.pr != '' }}
 
 jobs:
   # Which jobs a pull request needs, from the files it changes, with main's scripts/ci-changes.sh
@@ -36,7 +43,8 @@ jobs:
     # The gate. A push and a manual run: main only (a manual run from another branch could not use
     # the Reatan anyway), and of pushes, a bot's merge. A pull request, whose workflow called this
     # one (the event and the ref are the caller's): one for main, from this repository's branches,
-    # not a bot's.
+    # not a bot's. A pull request handed over (a manual run with its number) is held to the same
+    # by the first step, from what GitHub says of it.
     if: >-
       (github.ref == 'refs/heads/main' && (
       (github.event_name == 'push' && endsWith(github.event.head_commit.author.name, '[bot]')) ||
@@ -49,7 +57,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      statuses: write # a handed-over pull request's status
     outputs:
+      sha: ${{ steps.changes.outputs.sha }}
       desktop: ${{ steps.changes.outputs.desktop }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -62,16 +72,43 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           PR: ${{ github.event.pull_request.number }}
+          HANDED: ${{ github.event.inputs.pr }}
           REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$EVENT" = pull_request ]; then
+          if [ "$EVENT" = workflow_dispatch ] && [ -n "$HANDED" ]; then
+            case "$HANDED" in
+              *[!0-9]*)
+                echo "::error::Not a pull request's number: $HANDED" >&2
+                exit 1
+                ;;
+            esac
+            pull=$(gh api "repos/$REPO/pulls/$HANDED")
+            if jq -e --arg repo "$REPO" '.state == "open" and .base.ref == "main" and
+                .head.repo.full_name == $repo and .user.type != "Bot"' <<<"$pull" > /dev/null; then
+              echo "sha=$(jq -r .head.sha <<<"$pull")"
+              gh api "repos/$REPO/pulls/$HANDED/files" --paginate --jq '.[].filename' | scripts/ci-changes.sh
+            else
+              echo "::notice::Pull request $HANDED does not run here: only an open one for main, from this repository's branches, not a bot's." >&2
+              scripts/ci-changes.sh --none
+            fi
+          elif [ "$EVENT" = pull_request ]; then
             gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' | scripts/ci-changes.sh
           elif [ "$EVENT" = push ] && files=$(git diff --name-only HEAD^1 HEAD); then
             printf '%s\n' "$files" | scripts/ci-changes.sh
           else
             scripts/ci-changes.sh --all
           fi | tee -a "$GITHUB_OUTPUT"
+      - if: steps.changes.outputs.sha != '' && steps.changes.outputs.desktop == 'true'
+        name: tell the pull request it runs here
+        env:
+          SHA: ${{ steps.changes.outputs.sha }}
+          REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$REPO/statuses/$SHA" -f state=pending -f context=reatan \
+            -f description="Running on the Reatan" -f target_url="$RUN" > /dev/null
 
   desktop:
     needs: changes
@@ -99,7 +136,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # The pull request's code: only ever one of this repository's branches (see the gate).
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ needs.changes.outputs.sha || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       # The desk's model files (Git LFS: examples/.gitattributes), its desk-models scenarios'
       # stubs, with Git for Windows' git-lfs. As on the Mac mini, Git LFS is not installed in the
@@ -147,3 +184,29 @@ jobs:
             examples/parcels/depot-desk/acceptance/.axx/
           if-no-files-found: ignore
           retention-days: 7
+
+  # What a handed-over pull request sees of its run: one status, reatan, on the commit that ran,
+  # with this run behind it. On GitHub's runner: the jobs on the Reatan hold no token that writes.
+  report:
+    needs: [changes, desktop]
+    if: ${{ !cancelled() && needs.changes.outputs.sha != '' && needs.changes.outputs.desktop == 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+          SHA: ${{ needs.changes.outputs.sha }}
+          REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          failed=$(jq -r '[to_entries[] | select(.value.result != "success" and .value.result != "skipped") | .key] | join(", ")' <<<"$NEEDS")
+          if [ -n "$failed" ]; then
+            state=failure description="Failed on the Reatan: $failed"
+          else
+            state=success description="Passed on the Reatan"
+          fi
+          gh api "repos/$REPO/statuses/$SHA" -f state="$state" -f context=reatan \
+            -f description="$description" -f target_url="$RUN" > /dev/null
