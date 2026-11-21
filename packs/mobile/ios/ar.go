@@ -21,6 +21,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/npm"
+	"github.com/nimbusxr/axx/packs/internal/memcheck"
 	mobilecore "github.com/nimbusxr/axx/packs/mobile/core"
 	"github.com/nimbusxr/axx/packs/mobile/internal/scene"
 )
@@ -59,6 +60,7 @@ func arLibrary(ctx context.Context, s *core.Suite) (string, error) {
 			}
 			h.Write(b)
 		}
+		h.Write(memcheck.Key())
 		cache := npm.CacheDir("mobile")
 		dir := filepath.Join(cache, "ar-"+hex.EncodeToString(h.Sum(nil)[:6])+"-"+arch)
 		lib := filepath.Join(dir, "axx-ar.dylib")
@@ -89,13 +91,23 @@ func arLibrary(ctx context.Context, s *core.Suite) (string, error) {
 		for _, fw := range arFrameworks {
 			swift = append(swift, "-framework", fw)
 		}
+		object := func(source string) []string {
+			o := strings.TrimSuffix(source, filepath.Ext(source)) + ".o"
+			args := []string{"-sdk", "iphonesimulator", "clang", "-target", target, "-c", "-fobjc-arc", "-O2", "-I", tmp, filepath.Join(tmp, source), "-o", filepath.Join(tmp, o)}
+			return append(args, memcheck.Clang()...)
+		}
+		steps := [][]string{object("ar.m"), object("camera.m")}
+		// axx's own tests build it under a memory checker (memcheck): its Objective-C, which Swift
+		// links with the checker's runtime.
+		if memcheck.Enabled() {
+			if err := os.WriteFile(filepath.Join(tmp, memcheck.SourceName), memcheck.Source(), 0o644); err != nil {
+				return "", err
+			}
+			steps = append(steps, object(memcheck.SourceName))
+			swift = append(append(swift, memcheck.Swift()...), filepath.Join(tmp, strings.TrimSuffix(memcheck.SourceName, ".c")+".o"))
+		}
 		swift = append(swift, "-o", built)
-		for _, args := range [][]string{
-			{"-sdk", "iphonesimulator", "clang", "-target", target, "-c", "-fobjc-arc", "-O2", "-I", tmp, filepath.Join(tmp, "ar.m"), "-o", filepath.Join(tmp, "ar.o")},
-			{"-sdk", "iphonesimulator", "clang", "-target", target, "-c", "-fobjc-arc", "-O2", "-I", tmp, filepath.Join(tmp, "camera.m"), "-o", filepath.Join(tmp, "camera.o")},
-			swift,
-			{"codesign", "--sign", "-", "--force", built},
-		} {
+		for _, args := range append(steps, swift, []string{"codesign", "--sign", "-", "--force", built}) {
 			cmd := exec.CommandContext(ctx, "xcrun", args...) //nolint:gosec // Xcode's tools, with arguments axx builds
 			cmd.Dir = tmp
 			if out, err := cmd.CombinedOutput(); err != nil {

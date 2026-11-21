@@ -223,6 +223,13 @@ the skills instead: `axx skills install`.
   are checked only on whole runs (exit 6, ADR 0003); `axx coverage check` merges CI's shards. Each
   runtime's container test (`packs/coverage/internal/coveragetest`) runs a service as a user of its
   own and as the container's main process, as Compose would.
+- `packs/internal/memcheck`: axx's C, C++ and Objective-C under a memory checker, for axx's own
+  tests: with `AXX_MEMCHECK` naming a folder, the libraries the packs load into apps (the
+  simulators' library, the AR library, the Apple model adapter) are built with AddressSanitizer
+  and write a report there for each process it found a fault in. Nothing changes in how an app is
+  started, and it is no setting of axx. A new library of such code is built through it too
+  (`memcheck.Clang`, `memcheck.Source`, `memcheck.Key` in what its place in the cache is made
+  from).
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `schemas/v0`: the JSON Schemas of axx.yaml and the fixture spec files, at public paths: GitHub serves them from
