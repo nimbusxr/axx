@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 name: mac-tests
 description: >-
-  The Mac jobs' tests (ios, coreml), as the mac-tests job built them on Linux: each test binary in
+  The Mac jobs' tests (ios, coreml, webllm), as the mac-tests job built them on Linux: each test binary in
   its package's folder, and test2json, which scripts/gotest.sh runs them through (GOTEST_TEST2JSON).
   A Mac runner of three cores took 85 to 100 seconds of every job's ten minutes restoring Go's
   module cache and building them, with no build cache: a Linux runner builds them once, from a

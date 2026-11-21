@@ -57,6 +57,48 @@ fetch() {
   return 1
 }
 
+# On Linux with an x86_64 processor, which is CI's runners, the emulator is the build named
+# here, and not the one sdkmanager installs that day. Build 16970787 (37.3.10), which
+# sdkmanager has installed since November 2026, drops adb's connection to a busy device there:
+# the write of the device's adb daemon to the host fails ("host-14: connection terminated:
+# write failed" in the device's log), and with the connection go the shells adb runs on the
+# device and the ports it forwards, the UiAutomator2 server's among them. On CI it did in 2 of
+# 34 jobs with a device made as before, and in 6 of 34 with its snapshot saved at rest; build
+# 16740729 (37.2.13) in none of 34. On a Mac the newest is left: 14 runs of a scenario on a
+# loaded emulator there lost no connection. A newer build is named here once CI's jobs show it
+# keeps the connection (an android job warns of each loss).
+emulator_build=16740729
+emulator_version=37.2.13
+emulator_sha256=cbc7c3cfb83220b8a0f9c513fdab557712e74d339ec19ddffa43f23350ae9bdd
+# Google's repository of SDK packages, or a copy of it (ANDROID_REPOSITORY_URL).
+repository=${ANDROID_REPOSITORY_URL:-https://dl.google.com/android/repository}
+
+# named_emulator puts the named build of the emulator in the SDK, in place of the one sdkmanager
+# installed: its archive from Google's repository, checked against its SHA-256. The archive has
+# no package.xml, which sdkmanager writes and avdmanager asks for ("emulator" package must be
+# installed): the installed one's is kept, with the named build's version in it.
+named_emulator() {
+  if grep -qx "Pkg.BuildId=$emulator_build" "$sdk/emulator/source.properties" 2> /dev/null; then return 0; fi
+  local zip="$latest/emulator.zip"
+  say "installing the emulator's build $emulator_build"
+  limited 900 curl -fsSL --retry 3 --retry-all-errors -o "$zip" "$repository/emulator-linux_x64-$emulator_build.zip" || {
+    echo "cannot download the emulator's build $emulator_build from $repository" >&2
+    return 1
+  }
+  echo "$emulator_sha256  $zip" | sha256sum -c --quiet || {
+    echo "the emulator's archive from $repository is not the build $emulator_build that this script names" >&2
+    return 1
+  }
+  local major minor micro
+  IFS=. read -r major minor micro <<< "$emulator_version"
+  sed -E -e "s|<major>[0-9]+</major>|<major>$major</major>|" -e "s|<minor>[0-9]+</minor>|<minor>$minor</minor>|" \
+    -e "s|<micro>[0-9]+</micro>|<micro>$micro</micro>|" "$sdk/emulator/package.xml" > "$latest/package.xml" || return 1
+  rm -rf "$sdk/emulator"
+  unzip -q "$zip" -d "$sdk" || return 1
+  mv "$latest/package.xml" "$sdk/emulator/package.xml"
+  grep -qx "Pkg.BuildId=$emulator_build" "$sdk/emulator/source.properties"
+}
+
 # Google's newest packages need its newest command-line tools: the SDK's own fetch them into a
 # folder of their own, and are left as they are.
 latest=$(mktemp -d)
@@ -65,6 +107,7 @@ fetch "$sdk/cmdline-tools/latest/bin/sdkmanager" "$latest" "$latest/cmdline-tool
 fetch "$latest/cmdline-tools/latest/bin/sdkmanager" "$sdk" \
   "$sdk/system-images/$platform/google_apis/$abi/system.img" "$sdk/emulator/emulator" "$sdk/platform-tools/adb" \
   -- "$image" emulator platform-tools
+if [ "$(uname -s)-$abi" = Linux-x86_64 ]; then named_emulator; fi
 # The SDK's own avdmanager: the newest one takes its own folder for the SDK.
 tools="$sdk/cmdline-tools/latest/bin"
 # Where the emulator looks for its devices: avdmanager may go by XDG_CONFIG_HOME instead.
@@ -123,8 +166,45 @@ if [ -z "$booted" ]; then
   kill "$emulator" 2> /dev/null || true
   exit 1
 fi
+# Android says it has booted while its first boot still goes on: for a minute or more it unlocks
+# the user's storage (and starts the home screen again as it does, in front of whatever app is
+# there), scans its storage for media, and starts its services' apps, Google Play services among
+# them, which start themselves again. A snapshot saved now has every emulator started from it
+# go through that again, under each run's first scenario: the system's file picker lists a
+# folder again as the scan updates it, a web view's page goes empty for seconds, taps are slow
+# enough to be taken for long presses. So the snapshot is saved once the device has come to
+# rest: its user unlocked, and its processors idle (four fifths of the time or more) for
+# fifteen seconds on end. Four minutes at most: a device that never rests is saved as it is,
+# and the script says so.
+say "parcels-pixel: booted; waiting until it has finished its first boot"
+# idle prints the share of the next five seconds, in hundredths, that the device's processors
+# spend idle, from the kernel's own count (/proc/stat: the fourth number after "cpu").
+idle() {
+  limited 20 "$adb" -s emulator-5580 shell 'head -n 1 /proc/stat; sleep 5; head -n 1 /proc/stat' 2> /dev/null | tr -d '\r' |
+    awk 'NR == 1 { for (i = 2; i <= NF; i++) before += $i; was = $5 }
+         NR == 2 { for (i = 2; i <= NF; i++) after += $i; if (after > before) printf "%d", 100 * ($5 - was) / (after - before) }'
+}
+rested=0
+waited=$SECONDS
+deadline=$((SECONDS + 240))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  kill -0 "$emulator" 2> /dev/null || break
+  user=$(limited 10 "$adb" -s emulator-5580 shell am get-started-user-state 0 2> /dev/null | tr -d '\r' || true)
+  share=$(idle || true)
+  if [[ "$user" == *RUNNING_UNLOCKED* ]] && [ "${share:-0}" -ge 80 ]; then
+    rested=$((rested + 1))
+  else
+    rested=0
+  fi
+  [ "$rested" -ge 3 ] && break
+done
+if [ "$rested" -ge 3 ]; then
+  say "parcels-pixel: at rest $((SECONDS - waited))s after it booted"
+else
+  say "parcels-pixel: not at rest $((SECONDS - waited))s after it booted (its user: ${user:-unknown}; its processors idle ${share:-?}% of the last five seconds): its snapshot is saved as it is" >&2
+fi
 # Five minutes at most to save it (a save takes seconds).
-say "parcels-pixel: booted; saving its snapshot"
+say "parcels-pixel: saving its snapshot"
 log="$ANDROID_AVD_HOME/parcels-pixel-snapshot.log"
 snapshot="$ANDROID_AVD_HOME/parcels-pixel.avd/snapshots/default_boot"
 answer=$(limited 300 "$adb" -s emulator-5580 emu avd snapshot save default_boot 2>&1) || true

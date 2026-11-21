@@ -11,6 +11,12 @@ description: >-
 
   A job that restores the module cache then downloads the modules of go.mod it lacks, trying a
   failed download again (scripts/go-mod-download.sh), so that the job's builds download none.
+
+  The job that saves the module cache (keeps-modules) starts it from nothing on main when its
+  go.sum has no cache yet, and downloads every module. Restored from an earlier go.sum's cache
+  and saved again, the cache kept every version of every module go.sum ever named: 1.1 GB
+  packed on Linux and 1.5 GB on Windows, where a job spent two minutes unpacking it, against
+  the 0.54 GB that go.mod's modules take.
 inputs:
   build:
     description: >-
@@ -25,6 +31,11 @@ inputs:
       restore: also restore the module cache, which every job on an OS shares. save: also save
       it; one job per OS does.
     default: "true"
+  keeps-modules:
+    description: >-
+      restore: `true` in the job that saves the module cache. On main it restores the cache of
+      its go.sum only, never an earlier one's.
+    default: "false"
   extra-paths:
     description: More directories kept with the build cache, one per line (e.g. golangci-lint's).
     default: ""
@@ -46,10 +57,12 @@ runs:
         # step asks the proxy for nothing. The caches from before (the second restore key) are
         # read until main has saved one: with them the step asks for those files, one for
         # each module (228 of them, in 6 seconds on a MacBook).
+        # An earlier go.sum's cache is no start for the job that saves this one, on main: it
+        # has no restore keys there (an empty line is no key).
         key: go-mod-v2-${{ runner.os }}-${{ hashFiles('go.sum') }}
         restore-keys: |
-          go-mod-v2-${{ runner.os }}-
-          go-mod-${{ runner.os }}-
+          ${{ (inputs.keeps-modules != 'true' || github.event_name != 'push') && format('go-mod-v2-{0}-', runner.os) || '' }}
+          ${{ (inputs.keeps-modules != 'true' || github.event_name != 'push') && format('go-mod-{0}-', runner.os) || '' }}
     # The modules the restored cache lacks: those a pull request updates, or all of them when
     # the restore broke off. Downloaded here, a download that fails is tried again; left to the
     # build, it failed the job, since the go command asks once. With every module there, this

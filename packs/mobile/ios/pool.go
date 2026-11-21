@@ -309,7 +309,7 @@ func (p *pool) start(ctx context.Context) (*device, error) {
 	if reused {
 		p.suite.Logger().Info("WebDriverAgent answers on the iOS simulator, as the run before left it", "simulator", d.name)
 	} else {
-		if err := d.ensureWDA(ctx); err != nil {
+		if err := d.ensureWDA(ctx, p.suite.Logger().Warn); err != nil {
 			d.stop()
 			return nil, err
 		}

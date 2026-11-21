@@ -21,6 +21,8 @@ on:
       - examples/**/gradle/**
       - examples/**/gradle.properties
       - extensions/wiremock-openapi/**
+      # the emulator's device (the courier-device job)
+      - examples/parcels/courier/android/create-emulator.sh
       # the models-android pack's probe app (.github/actions/android-probe)
       - packs/models/android/testdata/sdkprobe/**
       # the parcel-support example's image (the support-image job)
@@ -61,6 +63,7 @@ jobs:
       workflows: ${{ steps.changes.outputs.workflows }}
       tests: ${{ steps.changes.outputs.tests }}
       wiremock-image: ${{ steps.wiremock.outputs.cached }}
+      courier-device: ${{ steps.device.outputs.device-cached }}
     steps:
       # A pull request is checked out as its merge into the base branch, and the merge queue's
       # group as its commit on top of it: the first parent differs by what they change.
@@ -88,6 +91,12 @@ jobs:
       # waits for, so that with the image kept no job waits for another.
       - id: wiremock
         uses: ./.github/actions/wiremock-image
+        with:
+          mode: lookup
+      # Whether a run has kept the emulator's device: the courier-device job makes it only when
+      # none has.
+      - id: device
+        uses: ./.github/actions/courier-android
         with:
           mode: lookup
       # The tree the pull request's run tests, for the merge queue to know it.
@@ -134,6 +143,7 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: lint
+          keeps-modules: "true"
           extra-paths: ~/.cache/golangci-lint
       - run: go mod tidy -diff
       # Nothing that builds a model stub fuses a multiply and an add (arm64 would round it
@@ -161,16 +171,21 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    # The unit tests on each OS, in two parts: the packs' and the rest. (The rest took 10 to 12
-    # minutes on Windows and macOS, whose caches and builds are the slowest, when it had every
-    # pack but the models packs.) On main, where the tests are only built, one part builds them
-    # all.
+    # The unit tests on each OS, in five parts (scripts/test-parts.sh): the models packs', the
+    # mobile and desktop packs', the other packs', internal/cli's and the rest. (With the mobile
+    # and desktop packs among the other packs', that part took 11 minutes on Windows: 5.8 of
+    # tests, 3.1 of them the Android pack's, after 4.2 of setting up.) In two, the packs' and
+    # the rest, both took 9 to 11 minutes on Windows as a rule, and the packs' 9 on macOS: a
+    # Windows runner takes over 4 minutes to set up (3.3 of them restoring Go's caches), a
+    # minute more before the first test runs, and then ran 5 minutes of the packs' tests, or 4
+    # of the rest's, 2.6 of them internal/cli's. On main, where the tests are only built, one
+    # part builds them all.
     name: test (${{ matrix.os }}, ${{ matrix.part }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-26.04, macos-latest, windows-latest]
-        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["packs", "rest"]' || '["all"]') }}
+        part: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '["packs-models", "packs-devices", "packs", "cli", "rest"]' || '["all"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       # Windows scans every file the checkout, the cache restore and the build write, which
@@ -198,17 +213,16 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: test
+          keeps-modules: ${{ runner.os != 'Linux' }}
       - name: the part's packages
         env:
           PART: ${{ matrix.part }}
-        run: |
-          # (xargs: macOS's bash, 3.2, has no mapfile.)
-          case "$PART" in
-            packs) go list ./packs/... > "$RUNNER_TEMP/packages" ;;
-            rest) go list ./... | grep -v '/packs/' > "$RUNNER_TEMP/packages" ;;
-            *) go list ./... > "$RUNNER_TEMP/packages" ;;
-          esac
+        # (Into a file, for xargs: macOS's bash, 3.2, has no mapfile.)
+        run: scripts/test-parts.sh "$PART" > "$RUNNER_TEMP/packages"
         shell: bash
+      - if: matrix.part == 'rest' && runner.os == 'Linux'
+        name: every package is in one part
+        run: scripts/test-parts.sh --check
       # On main, the tests are only built: their build cache is what pull requests read. A pull
       # request's are built as they run: go test links a test binary again each time it runs it,
       # so a step that built them first had each linked twice.
@@ -406,9 +420,55 @@ jobs:
         with:
           mode: save
 
-  mobile:
+  # The emulator's device (its AVD and the snapshot emulators start from), made once for the run
+  # when no run has kept it for the script that makes it (.github/actions/courier-android): on a
+  # pull request that changes create-emulator.sh, and on main after it. The script boots the
+  # device and waits until it has finished its first boot, some 6 to 7 minutes on a runner, and
+  # every part of the mobile and android jobs did that itself before, beside its own setting
+  # up: with the wait, parts took 10 minutes and more. They wait for this job and restore what
+  # it kept. When a run has kept the device, which the changes job looks up, this job is
+  # skipped and none of them waits.
+  courier-device:
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
+    if: needs.changes.outputs.courier-device != 'true' && needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: KVM, for the emulator, and where its devices are
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          # avdmanager would go by the runner's XDG_CONFIG_HOME, and the emulator not.
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # The Java the jobs that made the device before had, for the SDK's tools.
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: ./.github/actions/courier-android
+        with:
+          mode: start
+          app: "false"
+          emulator: "false"
+          save-emulator: "true"
+      - uses: ./.github/actions/courier-android
+        with:
+          mode: finish
+          app: "false"
+          emulator: "false"
+          save-emulator: "true"
+
+  mobile:
+    needs: [changes, courier-device]
+    # After the courier-device job, passed or skipped (a run has kept the device), as the
+    # android job is after the wiremock-image job.
+    if: >-
+      ${{ !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.courier-device.result)
+      && needs.changes.outputs.mobile == 'true' }}
     # The mobile packs' tests, on an Android emulator that axx starts (KVM). The iOS pack's
     # skip here: they run in the ios job.
     name: mobile (${{ matrix.part }})
@@ -423,8 +483,8 @@ jobs:
         # emulator takes 1.5 to 2 minutes here, the torn label's 3 to 3.5, and the two shortest
         # (the recordings' and the delivery under a toast) a minute each: a part has two of
         # them, that one, or those two with a third. With no tests to run, one part builds them,
-        # and keeps the couriers' app, the emulator's device and the models-android pack's
-        # probe app for the rest.
+        # and keeps their build cache, the couriers' app and the models-android pack's probe
+        # app for the rest (the courier-device job keeps the emulator's device).
         # The hosted parts run five of the emulator's parts again through an axx host, in the
         # tests' process (AXX_TEST_HOSTED): the host's side of the pack leases the emulator and
         # starts the app, as for a run in an agent's sandbox. They are the parts with the model
@@ -463,7 +523,6 @@ jobs:
           mode: start
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
-          save-emulator: ${{ matrix.part == 'emulator-1' }}
       # The app of the vendors' SDKs that the models-android pack's tests install, from its
       # cache, or built while the rest sets up, never inside a test's limit: for the parts that
       # run that pack's tests, and, with no tests to run, kept for them.
@@ -476,21 +535,28 @@ jobs:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      # A build cache of this job's own, of its tests' builds with the race detector. The job
+      # restored the acceptance job's before, 1.3 GB of axx built without it, of which a build
+      # with it reads nothing: every part compiled its tests' 700 packages, for 60 to 90 seconds.
       - uses: ./.github/actions/go-cache
         with:
-          build: acceptance
+          build: mobile
       - name: the tests, built
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
         run: |
-          case "$PART" in
-            models-*) go test -race -tags integration -run '^$' ./packs/models/android/... ;;
-            *) go test -race -tags integration -run '^$' ./packs/mobile/... ;;
+          # With no tests to run, both kinds of part's, for the build cache the job then keeps.
+          case "$TESTS-$PART" in
+            true-models-*) packages=(./packs/models/android/...) ;;
+            true-*) packages=(./packs/mobile/...) ;;
+            *) packages=(./packs/mobile/... ./packs/models/android/...) ;;
           esac
+          go test -race -tags integration -run '^$' "${packages[@]}"
       - uses: ./.github/actions/courier-android
         with:
           mode: finish
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
-          save-emulator: ${{ matrix.part == 'emulator-1' }}
       - if: startsWith(matrix.part, 'models-') || needs.changes.outputs.tests != 'true'
         uses: ./.github/actions/android-probe
         with:
@@ -554,6 +620,13 @@ jobs:
         with:
           part: mobile-${{ matrix.part }}
           mode: save
+      # The tests' build cache, kept on main, where this part builds both kinds of part's.
+      - if: ${{ !cancelled() && matrix.part == 'emulator-1' }}
+        uses: ./.github/actions/go-cache
+        with:
+          build: mobile
+          mode: save
+          modules: "false"
 
   # WireMock with axx's extensions, the image the parcels example's mocks run, built once for the
   # run when no run has kept it for the extension's files (.github/actions/wiremock-image): on a
@@ -577,13 +650,14 @@ jobs:
       - uses: ./.github/actions/wiremock-image
 
   android:
-    needs: [changes, wiremock-image]
+    needs: [changes, wiremock-image, courier-device]
     # The wiremock-image job is skipped when a run has kept the image, and a job that needs a
     # skipped one is skipped too unless its condition says otherwise: this one runs when that
     # job passed or was skipped, and not when it failed (each of these would then build the
-    # image itself, all at once again).
+    # image itself, all at once again). The courier-device job, the same.
     if: >-
       ${{ !cancelled() && contains(fromJSON('["success", "skipped"]'), needs.wiremock-image.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.courier-device.result)
       && needs.changes.outputs.mobile == 'true' && needs.changes.outputs.tests == 'true' }}
     # The parcels example's Android scenarios, on an emulator axx starts (KVM), against the
     # whole example, which axx starts too. A runner runs a feature, or a shard of it (axx run
@@ -635,6 +709,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      # How busy the runner is, from here on, and the emulator while the scenarios run: a runner
+      # took 11 minutes to restore the caches below, which the others restore in 2.
+      - uses: ./.github/actions/android-load
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
@@ -699,8 +776,6 @@ jobs:
       - uses: ./.github/actions/android-builds
         with:
           part: android-${{ matrix.feature }}
-      # How busy the runner and the emulator are while the scenarios run.
-      - uses: ./.github/actions/android-load
       - working-directory: examples/parcels/acceptance
         env:
           FEATURE: ${{ matrix.feature }}
@@ -748,10 +823,10 @@ jobs:
   mac-tests:
     needs: changes
     if: (needs.changes.outputs.mobile == 'true' || needs.changes.outputs.models == 'true') && needs.changes.outputs.tests == 'true'
-    # The tests the Mac jobs run (ios, coreml), built for macOS here, as axx builds for it (no
-    # cgo), with a build cache of its own, for the Mac jobs to download (.github/actions/mac-tests):
-    # each took 85 to 100 seconds of its ten minutes restoring Go's module cache and building them,
-    # with no build cache, on a runner of three cores.
+    # The tests the Mac jobs run (ios, coreml, webllm), built for macOS here, as axx builds for it
+    # (no cgo), with a build cache of its own, for the Mac jobs to download
+    # (.github/actions/mac-tests): each took 85 to 100 seconds of its ten minutes restoring Go's
+    # module cache and building them, with no build cache, on a runner of three cores.
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -1022,6 +1097,14 @@ jobs:
             if (-not (Test-Path $k)) { New-Item $k -Force | Out-Null }
             Set-ItemProperty -Path $k -Name Value -Value Allow
           }
+      # Go's caches where the test job has them on Windows: a cache is restored to the path it
+      # was saved from, so with Go's own paths this job never found the module cache, and
+      # downloaded every module of go.mod, for 1.5 to 5 minutes.
+      - name: "Go's caches on the D: drive"
+        shell: pwsh
+        run: |
+          "GOCACHE=$env:RUNNER_TEMP\go-build" >> $env:GITHUB_ENV
+          "GOMODCACHE=$env:RUNNER_TEMP\go-mod" >> $env:GITHUB_ENV
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -1069,12 +1152,16 @@ jobs:
           key: ${{ steps.windows-builds-key.outputs.key }}
 
   webllm:
-    needs: changes
+    needs: [changes, mac-tests]
     if: needs.changes.outputs.models == 'true' && needs.changes.outputs.tests == 'true'
     # The models-core pack's MLC stubs in WebLLM, on a Mac's GPU (Metal, through Chromium's
     # WebGPU): a stub is of its real model's size (GBs), and a runner takes a tenth of them by
-    # their times, 5 to 6 minutes' worth (Mistral 7B's alone), after some 2 of setting up, so
-    # that no job runs past 10; -v logs each model's time, which the models' seconds record.
+    # their times, 5 to 6 minutes' worth (Mistral 7B's alone), after half a minute of setting
+    # up, so that no job runs past 10; the test logs each model's time, which the models'
+    # seconds record. The test is the mac-tests job's build, as the ios and coreml jobs' are:
+    # each part restored Go's module cache before (2 minutes on this runner, 1.2 GB) and built
+    # the test with no build cache (half a minute), and took 7.5 to 8.5 minutes as a rule, and
+    # over 10 on a slower runner.
     name: webllm (${{ matrix.shard }}/10)
     runs-on: xcode-27
     timeout-minutes: 40
@@ -1086,13 +1173,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      # gotestsum, which runs the test that the mac-tests job built.
       - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
         with:
-          install_args: "go"
+          install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
           cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - uses: ./.github/actions/go-cache
-      - run: go test -tags integration -timeout 10m -v -run TestWebLLM ./packs/models/core/format/mlc/
+      - uses: ./.github/actions/mac-tests
+      - run: GOTEST_FORMAT=standard-verbose scripts/gotest.sh packs/models/core/format/mlc/mlc.test -test.timeout=10m -test.run=TestWebLLM
         env:
           AXX_WEBLLM_SHARD: ${{ matrix.shard }}/10
 
@@ -1480,7 +1568,7 @@ jobs:
   # saves. (Docker's layers, Gradle's and mise's caches look after their own.)
   caches:
     if: always() && github.event_name == 'push'
-    needs: [hygiene, lint, test, integration, web, mobile, wiremock-image, desktop, cross-build, mac-tests, acceptance, support-image]
+    needs: [hygiene, lint, test, integration, web, courier-device, mobile, wiremock-image, desktop, cross-build, mac-tests, acceptance, support-image]
     runs-on: ubuntu-26.04
     permissions:
       actions: write # to delete caches
@@ -1502,7 +1590,7 @@ jobs:
   # pull request does not need is skipped, which passes.
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, courier-device, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
     runs-on: ubuntu-26.04
     steps:
       - name: all jobs passed
