@@ -1,0 +1,28 @@
+# Known vulnerabilities in the Go modules axx calls into (the Go vulnerability database).
+name: govulncheck
+
+# A pull request that changes Go is checked in CI's lint job. A vulnerability is published on its
+# own day, whatever was merged: the nightly run checks main, and fails when one reaches axx's code.
+on:
+  schedule:
+    - cron: "47 4 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          install_args: "go"
+          cache_save: false
+      - uses: ./.github/actions/go-cache
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
