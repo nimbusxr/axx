@@ -372,6 +372,9 @@ func init() {
 	add("AXX-E0838", lint, "Scenario says When or Then twice",
 		"A scenario has a second When, or a second Then, with no round between them. A scenario is one behavior, and And adds to the When or the Then it follows. `axx lint` fails on this, unless `lint.config.mode` or `--mode` says warn; `axx validate` and `axx run` report it as a warning.",
 		"Write And if the step is part of the same action, or also true afterwards. If it is another behavior, give it a scenario of its own, with what this one did as Given steps. To only report it while you clean up a suite, set `lint.config.mode: warn` in axx.yaml.")
+	add("AXX-E0839", exitcode.OK, "Deprecated step",
+		"A feature uses a step that is deprecated. The step works as it did: a deprecated step, flag or setting keeps working until the next major version, which drops it. This is a warning.",
+		"Use what the message names instead, before the next major version. `axx steps show <id>` shows the step and what replaces it.")
 	add("AXX-E0835", exitcode.OK, "Stale selection",
 		"A step without an ordinal (`the selection has 1 row`, `the 1st document for the selection …`) checks a scenario's first selection, but a later selection was retrieved before it and no step checks that one. The step reads as if it checked the latest, while it asserts on what came back before; the later retrieval checks nothing (or only that its rows came, for a polling one). This is a warning.",
 		"Name the selection the step means, like `the 2nd selection has 1 row`: selections are numbered in the order the scenario retrieves them.")

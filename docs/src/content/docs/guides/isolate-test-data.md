@@ -107,9 +107,10 @@ ok   SQL selection and trigger ordinals (13 files)
 ok   Stale selections (13 files)
 ok   REST request ordinals (13 files)
 ok   REST payload values (13 files)
+ok   Deprecated steps (13 files)
 hint: seeds/ has 39 hand-written .yaml files of one shape (parcels.parcels) that no fixture factory generates; a factory would keep what they share in one place (optional; `axx fixtures adopt --help`)
 hint: seeds/ has 5 hand-written .yaml files of one shape (parcels.manifest_lines) that no fixture factory generates; a factory would keep what they share in one place (optional; `axx fixtures adopt --help`)
-axx lint: 10 rules, 70 files: 1 error, 0 warnings
+axx lint: 11 rules, 70 files: 1 error, 0 warnings
 ```
 
 A new seed file reused a reference that `seeds/manifest-kestrel.yaml` already inserts. The rules from `axx-lint.generated.yaml` run too, and so do the built-in checks of the features. They catch:

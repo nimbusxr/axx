@@ -22,7 +22,7 @@ From [ADR 0004](https://github.com/nimbusxr/axx/blob/main/docs/adr/0004-versioni
 
 - the `axx.yaml` schema, version 1;
 - the CLI contract: the `--json` envelope, exit codes and error codes;
-- a deprecation policy;
+- the [deprecation policy](/explanations/deprecation-policy/);
 
 and when agent evaluations (agents writing and fixing Axx tests from acceptance criteria) meet their success target.
 

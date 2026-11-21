@@ -37,6 +37,7 @@ const (
 	CodeServiceUnregistered = "AXX-E0836"
 	CodeSeveralRounds       = "AXX-E0837"
 	CodeSecondClause        = "AXX-E0838"
+	CodeDeprecatedStep      = "AXX-E0839"
 )
 
 // Defaults of the lint config block.

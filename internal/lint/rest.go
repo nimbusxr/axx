@@ -32,12 +32,13 @@ const RESTValuesRuleID = "rest-payload-values"
 
 // FeatureChecks runs every builtin feature-file check: one behavior per
 // scenario, an error by default, and as warnings services registered before use,
-// SQL ordinals, stale selections, REST requests and REST payload values.
+// SQL ordinals, stale selections, REST requests, REST payload values and deprecated steps.
 func FeatureChecks(reg *match.Registry, pickles []*feature.Pickle, workDir string) []RuleResult {
 	return []RuleResult{
 		CheckRounds(pickles, workDir), CheckServices(reg, pickles, workDir),
 		CheckFeatures(reg, pickles, workDir), CheckSelections(reg, pickles, workDir),
 		CheckRESTRequests(reg, pickles, workDir), CheckRESTPayloadValues(reg, pickles, workDir),
+		CheckDeprecated(reg, pickles, workDir),
 	}
 }
 
