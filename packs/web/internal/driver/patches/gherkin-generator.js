@@ -1,4 +1,4 @@
-class {
+(class {
   constructor() {
     this.id = "axx";
     this.groupName = "axx";
@@ -21,7 +21,15 @@ class {
     const action = actionInContext.action;
     const lines = [];
     const signals = actionInContext.signals || [];
-    for (const [kind, text] of this._steps(action))
+    let steps;
+    try {
+      steps = this._steps(action);
+    } catch (e) {
+      if (!e || !e.unwritable)
+        throw e;
+      steps = [["comment", action.name + ": " + e.message]];
+    }
+    for (const [kind, text] of steps)
       lines.push([kind, text]);
     if (lines.length && signals.some((s) => s.name === "dialog"))
       lines.push(["when", "the dialog is dismissed"]);
@@ -34,11 +42,27 @@ class {
     }).join("\n");
   }
   _steps(action) {
-    const q = (text) => JSON.stringify(String(text));
+    // A step's quoted text has an escaped quote and no other escape (Cucumber's rule, which axx
+    // keeps): a backslash is a backslash. So one before a quote, or the last, has no way in, and
+    // neither has a line break.
+    const unwritable = () => Object.assign(new Error("no step writes this text: it has a backslash before a quote or at its end, or a line break"), { unwritable: true });
+    const q = (text) => {
+      text = String(text);
+      if (/\\"|\\$|[\r\n]/.test(text))
+        throw unwritable();
+      return '"' + text.split('"').join('\\"') + '"';
+    };
+    const single = (text) => {
+      if (/\\'|[\r\n]/.test(text))
+        throw unwritable();
+      return "'\"" + text.split("'").join("\\'") + "\"'";
+    };
     // A value, in a step that takes only text (ADR 0014): text that reads as anything else goes in
     // double quotes inside the step's own.
     const reads = (text) => /^$|^(true|false|null|undefined)$|^[-+]?(([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?[fFdDlL]?|0[xX][0-9a-fA-F]+[lL]?)$|^\{[^]*\}$|^\[[^]*\]$|^"[^]*"$/.test(text) || /^[-+]*(nan|inf|infinity)$/i.test(text);
-    const value = (text) => reads(String(text)) ? "'\"" + String(text).replace(/'/g, "\\'") + "\"'" : q(text);
+    const value = (text) => reads(String(text)) ? single(String(text)) : q(text);
+    // A table's cell has \\ for a backslash, \| for a bar and \n for a line break (Gherkin's rule).
+    const cell = (text) => text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, "\\n");
     const page = (url) => {
       let path = String(url);
       if (this._base && (path === this._base || path.startsWith(this._base + "/") || path.startsWith(this._base + "?")))
@@ -89,7 +113,7 @@ class {
         const options = action.options || [];
         if (options.length === 1)
           return [["when", value(options[0]) + " is chosen in the " + name + " field"]];
-        return [["when", "the following options are chosen in the " + name + " field:\n" + options.map((o) => "      | " + (reads(String(o)) ? "\"" + String(o) + "\"" : String(o)).replace(/\|/g, "\\|") + " |").join("\n")]];
+        return [["when", "the following options are chosen in the " + name + " field:\n" + options.map((o) => "      | " + cell(reads(String(o)) ? "\"" + String(o) + "\"" : String(o)) + " |").join("\n")]];
       }
       case "setInputFiles":
         // The step takes a path of the project, without quotes; the page knows only the file's name.
@@ -115,4 +139,4 @@ class {
     }
     return [["comment", action.name + " has no step"]];
   }
-}
+})

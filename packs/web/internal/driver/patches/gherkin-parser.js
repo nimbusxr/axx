@@ -1,7 +1,8 @@
   if (language === "gherkin") {
     const m = /^\s*the\s+"((?:[^"\\]|\\.)*)"\s+(button|link|tab|menu item|checkbox|option|field|element)\s*$/.exec(locator3);
     if (m) {
-      const name = JSON.parse('"' + m[1] + '"');
+      // As a step reads it: \" is a quote, and a backslash anywhere else is a backslash.
+      const name = m[1].split('\\"').join('"');
       if (name.startsWith("css=") || name.startsWith("xpath="))
         return name;
       if (name.startsWith("testid="))

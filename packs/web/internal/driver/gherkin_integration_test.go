@@ -61,7 +61,11 @@ func TestTheGherkinLanguage(t *testing.T) {
 		`internal:text="Ella Brandt"s >> internal:or="internal:label=\"Ella Brandt\"s" >> internal:or="internal:attr=[alt=\"Ella Brandt\"s]" >> internal:or="internal:attr=[title=\"Ella Brandt\"s]" >> visible=true`: `the "Ella Brandt" element`,
 		`internal:role=menuitem[name="Cancel"s] >> internal:or="internal:role=menuitemcheckbox[name=\"Cancel\"s]" >> visible=true`:                                                                                    `the "Cancel" menu item`,
 		`internal:label="Weight"s >> internal:or="internal:attr=[placeholder=\"Height\"s]"`:                                                                                                                           `internal:label="Weight"s >> internal:or="internal:attr=[placeholder=\"Height\"s]"`,
-		// What no step can name comes back as it is.
+		// A backslash is one in a step's text: a step reads no escape but a quote's.
+		`.md\:flex`:                   `the "css=.md\:flex" element`,
+		`internal:label="C:\\Users"s`: `the "C:\Users" field`,
+		// What no step can name comes back as it is: a position, a name that ends in a backslash.
+		`internal:label="C:\\"s`:                        `internal:label="C:\\"s`,
 		`internal:role=button[name="Delete"s] >> nth=1`: `internal:role=button[name="Delete"s] >> nth=1`,
 	}
 	phrases := map[string]string{
@@ -72,6 +76,8 @@ func TestTheGherkinLanguage(t *testing.T) {
 		`the "Price: 6.90 EUR" element`:     `internal:text="Price: 6.90 EUR"s`,
 		`the "testid=quote" element`:        `internal:testid=[data-testid="quote"s]`,
 		`the "css=.quote-result" element`:   `css=.quote-result`,
+		`the "css=.md\:flex" element`:       `css=.md\:flex`,
+		`the "C:\Users" field`:              `internal:label="C:\\Users"s`,
 		`page.getByRole('button')`:          ``,
 	}
 	actions := []map[string]any{
@@ -91,6 +97,11 @@ func TestTheGherkinLanguage(t *testing.T) {
 		{"name": "fill", "selector": `internal:label="Postcode"s`, "text": "01067", "signals": []any{}},
 		{"name": "fill", "selector": `internal:label="Postcode"s`, "text": `{"a":"it's"}`, "signals": []any{}},
 		{"name": "fill", "selector": `internal:label="Postcode"s`, "text": "Anna's", "signals": []any{}},
+		// A backslash is written as it is in a step's text, and doubled in a table's cell; text no
+		// step can hold gets a comment.
+		{"name": "fill", "selector": `internal:label="Postcode"s`, "text": `C:\new\folder`, "signals": []any{}},
+		{"name": "select", "selector": `internal:label="Destination country"s`, "options": []string{`C:\new`, "a|b"}, "signals": []any{}},
+		{"name": "fill", "selector": `internal:label="Postcode"s`, "text": `say \"hi\"`, "signals": []any{}},
 		{"name": "click", "selector": `internal:role=button[name="Cancel"s]`, "button": "left", "clickCount": 1, "modifiers": 0, "signals": []any{map[string]any{"name": "dialog", "dialogAlias": "dialog"}}},
 		{"name": "click", "selector": `internal:role=button[name="Delete"s] >> nth=1`, "button": "left", "clickCount": 1, "modifiers": 0, "signals": []any{}},
 		{"name": "assertSnapshot", "selector": `internal:role=form[name="Get a quote"s]`, "ariaSnapshot": "- spinbutton \"Weight (grams)\"\n- button \"Get a quote\"", "signals": []any{}},
@@ -106,10 +117,14 @@ func TestTheGherkinLanguage(t *testing.T) {
 	// The Inspector's call log, as the driver sends it to the Inspector: each call and the
 	// element it acts on, named in the recorder's language, the axx language's.
 	calls := map[string]map[string]any{
-		`Click the "Track a parcel" link`: {"id": "call@1", "type": "Frame", "method": "click", "log": []any{},
-			"params": map[string]any{"selector": `internal:role=link[name="Track a parcel"s]`}},
-		`Fill "1200" the "Weight (grams)" field`: {"id": "call@2", "type": "Frame", "method": "fill", "log": []any{},
-			"params": map[string]any{"selector": `internal:label="Weight (grams)"s >> internal:or="internal:attr=[placeholder=\"Weight (grams)\"s]" >> visible=true`, "value": "1200"}},
+		`Click the "Track a parcel" link`: {
+			"id": "call@1", "type": "Frame", "method": "click", "log": []any{},
+			"params": map[string]any{"selector": `internal:role=link[name="Track a parcel"s]`},
+		},
+		`Fill "1200" the "Weight (grams)" field`: {
+			"id": "call@2", "type": "Frame", "method": "fill", "log": []any{},
+			"params": map[string]any{"selector": `internal:label="Weight (grams)"s >> internal:or="internal:attr=[placeholder=\"Weight (grams)\"s]" >> visible=true`, "value": "1200"},
+		},
 	}
 	var call []string
 	var metadata []map[string]any
@@ -159,6 +174,11 @@ func TestTheGherkinLanguage(t *testing.T) {
     When the "Postcode" field is filled with '"01067"'
     And the "Postcode" field is filled with '"{"a":"it\'s"}"'
     And the "Postcode" field is filled with "Anna's"
+    And the "Postcode" field is filled with "C:\new\folder"
+    And the following options are chosen in the "Destination country" field:
+      | C:\\new |
+      | a\|b |
+    # fill: no step writes this text: it has a backslash before a quote or at its end, or a line break
     And the "Cancel" button is clicked
     And the dialog is dismissed
     # click: no step finds this element by what people see; give it a label, a name or a test id (Playwright: getByRole('button', { name: 'Delete', exact: true }).nth(1))
@@ -171,6 +191,24 @@ func TestTheGherkinLanguage(t *testing.T) {
 `
 	if !reflect.DeepEqual(got.Steps, want) {
 		t.Errorf("recorded:\n%s\nwant:\n%s", got.Steps, want)
+	}
+}
+
+// Each patch is JavaScript on its own too, so that what reads the repository's JavaScript
+// (the code scanning) reads the patches: a class a patch gives is in parentheses, not bare.
+func TestEachPatchParsesOnItsOwn(t *testing.T) {
+	dir, err := Ensure(context.Background(), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := filepath.Glob("patches/*.js")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no patches: %v", err)
+	}
+	for _, file := range files {
+		if out, err := exec.Command(filepath.Join(dir, "node"), "--check", file).CombinedOutput(); err != nil {
+			t.Errorf("%s does not parse: %v\n%s", file, err, out)
+		}
 	}
 }
 
