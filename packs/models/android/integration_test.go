@@ -183,6 +183,13 @@ func (p *probe) start(extras ...string) string {
 	for deadline := time.Now().Add(30 * time.Second); time.Now().Before(deadline); {
 		out, err := exec.CommandContext(p.ctx, p.adb, "-s", p.serial, "shell", "run-as", probePackage, "cat", "files/transcript.txt").CombinedOutput()
 		if err == nil {
+			// The probe ran with the adapter only if the adapter says so: Android goes on
+			// without an agent it could not attach, and the probe then answers as on a
+			// device with no stub (a microphone that hears nothing), which fails further
+			// on for no reason a test can show. The pack asks the same of an app it starts.
+			if status, _ := p.read("code_cache/axx-models/status"); string(status) != "ready" {
+				p.t.Fatalf("the probe answered %q with no adapter attached (the adapter's status is %q): %s", strings.TrimSpace(string(out)), status, p.says())
+			}
 			return strings.TrimSpace(string(out))
 		}
 		if status, err := p.read("code_cache/axx-models/status"); err == nil && bytes.HasPrefix(status, []byte("error: ")) {
@@ -190,9 +197,32 @@ func (p *probe) start(extras ...string) string {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	out, _ := exec.CommandContext(p.ctx, p.adb, "-s", p.serial, "logcat", "-d", "-s", "AXXModels:V", "AndroidRuntime:E", "*:S").CombinedOutput()
-	p.t.Fatalf("the probe did not answer: %s", out)
+	p.t.Fatalf("the probe did not answer: %s", p.says())
 	return ""
+}
+
+// says is what the device has of the probe's last run, for a failure: the adapter's status,
+// the recordings queued for the microphone and which of them were taken, and the device's log
+// of the probe, of the adapter and of Android attaching it.
+func (p *probe) says() string {
+	sh := func(script string) string {
+		out, _ := exec.CommandContext(p.ctx, p.adb, "-s", p.serial, "shell", script).CombinedOutput()
+		return strings.TrimSpace(string(out))
+	}
+	log, _ := exec.CommandContext(p.ctx, p.adb, "-s", p.serial, "logcat", "-d", "-v", "threadtime", "-t", "3000").CombinedOutput()
+	var lines []string
+	for _, l := range strings.Split(string(log), "\n") {
+		for _, w := range []string{"AXXModels", "AndroidRuntime", "ttaching agent", "modelsprobe", "libaxx-models", "AudioRecord", "ActivityThread"} {
+			if strings.Contains(l, w) {
+				lines = append(lines, l)
+				break
+			}
+		}
+	}
+	return fmt.Sprintf("\nthe adapter's status: %q\nthe recordings queued:\n%s\nthe device's log of it:\n%s",
+		sh("run-as "+probePackage+" cat code_cache/axx-models/status"),
+		sh("run-as "+probePackage+" ls -la axx-models/.microphone"),
+		strings.Join(lines[max(0, len(lines)-60):], "\n"))
 }
 
 func (p *probe) artifact(name string, s *stub.Stub) *platform.Artifact {
@@ -315,7 +345,17 @@ func TestAndroidCaptureHearsTheRecording(t *testing.T) {
 				worst = max(worst, math.Abs(v-w))
 			}
 			if worst > 2e-4 {
-				t.Fatalf("heard the recording, then silence, within %g; want 2e-4", worst)
+				// Where what it heard is loudest, and how loud: silence throughout is a
+				// capture the adapter did not answer, and the recording out of place one it
+				// answered late.
+				var loudest float64
+				at := 0
+				for j, v := range heard {
+					if math.Abs(v) > loudest {
+						loudest, at = math.Abs(v), j
+					}
+				}
+				t.Fatalf("heard the recording, then silence, within %g; want 2e-4 (what it heard is loudest, %g, at frame %d of %d): %s", worst, loudest, at, len(heard), p.says())
 			}
 		})
 	}
