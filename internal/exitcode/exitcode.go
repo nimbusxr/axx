@@ -29,6 +29,10 @@ const (
 	Interrupted Code = 130
 )
 
+// All is every exit code axx has, the reserved one too: what the frozen contract
+// (testdata/cli-contract.json) is held to.
+var All = []Code{OK, Failed, Usage, Undefined, Environment, Plugin, Coverage, Interrupted}
+
 // String returns the stable, machine-readable name of the code.
 func (c Code) String() string {
 	switch c {
