@@ -1,0 +1,22 @@
+name: runners (proof)
+
+# A proof, never to be merged: a pull request's workflow calls the Mac mini's and the Reatan's
+# jobs as they are on main, to see their runner groups let them in without pull_request_target.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  mac-mini:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: nimbusxr/axx/.github/workflows/mac-mini.yml@main
+  reatan:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: nimbusxr/axx/.github/workflows/reatan.yml@main
