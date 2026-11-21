@@ -1,0 +1,30 @@
+name: runners
+
+# Pull requests on the project's own machines: the Mac mini (mac-mini.yml) and the Reatan
+# (reatan.yml). This workflow only calls the two, as they are on main. Each machine's runner group
+# lets in its file at main and nothing else, so the jobs are main's copy whatever a pull request
+# changes here: one that calls another branch's copy, or names the machines in a job of its own,
+# gets no runner. Their first job is the gate: this repository's own branches only, never a
+# fork's, nor a bot's.
+#
+# This is GitHub's way for self-hosted runners, in place of pull_request_target: the pull
+# request's own event, with its read-only token and no secrets.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  mac-mini:
+    permissions:
+      contents: read
+      pull-requests: read # the list of the files the pull request changes
+    uses: nimbusxr/axx/.github/workflows/mac-mini.yml@main # zizmor: ignore[unpinned-uses] the runner group lets in main's copy only
+  reatan:
+    permissions:
+      contents: read
+      pull-requests: read # the list of the files the pull request changes
+    uses: nimbusxr/axx/.github/workflows/reatan.yml@main # zizmor: ignore[unpinned-uses] the runner group lets in main's copy only
