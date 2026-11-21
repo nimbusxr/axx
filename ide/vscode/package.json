@@ -251,7 +251,7 @@
     "vscode-textmate": "9.3.2"
   },
   "overrides": {
-    "@azure/msal-node": "7.2.2",
-    "minimatch": "11.0.8"
+    "@azure/msal-node": "7.2.3",
+    "minimatch": "11.0.9"
   }
 }

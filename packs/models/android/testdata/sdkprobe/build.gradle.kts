@@ -5,7 +5,7 @@ buildscript {
     dependencies { classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21") }
 }
 
-plugins { id("com.android.application") version "9.5.1" }
+plugins { id("com.android.application") version "9.5.2" }
 
 android {
     namespace = "us.nimbusxr.axx.sdkprobe"
