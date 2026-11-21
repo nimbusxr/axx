@@ -1,5 +1,8 @@
 executorch==1.6.0
 torch==2.15.0
+# ExecuTorch's Linux wheels need NVIDIA's CUDA runtime libraries (2.5 MB), and its other wheels
+# do not: uv compiles from one wheel's dependencies, the Mac's here, so they are named.
+nvidia-cuda-runtime>=13,<14 ; sys_platform == 'linux'
 # ExecuTorch needs torchao: PyPI's wheel of it, on every platform. --torch-backend would
 # take PyTorch's CPU build of it to compile, which it does not look for to install.
 torchao @ https://files.pythonhosted.org/packages/c4/4d/485477bb8f05bd501016059c6d8abd742f830cb1b24ab7704e086c7cc35a/torchao-0.18.0-py3-none-any.whl
