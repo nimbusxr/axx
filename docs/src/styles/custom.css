@@ -243,6 +243,12 @@ starlight-toc a[aria-current='true'] { color: var(--sl-color-white); }
 .page-actions :is(a, button):hover { border-color: var(--axx-border-hover); background: var(--axx-surface-hover); color: var(--sl-color-white); }
 .page-actions svg { width: 0.8rem; height: 0.8rem; }
 
+/* The copyright line at the foot of every page. */
+.site-credit { margin: 2.5rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--sl-color-hairline-light); color: var(--sl-color-gray-3); font-size: var(--sl-text-xs); text-align: center; }
+.site-credit a { color: inherit; text-decoration: underline; text-underline-offset: 0.2em; }
+.site-credit a:hover { color: var(--sl-color-white); }
+[data-has-hero] .site-credit { margin: 0; padding: 1.5rem clamp(1rem, 3vw, 3rem) 2rem; }
+
 /* The home page: the axe's stage, then the story, on a sheet that slides up over it. */
 [data-has-hero] { --sl-content-pad-x: 0; --sl-main-pad: 0; }
 [data-has-hero] .page > header.header { border: 0; background: transparent; backdrop-filter: none; }
