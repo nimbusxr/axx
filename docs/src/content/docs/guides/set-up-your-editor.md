@@ -16,10 +16,6 @@ Axx's steps are defined inside the `axx` binary, not in your project, so an edit
 
 The steps are the ones your project loads, custom packs included ([Choose packs](/guides/use-packs/)). The server finds the project's `axx.yaml` itself, even when it is in a subdirectory of the folder you opened.
 
-:::caution[Pre-release]
-The VS Code extension is not on the Visual Studio Marketplace yet. Build it from the repository: `npm ci && npm run package` in `ide/vscode`.
-:::
-
 ## IntelliJ IDEA
 
 Needs IntelliJ IDEA 2026.1.4 or later (or another JetBrains IDE of that version).
@@ -38,7 +34,10 @@ The plugin asks again when axx may have changed: when you come back to the IDE a
 
 Needs VS Code 1.125 or later (or an editor built on that version).
 
-1. Install the **axx** extension: *Extensions: Install from VSIX...* with the `.vsix` file `npm run package` writes.
+1. Install the **axx** extension: search for `nimbusxr.axx` in the Extensions view.
+   - VS Code installs it from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=nimbusxr.axx).
+   - Editors built on VS Code, VSCodium among them, install it from [Open VSX](https://open-vsx.org/extension/nimbusxr/axx).
+   - On a network that reaches neither, download the `.vsix` file of a [release of the extension](https://github.com/nimbusxr/axx/releases?q=vscode) and run *Extensions: Install from VSIX...*.
 2. Disable the official Cucumber extension in Axx workspaces. It looks for step definitions in code and marks every Axx step as undefined.
 3. Open a `.feature` file. The extension highlights Gherkin itself and starts the server once the workspace is trusted.
 
