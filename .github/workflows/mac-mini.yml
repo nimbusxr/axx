@@ -6,53 +6,46 @@ name: mac-mini
 # self-hosted runner (label mac-mini) in the mac-mini runner group, which only this file, as it is
 # on main, may use: the group names it.
 #
-# Pull requests run here through the runners workflow (runners.yml), which calls this file as it
-# is on main: the jobs are main's copy, never the pull request's, as the runner group lets in this
-# file at main and nothing else. A pull request cannot change what runs on the mini, or where. Only
+# Pull requests run here through the runners workflow (runners.yml), whose job starts this file on
+# main with the pull request's number, as a manual run: the jobs are main's copy, never the pull
+# request's, and the runner group lets in this file at main and nothing else. Starting a workflow
+# takes a token that writes, which a fork's pull request never has, whatever it changes. Only
 # pull requests from this repository's own branches run, which only people with write access can
 # push; a fork's never does, nor a bot's dependency update: they run once they are merged.
 on:
   push:
     branches: [main]
-  # By hand, or for a pull request, whose own run hands it over (`gh workflow run`, with its
-  # number): starting a workflow takes a token that writes, which a fork's pull request never has.
+  # By hand, or for a pull request, whose own run hands it over (runners.yml), with its number.
   workflow_dispatch:
     inputs:
       pr:
         description: A pull request's number, to run its code. Empty runs main's.
         type: string
         required: false
-  # runners.yml, for a pull request: the gate below reads the caller's event.
-  workflow_call:
 
 permissions:
   contents: read
 
 # One runner: runs queue for it. A pull request's newer push cancels its older run.
 concurrency:
-  group: mac-mini-${{ github.event_name }}-${{ github.event.inputs.pr || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event.inputs.pr != '' }}
+  group: mac-mini-${{ github.event.inputs.pr || github.ref }}
+  cancel-in-progress: ${{ github.event.inputs.pr != '' }}
 
 jobs:
   # Which jobs a pull request needs, from the files it changes, with main's scripts/ci-changes.sh
-  # (the job checks out main) and the pull request's list of files: nothing of the
+  # (the job runs on main) and the pull request's list of files: nothing of the
   # pull request's is checked out here. A push to main runs the jobs for what a bot's merged pull
   # request changed (bots' pull requests do not run here); everyone else's ran before the merge,
   # so their pushes run nothing. Manual runs run every job.
   changes:
-    # The gate. A push and a manual run: main only (a manual run from another branch could not use
-    # the mini anyway), and of pushes, a bot's merge. A pull request, whose workflow called this
-    # one (the event and the ref are the caller's): one for main, from this repository's branches,
-    # not a bot's. A pull request handed over (a manual run with its number) is held to the same
-    # by the first step, from what GitHub says of it.
+    # The gate. Main only (a manual run from another branch could not use the mini anyway), and
+    # of pushes, a bot's merge. A pull request handed over (a manual run with its number) is held
+    # by the first step to what GitHub says of it: an open one for main, from this repository's
+    # branches, not a bot's.
     if: >-
-      (github.ref == 'refs/heads/main' && (
+      github.ref == 'refs/heads/main' && (
       (github.event_name == 'push' && endsWith(github.event.head_commit.author.name, '[bot]')) ||
-      github.event_name == 'workflow_dispatch')) ||
-      (github.event_name == 'pull_request' &&
-      github.event.pull_request.base.ref == 'main' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.user.type != 'Bot')
+      github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-26.04
     permissions:
       contents: read
@@ -65,14 +58,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # Main's scripts, for a pull request too (by default it would check out the pull request).
-          ref: ${{ github.event.pull_request.base.ref || github.sha }}
           fetch-depth: 2 # a push's merge and the commit before it
           persist-credentials: false
       - id: changes
         env:
           EVENT: ${{ github.event_name }}
-          PR: ${{ github.event.pull_request.number }}
           HANDED: ${{ github.event.inputs.pr }}
           REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
@@ -93,8 +83,6 @@ jobs:
               echo "::notice::Pull request $HANDED does not run here: only an open one for main, from this repository's branches, not a bot's." >&2
               scripts/ci-changes.sh --none
             fi
-          elif [ "$EVENT" = pull_request ]; then
-            gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' | scripts/ci-changes.sh
           elif [ "$EVENT" = push ] && files=$(git diff --name-only HEAD^1 HEAD); then
             printf '%s\n' "$files" | scripts/ci-changes.sh
           else
@@ -127,8 +115,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # The pull request's code: only ever one of this repository's branches (see the gate).
-          ref: ${{ needs.changes.outputs.sha || github.event.pull_request.head.sha || github.sha }}
+          # A handed-over pull request's code: only ever one of this repository's branches (see the gate).
+          ref: ${{ needs.changes.outputs.sha || github.sha }}
           persist-credentials: false
       - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
@@ -209,8 +197,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # The pull request's code: only ever one of this repository's branches (see the gate).
-          ref: ${{ needs.changes.outputs.sha || github.event.pull_request.head.sha || github.sha }}
+          # A handed-over pull request's code: only ever one of this repository's branches (see the gate).
+          ref: ${{ needs.changes.outputs.sha || github.sha }}
           persist-credentials: false
       - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
