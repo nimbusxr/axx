@@ -203,12 +203,7 @@ func reexec(bin string) error {
 
 // withEnv is env with key set to value, in place of any it has.
 func withEnv(env []string, key, value string) []string {
-	out := make([]string, 0, len(env)+1)
-	for _, kv := range env {
-		if !strings.HasPrefix(kv, key+"=") {
-			out = append(out, kv)
-		}
-	}
+	out := slices.DeleteFunc(slices.Clone(env), func(kv string) bool { return strings.HasPrefix(kv, key+"=") })
 	return append(out, key+"="+value)
 }
 
