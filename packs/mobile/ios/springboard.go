@@ -20,6 +20,7 @@ import (
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/npm"
+	"github.com/nimbusxr/axx/packs/internal/memcheck"
 )
 
 // librarySources are a library axx loads into the simulators it boots, which gives them what an
@@ -54,6 +55,7 @@ func simulatorLibrary(ctx context.Context, s *core.Suite) (string, error) {
 			hash.Write([]byte(name))
 			hash.Write(b)
 		}
+		hash.Write(memcheck.Key())
 		sum := hash.Sum(nil)
 		cache := npm.CacheDir("mobile")
 		if err := os.MkdirAll(springboardStatuses(), 0o755); err != nil {
@@ -84,6 +86,14 @@ func simulatorLibrary(ctx context.Context, s *core.Suite) (string, error) {
 				return "", err
 			}
 			compile = append(compile, src)
+		}
+		// axx's own tests build it under a memory checker (memcheck).
+		if memcheck.Enabled() {
+			options := filepath.Join(tmp, memcheck.SourceName)
+			if err := os.WriteFile(options, memcheck.Source(), 0o644); err != nil {
+				return "", err
+			}
+			compile = append(append(compile, memcheck.Clang()...), options)
 		}
 		for _, args := range [][]string{compile, {"codesign", "--sign", "-", "--force", built}} {
 			if out, err := exec.CommandContext(ctx, "xcrun", args...).CombinedOutput(); err != nil { //nolint:gosec // Xcode's tools, with arguments axx builds

@@ -19,6 +19,7 @@ import (
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/npm"
+	"github.com/nimbusxr/axx/packs/internal/memcheck"
 	"github.com/nimbusxr/axx/packs/models/core/format/platform"
 	"github.com/nimbusxr/axx/packs/models/core/stub"
 )
@@ -189,6 +190,7 @@ func (p Platform) Library(ctx context.Context, s *core.Suite, arch string) (stri
 		h.Write(microphoneSource)
 		h.Write(sdk)
 		h.Write([]byte(target))
+		h.Write(memcheck.Key())
 		cache := npm.CacheDir("models")
 		dir := filepath.Join(cache, fmt.Sprintf("%s-%x", p.Name, h.Sum(nil)[:12]))
 		lib := filepath.Join(dir, "axx-models.dylib")
@@ -216,6 +218,14 @@ func (p Platform) Library(ctx context.Context, s *core.Suite, arch string) (stri
 		args := []string{"--sdk", p.SDK, "clang", "-target", target, "-dynamiclib", "-fobjc-arc", "-fblocks", "-ffp-contract=off", "-O2", `-DAXX_PLATFORM="` + p.Name + `"`, file, "-o", built}
 		for _, fw := range []string{"Foundation", "Vision", "Speech", "AVFoundation", "CoreImage", "CoreGraphics", "CoreMedia", "CoreVideo"} {
 			args = append(args, "-framework", fw)
+		}
+		// axx's own tests build it under a memory checker (memcheck).
+		if memcheck.Enabled() {
+			options := filepath.Join(tmp, memcheck.SourceName)
+			if err := os.WriteFile(options, memcheck.Source(), 0o644); err != nil {
+				return "", err
+			}
+			args = append(append(args, memcheck.Clang()...), options)
 		}
 		if out, err := exec.CommandContext(ctx, "xcrun", args...).CombinedOutput(); err != nil {
 			return "", p.Unsupported("cannot build the %s model adapter: %v: %s", p.Title, err, out)
