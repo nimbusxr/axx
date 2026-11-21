@@ -2,7 +2,7 @@
   "name": "axx",
   "displayName": "axx",
   "description": "Gherkin support for axx acceptance tests: step completion, hover docs, links to and completion of the files steps name, and diagnostics from the axx language server, and running scenarios from the editor. Watch shows the browsers of web scenarios, slowed down, one scenario at a time; Debug stops at breakpoints on steps and where a scenario fails, in Playwright's Inspector, and in step code.",
-  "version": "0.1.0",
+  "version": "0.7.2026112101",
   "publisher": "nimbusxr",
   "license": "Apache-2.0",
   "icon": "icon.png",

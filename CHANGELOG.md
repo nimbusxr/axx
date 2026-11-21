@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.9](https://github.com/nimbusxr/axx/compare/v0.7.8...v0.7.9) (2026-11-21)
+
+
+### Features
+
+* the WireMock extension and the editor plugins take axx's major and minor in their versions ([#388](https://github.com/nimbusxr/axx/issues/388)) ([6a76d0a](https://github.com/nimbusxr/axx/commit/6a76d0a7da6da055c26897fde7f4b51194393eb3))
+
+
+### Bug Fixes
+
+* **web-core:** the Inspector and the recorder write a backslash in a name or a value as a step reads it ([#384](https://github.com/nimbusxr/axx/issues/384)) ([d49d81d](https://github.com/nimbusxr/axx/commit/d49d81d921ee011befd1aa471535823e59be5755))
+
 ## [0.7.8](https://github.com/nimbusxr/axx/compare/v0.7.7...v0.7.8) (2026-11-21)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2026112101](https://github.com/nimbusxr/axx/compare/intellij-v0.3.12...intellij-v0.7.2026112101) (2026-11-21)
+
+
+### Miscellaneous Chores
+
+* **intellij:** released for axx 0.7
+
 ## [0.3.12](https://github.com/nimbusxr/axx/compare/intellij-v0.3.11...intellij-v0.3.12) (2026-11-21)
 
 
