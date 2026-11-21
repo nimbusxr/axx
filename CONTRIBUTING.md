@@ -51,13 +51,14 @@ release PR, and merging that PR tags the version and publishes binaries and imag
 While axx is `0.x`, breaking changes bump the minor version.
 
 A `feat` or `fix` commit releases the component whose files it changes: the WireMock extension
-for `extensions/`, the IntelliJ plugin for `ide/`, and axx for everything else. Changes to
+for `extensions/`, the IntelliJ plugin for `ide/intellij/`, the VS Code extension for
+`ide/vscode/`, and axx for everything else. Changes to
 `.github/`, `examples/` and `docs/` release nothing: axx is not built from them
 (`exclude-paths` in `release-please-config.json`). So a plugin fix that also changes a workflow
 releases the plugin and not axx. A commit that changes one of those folders and axx's own code
 still releases axx.
 
-Nothing is published (releases, images, the Homebrew cask, the IntelliJ plugin, the nightly
+Nothing is published (releases, images, the Homebrew cask, the IntelliJ plugin, the VS Code extension, the nightly
 build, the docs site, Scorecard results) unless the `AXX_PUBLISH` repository variable is
 `true`. Until then, every run of `release.yml` is a dry run, and so is every manual run and
 every pull request that touches release files. A dry run reports the release PR

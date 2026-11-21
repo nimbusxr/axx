@@ -4,7 +4,7 @@ project_name: axx
 # Always GitHub, whatever tokens the environment holds.
 force_token: github
 # The CLI's versions are the v* tags. The other components are tagged on the same commits
-# (wiremock-openapi-v…, intellij-v…), so builds without a release tag set
+# (wiremock-openapi-v…, intellij-v…, vscode-v…), so builds without a release tag set
 # GORELEASER_CURRENT_TAG to the newest v* tag (see scripts/cli-tag.sh).
 
 before:

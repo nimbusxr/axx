@@ -229,7 +229,7 @@ the skills instead: `axx skills install`.
   main, and axx.yaml files name those addresses (`schemas.Base`). The editor plugins take them from the axx the project runs on
   (`axx schema --out`, again when `axx --version` answers otherwise: IntelliJ's `AxxProjectSchemas`, VS Code's `schemas.ts`), so they
   match it whatever the plugin's release; until then, and when axx can't give them, they use copies they bundle: IntelliJ's from
-  the copy `go generate` keeps in its folder, VS Code's (never published) copied at its build. Keep `axx schema --kind <k> --out`
+  the copy `go generate` keeps in its folder, VS Code's copied at its build. Keep `axx schema --kind <k> --out`
   working in every release: an editor asks every axx a project may run on.
 - `internal/progress`: what axx says while a step takes time. A step starts with one line on standard error
   (`App.step`, or `progress.On(log).Start` where code is handed a writer), which a person at a terminal sees live

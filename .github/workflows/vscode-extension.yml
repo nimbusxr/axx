@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Builds and tests the VS Code extension (ide/vscode) on pull requests and main.
-# It never publishes.
+# It never publishes: release.yml's vscode job does, for a vscode-v<version> release.
 name: vscode-extension
 
 on:

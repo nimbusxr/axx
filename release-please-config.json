@@ -4,6 +4,7 @@
   "bump-patch-for-minor-pre-major": true,
   "include-v-in-tag": true,
   "prerelease": true,
+  "bootstrap-sha": "73b1dcbf83155c945ed697dc7a3abaccb87cbe9b",
   "packages": {
     ".": {
       "release-type": "go",
@@ -42,6 +43,14 @@
           "path": "gradle.properties"
         }
       ]
+    },
+    "ide/vscode": {
+      "release-type": "node",
+      "package-name": "axx-vscode",
+      "component": "vscode",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "initial-version": "0.1.0"
     }
   }
 }

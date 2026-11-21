@@ -29,6 +29,9 @@ on:
       - internal/tools/androidscroll/**
       - .github/workflows/wiremock-extension.yml
       - .github/workflows/intellij-plugin.yml
+      # What the VS Code extension's listing and package are made of.
+      - ide/vscode/package.json
+      - ide/vscode/.vscodeignore
   workflow_dispatch:
 
 permissions:
@@ -57,6 +60,8 @@ jobs:
       intellij: ${{ steps.rp.outputs['ide/intellij--release_created'] || steps.dry.outputs.intellij }}
       intellij_tag: ${{ steps.rp.outputs['ide/intellij--tag_name'] }}
       intellij_version: ${{ steps.rp.outputs['ide/intellij--version'] || steps.dry.outputs.intellij_version }}
+      vscode: ${{ steps.rp.outputs['ide/vscode--release_created'] || steps.dry.outputs.vscode }}
+      vscode_tag: ${{ steps.rp.outputs['ide/vscode--tag_name'] }}
     steps:
       - id: mode
         env:
@@ -133,6 +138,7 @@ jobs:
             echo "wiremock_version=$(version extensions/wiremock-openapi)"
             echo "intellij=true"
             echo "intellij_version=$(version ide/intellij)"
+            echo "vscode=true"
           } >> "$GITHUB_OUTPUT"
 
   docs:
@@ -505,3 +511,95 @@ jobs:
       JETBRAINS_CERTIFICATE_CHAIN: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN }}
       JETBRAINS_PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
       JETBRAINS_PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
+
+  # The axx VS Code extension: its .vsix on the release, and the extension on the Visual Studio
+  # Marketplace and on Open VSX (where the editors built on VS Code get theirs). A dry run
+  # packages it without publishing.
+  #
+  # Each store is published to once its repository variable says so (AXX_VSCODE_MARKETPLACE,
+  # AXX_OPEN_VSX: "true"), with no stored secret: this workflow's identity (OIDC), which the
+  # publisher registers at each store as a trusted publisher (the repository, release.yml, the
+  # release environment). The job is in this file, not one it calls, so that release.yml is the
+  # workflow either store sees. A store's token, when its secret is set (VSCE_PAT, OVSX_PAT), is
+  # used instead: Open VSX takes an extension's first version with a token only.
+  vscode:
+    needs: release-please
+    if: needs.release-please.outputs.vscode == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    # The release environment: main only. A dry run uses none.
+    environment: ${{ needs.release-please.outputs.dry-run == 'false' && 'release' || '' }}
+    permissions:
+      contents: write # the .vsix release asset
+      id-token: write # the stores' trusted publishing
+    defaults:
+      run:
+        working-directory: ide/vscode
+    env:
+      TAG: ${{ needs.release-please.outputs.vscode_tag }}
+      DRY_RUN: ${{ needs.release-please.outputs.dry-run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.release-please.outputs.vscode_tag }}
+          persist-credentials: false
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+        with:
+          install_args: "node"
+          cache: false # this job publishes
+      - run: npm ci
+      - run: npm test
+      # Type-checks and builds the bundle (vscode:prepublish), at the version release-please
+      # wrote into package.json.
+      - run: npm run package
+      - id: vsix
+        run: |
+          files=(axx-*.vsix)
+          [[ ${#files[@]} -eq 1 && -f ${files[0]} ]] || { echo "::error::expected one .vsix, found: ${files[*]}"; exit 1; }
+          echo "file=${files[0]}" >> "$GITHUB_OUTPUT"
+
+      - if: needs.release-please.outputs.dry-run == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: axx-vscode-release-dry-run
+          path: ide/vscode/axx-*.vsix
+          retention-days: 14
+
+      - if: needs.release-please.outputs.dry-run == 'false'
+        name: attach the .vsix to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VSIX: ${{ steps.vsix.outputs.file }}
+        run: gh release upload "$TAG" "$VSIX" --clobber --repo "$GITHUB_REPOSITORY"
+      - if: needs.release-please.outputs.dry-run == 'false'
+        name: publish to the Visual Studio Marketplace
+        env:
+          ENABLED: ${{ vars.AXX_VSCODE_MARKETPLACE }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VSIX: ${{ steps.vsix.outputs.file }}
+        run: |
+          if [[ "$ENABLED" != true ]]; then
+            echo "::warning::Not published to the Visual Studio Marketplace: set the AXX_VSCODE_MARKETPLACE repository variable to true once the nimbusxr publisher trusts this workflow (or has a VSCE_PAT secret)."
+            exit 0
+          fi
+          if [[ -n "$VSCE_PAT" ]]; then
+            npx vsce publish --packagePath "$VSIX"
+          else
+            npx vsce publish --oidc --packagePath "$VSIX"
+          fi
+      - if: needs.release-please.outputs.dry-run == 'false'
+        name: publish to Open VSX
+        env:
+          ENABLED: ${{ vars.AXX_OPEN_VSX }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          VSIX: ${{ steps.vsix.outputs.file }}
+        run: |
+          if [[ "$ENABLED" != true ]]; then
+            echo "::warning::Not published to Open VSX: set the AXX_OPEN_VSX repository variable to true once the nimbusxr namespace exists there and has an OVSX_PAT secret (the first version) or trusts this workflow (the later ones)."
+            exit 0
+          fi
+          if [[ -n "$OVSX_PAT" ]]; then
+            npx ovsx publish "$VSIX"
+          else
+            npx ovsx publish "$VSIX" --trusted-publishing
+          fi
