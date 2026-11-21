@@ -36,6 +36,8 @@ The plugin asks again when axx may have changed: when you come back to the IDE a
 
 ## VS Code
 
+Needs VS Code 1.125 or later (or an editor built on that version).
+
 1. Install the **axx** extension: *Extensions: Install from VSIX...* with the `.vsix` file `npm run package` writes.
 2. Disable the official Cucumber extension in Axx workspaces. It looks for step definitions in code and marks every Axx step as undefined.
 3. Open a `.feature` file. The extension highlights Gherkin itself and starts the server once the workspace is trusted.
