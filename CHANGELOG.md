@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.8](https://github.com/nimbusxr/axx/compare/v0.7.7...v0.7.8) (2026-11-21)
+
+
+### Features
+
+* **ide:** the VS Code extension has releases of its own, for the Visual Studio Marketplace and Open VSX ([#382](https://github.com/nimbusxr/axx/issues/382)) ([165fc36](https://github.com/nimbusxr/axx/commit/165fc3680604629db686a326b777e8245ebcd38c))
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#379](https://github.com/nimbusxr/axx/issues/379)) ([52fcffe](https://github.com/nimbusxr/axx/commit/52fcffe9fea3e8cd43f6ea6c889bf4ae63779a70))
+* **examples:** the couriers' emulator's snapshot is saved once the device has finished its first boot, and its emulator on Linux is the build its script names ([9ff054a](https://github.com/nimbusxr/axx/commit/9ff054a1b9b3c03e58cc3f64e31f12aaaf9f6b83))
+* **mobile-android:** a control off the screen that Android says is displayed is scrolled to, and not tapped at the screen's edge ([372a981](https://github.com/nimbusxr/axx/commit/372a981f50b0ffe3dd2ebb289530a2ae44c8a395))
+* **mobile-android:** a toast no longer fails the steps after it on a busy device: the UiAutomator2 server is started with Android's hidden APIs allowed it ([372a981](https://github.com/nimbusxr/axx/commit/372a981f50b0ffe3dd2ebb289530a2ae44c8a395))
+* **mobile-android:** the UiAutomator2 server's log says whether adb lost the device when the server ended, and what adb and the device's adb daemon logged of it ([372a981](https://github.com/nimbusxr/axx/commit/372a981f50b0ffe3dd2ebb289530a2ae44c8a395))
+* **mobile-ios:** a WebDriverAgent that does not answer is reported with whether its process still runs and what the simulator logged of it ([372a981](https://github.com/nimbusxr/axx/commit/372a981f50b0ffe3dd2ebb289530a2ae44c8a395))
+* **mobile-ios:** a WebDriverAgent that ends as it starts is launched again, and not waited for ([9ff054a](https://github.com/nimbusxr/axx/commit/9ff054a1b9b3c03e58cc3f64e31f12aaaf9f6b83))
+* **mobile-ios:** the simulator's camera shows the frame of a video that is due, from a copy of the video whose every frame is a key frame ([#377](https://github.com/nimbusxr/axx/issues/377)) ([c835121](https://github.com/nimbusxr/axx/commit/c8351214ed59195150c334f96d10c79ecc4d2793))
+* **mobile:** a control its driver has lost is found again, and is not tapped as if it were on the screen ([372a981](https://github.com/nimbusxr/axx/commit/372a981f50b0ffe3dd2ebb289530a2ae44c8a395))
+* **sql:** a step waits for an SQLite file that another connection has locked, and a locked file is not taken for a table with no column types ([372a981](https://github.com/nimbusxr/axx/commit/372a981f50b0ffe3dd2ebb289530a2ae44c8a395))
+* the download of OpenH264 is tried again when the network fails it ([372a981](https://github.com/nimbusxr/axx/commit/372a981f50b0ffe3dd2ebb289530a2ae44c8a395))
+* **web-core:** a paused scenario says what ended its pause ([372a981](https://github.com/nimbusxr/axx/commit/372a981f50b0ffe3dd2ebb289530a2ae44c8a395))
+
 ## [0.7.7](https://github.com/nimbusxr/axx/compare/v0.7.6...v0.7.7) (2026-11-20)
 
 
