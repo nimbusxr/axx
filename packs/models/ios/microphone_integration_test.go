@@ -3,16 +3,18 @@
 package modelsios
 
 import (
-	"bufio"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -24,6 +26,9 @@ import (
 	"github.com/nimbusxr/axx/packs/models/core/modelstest"
 	"github.com/nimbusxr/axx/packs/models/core/stub"
 )
+
+// probeBundleID is the probe's bundle identifier, where it is installed as an app.
+const probeBundleID = "us.nimbusxr.axx.audiodeviceprobe"
 
 type microphoneProbe struct {
 	device, lib, executable, dir string
@@ -89,7 +94,7 @@ func (p *microphoneProbe) run(t *testing.T, kind, file string, microphone bool) 
 // A bare simctl spawn process cannot establish whether capture is supported.
 func (p *microphoneProbe) install(t *testing.T) string {
 	t.Helper()
-	const bundleID = "us.nimbusxr.axx.audiodeviceprobe"
+	const bundleID = probeBundleID
 	bundle := filepath.Join(t.TempDir(), "Probe.app")
 	if err := os.MkdirAll(bundle, 0o755); err != nil {
 		t.Fatal(err)
@@ -110,57 +115,90 @@ func (p *microphoneProbe) install(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(bundle, "Info.plist"), []byte(plist), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.CommandContext(t.Context(), "xcrun", "simctl", "install", p.device, bundle).CombinedOutput(); err != nil {
-		t.Fatalf("install capture probe: %v: %s", err, out)
-	}
-	// The simulator ends an app that runs as what the app is allowed changes, and it does so
-	// a moment after simctl has returned: seconds on a slow Mac, where the probe, launched
-	// right after it was allowed the microphone, was ended four seconds into its session,
-	// without a word and with no report (CI's Mac, twice in a day). So the probe is launched
-	// once to wait, and allowed the microphone as it waits: that run is the one the simulator
-	// ends, and when it has, nothing is left to end the run the test is after.
-	waiting := exec.CommandContext(t.Context(), "xcrun", "simctl", "launch", "--console", p.device, bundleID, "waiting", "unused")
-	said, err := waiting.StdoutPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := waiting.Start(); err != nil {
-		t.Fatalf("launch capture probe to wait: %v", err)
-	}
-	ended := make(chan struct{})
-	up := make(chan struct{})
-	go func() {
-		defer close(ended)
-		lines := bufio.NewScanner(said)
-		for lines.Scan() {
-			if lines.Text() == "waiting" {
-				close(up)
-			}
+	// The probe is launched right after it is allowed the microphone, and that is safe. The
+	// simulator does end an app that runs as what the app is allowed changes, but it ends the
+	// processes it finds then, each by its process id, before it answers the change, and
+	// simctl returns after that answer: nothing is left to end an app launched later. On an
+	// iOS 27.2 simulator an app launched as simctl returned kept its process, 30 times of 30.
+	for _, args := range [][]string{{"install", p.device, bundle}, {"privacy", p.device, "grant", "microphone", bundleID}} {
+		if out, err := exec.CommandContext(t.Context(), "xcrun", append([]string{"simctl"}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("authorize capture probe: %v: %s", err, out)
 		}
-		_ = waiting.Wait()
-	}()
-	select {
-	case <-up:
-	case <-ended:
-		t.Fatal("the capture probe, launched to wait, ended before it said it waits")
-	case <-time.After(time.Minute):
-		t.Fatal("the capture probe, launched to wait, did not say it waits within a minute")
-	}
-	if out, err := exec.CommandContext(t.Context(), "xcrun", "simctl", "privacy", p.device, "grant", "microphone", bundleID).CombinedOutput(); err != nil {
-		t.Fatalf("authorize capture probe: %v: %s", err, out)
-	}
-	allowed := time.Now()
-	select {
-	case <-ended:
-		t.Logf("the simulator ended the waiting probe %s after it was allowed the microphone", time.Since(allowed).Round(100*time.Millisecond))
-	case <-time.After(30 * time.Second):
-		// A simulator that ends nothing has nothing to end later either.
-		t.Log("the simulator did not end the waiting probe within 30s of allowing it the microphone")
-		_ = exec.Command("xcrun", "simctl", "terminate", p.device, bundleID).Run()
-		<-ended
 	}
 	t.Cleanup(func() { _ = exec.Command("xcrun", "simctl", "uninstall", p.device, bundleID).Run() })
 	return bundleID
+}
+
+// launch launches the installed probe as an app, waits for its process to end, and returns what
+// it said. It does not have simctl's launch --console relay that: simctl looks once a second
+// whether the app's process still runs, and exits as soon as it does not, whatever it has not
+// read yet of what the app said. The probe says how its session went in its last moments, so on
+// a Mac short of processor time those lines can be lost, and a session that went well then
+// reads as one that ended without a word, with simctl answering 0. CI's Mac gave two such runs
+// in a day (the one that had the probe's lines of its progress lacked its last three, and no
+// other); and with simctl starved here, an app that only talks lost its last lines in 2 runs of
+// 139 (the simulator's log, read for one of them, has the app exit by itself). The simulator
+// writes what the probe says to files instead, which are whole once its process has ended.
+func (p *microphoneProbe) launch(t *testing.T, bundleID string, args ...string) (string, error) {
+	t.Helper()
+	// simctl puts the files in the simulator's own folders: in its temporary folder, then.
+	tmp, err := exec.CommandContext(t.Context(), "xcrun", "simctl", "getenv", p.device, "TMPDIR").Output()
+	if err != nil {
+		return "", fmt.Errorf("the simulator's temporary folder: %w", err)
+	}
+	dir, err := os.MkdirTemp(strings.TrimSpace(string(tmp)), "axx-probe-")
+	if err != nil {
+		return "", err
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	stdout, stderr := filepath.Join(dir, "stdout"), filepath.Join(dir, "stderr")
+	cmd := exec.CommandContext(t.Context(), "xcrun", append([]string{"simctl", "launch", "--stdout=" + stdout, "--stderr=" + stderr, p.device, bundleID}, args...)...)
+	cmd.Env = append(os.Environ(), "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES="+p.lib, "SIMCTL_CHILD_AXX_MODELS_DIR="+p.dir, "SIMCTL_CHILD_AXX_MODELS_MICROPHONE=1")
+	launched, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(launched), err
+	}
+	// simctl answers with the app's process, us.nimbusxr.axx.audiodeviceprobe: 14365, and a
+	// simulator's processes are the Mac's own.
+	_, id, _ := strings.Cut(strings.TrimSpace(string(launched)), ": ")
+	pid, err := strconv.Atoi(id)
+	if err != nil {
+		return string(launched), fmt.Errorf("simctl did not say which process it launched: %q", launched)
+	}
+	said := func() string {
+		errs, _ := os.ReadFile(stderr)
+		outs, _ := os.ReadFile(stdout)
+		return string(errs) + string(outs)
+	}
+	// The probe hears for 30 seconds at most, and a slow Mac takes long to launch it besides.
+	for deadline := time.Now().Add(2 * time.Minute); !errors.Is(syscall.Kill(pid, 0), syscall.ESRCH); time.Sleep(20 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			_ = exec.Command("xcrun", "simctl", "terminate", p.device, bundleID).Run()
+			return said(), errors.New("the probe still ran two minutes after it was launched")
+		}
+	}
+	return said(), nil
+}
+
+// ended is how the simulator says the app's processes ended, for a failure's report:
+// SpringBoard's line of each, which calls an exit of the app's own voluntary, and names what
+// ended one that was ended (the privacy service is the tcc domain).
+func (p *microphoneProbe) ended(bundleID string) string {
+	predicate := `process == "SpringBoard" AND composedMessage CONTAINS "` + bundleID + `" AND composedMessage CONTAINS "Process exited"`
+	out, err := exec.Command("xcrun", "simctl", "spawn", p.device, "log", "show", "--last", "3m", "--style", "compact", "--predicate", predicate).CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("the simulator's log cannot be read (%v)", err)
+	}
+	var lines []string
+	for _, l := range strings.Split(string(out), "\n") {
+		if strings.Contains(l, "Process exited") {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) == 0 {
+		return "the simulator's log has no end of a process of it"
+	}
+	return strings.Join(lines, "\n")
 }
 
 func TestSimulatorSpeechTellsOneSpeakersPhrasesApart(t *testing.T) {
@@ -258,11 +296,7 @@ func TestSimulatorCaptureHearsTheRecording(t *testing.T) {
 				began := time.Now()
 				id := p.install(t)
 				installed := time.Since(began)
-				cmd := exec.CommandContext(t.Context(), "xcrun", "simctl", "launch", "--console", p.device, id, kind, file)
-				cmd.Env = append(os.Environ(), "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES="+p.lib, "SIMCTL_CHILD_AXX_MODELS_DIR="+p.dir, "SIMCTL_CHILD_AXX_MODELS_MICROPHONE=1")
-				var data []byte
-				data, err = cmd.CombinedOutput()
-				out = string(data)
+				out, err = p.launch(t, id, kind, file)
 				// The probe says how long its session took; the rest of this is the simulator
 				// installing and launching it, 12 to 26 seconds of it on CI's Mac.
 				t.Logf("the probe was installed and allowed the microphone in %s, and launched and ended in %s",
@@ -280,6 +314,9 @@ func TestSimulatorCaptureHearsTheRecording(t *testing.T) {
 				rate = 44100
 			}
 			if err != nil || !strings.Contains(out, fmt.Sprintf("captured %d\n", rate)) {
+				if kind == "capture-session" {
+					t.Fatalf("capture: %v: %s\nthe simulator, of how the probe's process ended:\n%s", err, out, p.ended(probeBundleID))
+				}
 				t.Fatalf("capture: %v: %s", err, out)
 			}
 			data, err := os.ReadFile(file)

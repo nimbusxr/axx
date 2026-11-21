@@ -296,6 +296,13 @@ func (d *running) reset(ctx context.Context, s *core.Suite) error {
 		d.resets = append(d.resets, "app installed afresh")
 	}
 	d.resets = append(d.resets, "keychain reset", "permissions reset")
+	// A grant made here does not end the app once a step has launched it. The simulator does
+	// end an app that runs as what the app is allowed changes, but its privacy service (tccd)
+	// ends the processes it finds then, each by its process id, before it answers the change,
+	// and simctl returns after that answer: held for three seconds, tccd kept simctl waiting
+	// for those three seconds. No process of the app runs now, and none launched later is
+	// ended: on an iOS 27.2 simulator an app launched as simctl returned kept its process, 30
+	// times of 30. Location is locationd's, which ends nothing.
 	for _, service := range d.app.permissions {
 		if _, err := set.simctl(ctx, "privacy", udid, "grant", service, d.bundleID); err != nil {
 			return fmt.Errorf("cannot grant the %s app %s (xcrun simctl help privacy lists what a simulator grants): %w", d.app.name, service, err)
