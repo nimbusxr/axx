@@ -15,7 +15,7 @@
     "url": "https://github.com/nimbusxr/axx/issues"
   },
   "engines": {
-    "vscode": "^1.91.0"
+    "vscode": "^1.125.0"
   },
   "categories": [
     "Programming Languages",
@@ -242,8 +242,8 @@
     "vscode-languageclient": "11.0.0"
   },
   "devDependencies": {
-    "@types/node": "20.19.43",
-    "@types/vscode": "1.91.0",
+    "@types/node": "24.19.2",
+    "@types/vscode": "1.125.0",
     "@vscode/vsce": "4.1.1",
     "esbuild": "0.28.2",
     "typescript": "7.0.2",
@@ -251,7 +251,7 @@
     "vscode-textmate": "9.3.2"
   },
   "overrides": {
-    "@azure/msal-node": "7.2.2",
-    "minimatch": "11.0.8"
+    "@azure/msal-node": "7.2.3",
+    "minimatch": "11.0.9"
   }
 }

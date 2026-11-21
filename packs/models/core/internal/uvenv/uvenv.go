@@ -43,7 +43,9 @@ func Install(ctx context.Context, name string, requirements, script []byte, ext 
 			return nil, err
 		}
 		for _, args := range [][]string{
-			{"venv", "--quiet", "--python", Python, filepath.Join(dir, "venv")},
+			// --clear: an environment without its "ready" file is one an earlier install left
+			// half made (it failed, or was interrupted), and uv refuses to make one over it.
+			{"venv", "--quiet", "--clear", "--python", Python, filepath.Join(dir, "venv")},
 			// PyTorch's CPU builds come from PyTorch's index (its packages alone:
 			// the rest from PyPI), as the requirements were compiled.
 			{"pip", "install", "--quiet", "--python", bin, "--require-hashes", "--torch-backend", "cpu", "-r", req},

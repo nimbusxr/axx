@@ -73,7 +73,7 @@ jobs:
 
       # Publishing. A GitHub App token (not GITHUB_TOKEN) so the release PR triggers CI.
       - if: steps.mode.outputs.dry-run == 'false'
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: app
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
@@ -97,7 +97,7 @@ jobs:
         with:
           persist-credentials: false
       - if: steps.mode.outputs.dry-run == 'true'
-        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           install_args: "node"
           cache: false # this job also publishes
@@ -171,7 +171,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # No cache: what this job builds goes into the release.
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           install_args: "go node"
           cache: false
@@ -222,7 +222,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # No cache: what this job builds goes into the release.
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           install_args: "go java"
           cache: false
@@ -280,7 +280,7 @@ jobs:
           ref: ${{ needs.release-please.outputs.axx_tag }}
           persist-credentials: false
       # No cache in a job that publishes.
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           install_args: "go"
           cache: false
@@ -335,7 +335,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # The Homebrew tap is another repository; the release app writes the cask there.
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         id: tap
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
@@ -344,7 +344,7 @@ jobs:
           repositories: homebrew-tap
           permission-contents: write
       # No cache in a job that publishes: a restored cache could feed the release.
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           install_args: "go goreleaser"
           cache: false
@@ -429,7 +429,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           install_args: "go goreleaser"
           # Tools are cached from main only: pull requests read them.

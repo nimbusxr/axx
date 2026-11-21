@@ -23,7 +23,7 @@ if (process.argv.includes('--tests')) {
     bundle: true,
     format: 'esm',
     platform: 'node',
-    target: 'node20',
+    target: 'node24',
     packages: 'external',
     logLevel: 'warning',
   });
@@ -36,7 +36,7 @@ const options = {
   bundle: true,
   format: 'cjs',
   platform: 'node',
-  target: 'node20', // the Node.js of the oldest supported VS Code (engines.vscode)
+  target: 'node24', // the Node.js of the oldest supported VS Code (engines.vscode)
   external: ['vscode'],
   minify: production,
   sourcemap: !production,
