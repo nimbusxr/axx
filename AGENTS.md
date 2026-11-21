@@ -323,6 +323,10 @@ the skills instead: `axx skills install`.
   recorded behavior oracles. **Never edit either by hand**: they define correct behavior. A new
   step joins the catalog with `go test ./internal/engine -run TestStepCatalog -update`, which
   only adds entries.
+- `testdata/cli-contract.json`: the frozen exit codes and `AXX-E` error codes, with the exit code
+  each error ends its command with (ADR 0003). **Never edit it by hand.** A new code joins with
+  `go test ./internal/axxerr -run TestCLIContract -update`; a code the owner decides to remove is
+  retired with `-retire`, and is never given another meaning.
 - `testdata/openapi-agreement`: exchanges that both OpenAPI validators (the REST pack's and the
   WireMock extension's) must report with the same keys; both test suites read it.
 
@@ -333,7 +337,8 @@ the skills instead: `axx skills install`.
   `go test ./internal/engine -run TestStepCatalog -prune`.
 - A step's `{string}` that it sets something to or checks something against is a value: declare it
   (`StepDef.TextArgs`, `TypedArgs`; ADR 0014). A name or a pattern is not: list it in `packs/all/values_test.go`.
-- Exit codes (`internal/exitcode`) and the `--json` envelope are frozen contracts (ADR 0003).
+- Exit codes (`internal/exitcode`), error codes (`internal/axxerr`) and the `--json` envelope are
+  frozen contracts (ADR 0003): a test holds the codes to `testdata/cli-contract.json`.
 - Every user-facing error is an `*axxerr.Error` with a stable `AXX-Exxxx` code and a hint.
 - Never hand-edit generated files: `go generate ./...` writes the `axx.yaml` schema
   (`schemas/v0/axx.schema.json`) and the IntelliJ plugin's copy of every schema
