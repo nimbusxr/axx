@@ -595,10 +595,13 @@ jobs:
           VSIX: ${{ steps.vsix.outputs.file }}
         run: |
           if [[ "$ENABLED" != true ]]; then
-            echo "::warning::Not published to Open VSX: set the AXX_OPEN_VSX repository variable to true once the nimbusxr namespace exists there and has an OVSX_PAT secret (the first version) or trusts this workflow (the later ones)."
+            echo "::warning::Not published to Open VSX: set the AXX_OPEN_VSX repository variable to true once the release environment has an OVSX_PAT secret (the first version, which also makes the nimbusxr namespace) or the namespace trusts this workflow (the later ones)."
             exit 0
           fi
           if [[ -n "$OVSX_PAT" ]]; then
+            # The publisher's namespace, made the first time: the token is all a person gives.
+            namespace=$(jq -r .publisher package.json)
+            npx ovsx verify-pat "$namespace" || npx ovsx create-namespace "$namespace"
             npx ovsx publish "$VSIX"
           else
             npx ovsx publish "$VSIX" --trusted-publishing
