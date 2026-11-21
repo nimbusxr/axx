@@ -42,7 +42,8 @@ permissions:
   contents: read
 
 env:
-  AXX_NIGHTLY: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+  # TEMPORARY, for the measurement: this pull request runs as the nightly run does.
+  AXX_NIGHTLY: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -1643,7 +1644,7 @@ jobs:
   # three systems, and each pack's integration tests where what it talks to is.
   coverage:
     needs: [test, integration, web, mobile, ios, coreml, windows-models, webllm]
-    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
