@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.12](https://github.com/nimbusxr/axx/compare/intellij-v0.3.11...intellij-v0.3.12) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#379](https://github.com/nimbusxr/axx/issues/379)) ([52fcffe](https://github.com/nimbusxr/axx/commit/52fcffe9fea3e8cd43f6ea6c889bf4ae63779a70))
+
 ## [0.3.11](https://github.com/nimbusxr/axx/compare/intellij-v0.3.10...intellij-v0.3.11) (2026-11-16)
 
 
