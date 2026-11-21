@@ -180,7 +180,7 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 	start := time.Now()
 	resp, err := set.client.Do(hreq)
 	if err != nil {
-		return fmt.Errorf("%s %s failed: %w", method, target, err)
+		return fmt.Errorf("%s %s failed: %w", method, target, unverified(err))
 	}
 	respBody, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()

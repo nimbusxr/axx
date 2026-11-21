@@ -30,12 +30,11 @@ type Config struct {
 
 // TLSConfig configures HTTPS.
 type TLSConfig struct {
-	// Verify is what a certificate that does not verify does to a request:
-	// warn (the default) says so and lets it go on, so services with
-	// certificates of their own work out of the box; error fails it; ignore
-	// verifies nothing. true and false are the earlier names of error and
-	// ignore.
-	Verify Verify `json:"verify,omitempty"`
+	// Verify is whether a host's TLS certificate is verified: it is unless
+	// this is false, and a request to a host whose certificate does not verify
+	// fails. false accepts a certificate whatever it is, as a service under
+	// test with a certificate of its own needs.
+	Verify *bool `json:"verify,omitempty"`
 }
 
 // OpenAPIConfig holds OpenAPI validation defaults.
@@ -53,7 +52,7 @@ const configSchema = `{
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "verify": {"enum": ["warn", "error", "ignore", true, false], "description": "What a TLS certificate that does not verify does to a request: warn (the default) says so once for each host and lets the request go on; error fails it; ignore verifies nothing. true and false are the earlier names of error and ignore."}
+        "verify": {"type": "boolean", "description": "Verify TLS certificates (default true): a request to a host whose certificate does not verify fails. false accepts a certificate whatever it is, for a service under test with a certificate of its own."}
       }
     },
     "openapi": {
@@ -90,21 +89,16 @@ func load(s *core.Suite) (*settings, error) {
 			return nil, fmt.Errorf("openapi.levels: %w", err)
 		}
 		tr := http.DefaultTransport.(*http.Transport).Clone()
-		// Only packs.rest.tls.verify: error has a certificate that does not verify fail its
-		// request (relaxed HTTPS validation).
-		verify := c.TLS.Verify.orWarn()
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: verify != VerifyError} //nolint:gosec // documented default: warn says which certificates do not verify, error fails them
+		// Certificates are verified unless packs.rest.tls.verify is false.
+		verify := c.TLS.Verify == nil || *c.TLS.Verify
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: !verify} //nolint:gosec // only when axx.yaml says so, for a service under test with a certificate of its own
 		s.OnClose(func(context.Context) error {
 			tr.CloseIdleConnections()
 			return nil
 		})
-		var transport http.RoundTripper = tr
-		if verify == VerifyWarn {
-			transport = &warned{next: tr, log: s.Logger(), verify: verifies}
-		}
 		return &settings{
 			levels: levels,
-			client: &http.Client{Transport: transport, CheckRedirect: checkRedirect},
+			client: &http.Client{Transport: tr, CheckRedirect: checkRedirect},
 			specs:  &specCache{m: map[string]*specEntry{}},
 		}, nil
 	})

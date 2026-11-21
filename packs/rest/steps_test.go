@@ -3,6 +3,8 @@ package rest
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -466,6 +468,38 @@ func TestSpecFromURLAndExternalExample(t *testing.T) {
 	h.ok("the request is executed")
 	if got != `{"thing":1}` {
 		t.Fatalf("sent %q", got)
+	}
+}
+
+func TestTLSVerification(t *testing.T) {
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	srv.Config.ErrorLog = log.New(io.Discard, "", 0) // the rejected handshake is expected
+	srv.StartTLS()
+	defer srv.Close()
+	// A certificate of the server's own, which no system trusts: verified unless axx.yaml says
+	// not to, and the failure says how.
+	for config, passes := range map[string]bool{
+		``:                         false,
+		`{}`:                       false,
+		`{"tls":{}}`:               false,
+		`{"tls":{"verify":true}}`:  false,
+		`{"tls":{"verify":false}}`: true,
+	} {
+		var opts []harnessOpt
+		if config != "" {
+			opts = append(opts, withPackConfig("rest", config))
+		}
+		h := newHarness(t, opts...)
+		h.service("api", srv.URL, "")
+		h.ok("a GET request to /")
+		if passes {
+			h.ok("the request is executed")
+			h.ok("the response status code is 204")
+			continue
+		}
+		if err := h.failure("the request is executed", "certificate"); !strings.Contains(err.Error(), "packs.rest.tls.verify: false") {
+			t.Errorf("with packs.rest %s the failure does not name the setting: %v", config, err)
+		}
 	}
 }
 
