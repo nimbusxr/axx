@@ -523,6 +523,21 @@ func (e *Element) extents() Rect {
 	return r
 }
 
+// HasCaret is whether the element is a text with a cursor in it, no part of it selected,
+// wherever the cursor is: GTK 4, before 4.16, says at which character its cursor is and gives
+// no place for any character, so Caret has none for it.
+func (e *Element) HasCaret() bool {
+	if !slices.Contains(e.Interfaces(), ifaceText) {
+		return false
+	}
+	v, err := e.property(ifaceText, "CaretOffset")
+	if at, ok := v.Value().(int32); err != nil || !ok || at < 0 {
+		return false
+	}
+	var selections int32
+	return e.call(ifaceText+".GetNSelections").Store(&selections) != nil || selections == 0
+}
+
 // Caret is where the element's text cursor is on the screen, a line high
 // and no width, when it shows one: the element is a text, with no part of
 // it selected. It is at the left edge of the character after it, or the

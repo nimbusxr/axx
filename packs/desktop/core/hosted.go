@@ -229,16 +229,18 @@ type procParams struct {
 // layer above acts on by its kind (a place off its control, a control that
 // lost its place, a check that failed), which crosses as what it is.
 type procAnswer struct {
-	Controls []wireControl  `json:"controls,omitempty"`
-	Control  *wireControl   `json:"control,omitempty"`
-	Names    []string       `json:"names,omitempty"`
-	OK       bool           `json:"ok,omitempty"`
-	Reported bool           `json:"reported,omitempty"`
-	Text     string         `json:"text,omitempty"`
-	PNG      []byte         `json:"png,omitempty"`
-	Scale    float64        `json:"scale,omitempty"`
-	Tree     *wireNode      `json:"tree,omitempty"`
-	Describe map[string]any `json:"describe,omitempty"`
+	Controls []wireControl `json:"controls,omitempty"`
+	Control  *wireControl  `json:"control,omitempty"`
+	Names    []string      `json:"names,omitempty"`
+	OK       bool          `json:"ok,omitempty"`
+	Reported bool          `json:"reported,omitempty"`
+	Text     string        `json:"text,omitempty"`
+	PNG      []byte        `json:"png,omitempty"`
+	Scale    float64       `json:"scale,omitempty"`
+	// CaretField is the window's focused text field whose cursor has no place (CaretFielder).
+	CaretField *image.Rectangle `json:"caretField,omitempty"`
+	Tree       *wireNode        `json:"tree,omitempty"`
+	Describe   map[string]any   `json:"describe,omitempty"`
 
 	Off    *Off                 `json:"off,omitempty"`
 	Lost   string               `json:"lost,omitempty"`
@@ -265,8 +267,10 @@ type wireNode struct {
 
 // hostedProcess is an app that runs on the host's desktop.
 type hostedProcess struct {
-	desk *hostedDesktop
-	ref  appRef
+	// caretField is the focused text field the host named with the window it last gave.
+	caretField *image.Rectangle
+	desk       *hostedDesktop
+	ref        appRef
 
 	mu      sync.Mutex
 	dropped []uint64
@@ -452,7 +456,16 @@ func (p *hostedProcess) Window() (image.Image, float64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	p.caretField = a.CaretField
 	return img, a.Scale, nil
+}
+
+// CaretField is what the host said of the window it last gave (CaretFielder).
+func (p *hostedProcess) CaretField() (image.Rectangle, bool) {
+	if p.caretField == nil {
+		return image.Rectangle{}, false
+	}
+	return *p.caretField, true
 }
 
 func (p *hostedProcess) Tree() (*Node, error) {

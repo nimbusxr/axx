@@ -98,6 +98,8 @@ type fakeProc struct {
 	looks    atomic.Int32
 	// shows, when set, is its window at each look, from the first (1).
 	shows func(look int32) image.Image
+	// caretField, when not empty, is its focused text field whose cursor has no place.
+	caretField image.Rectangle
 	// size is its controls' size, in points, once set: a place off it fails.
 	size [2]float64
 	// remakes is how many actions find the control made anew, as a web view
@@ -252,6 +254,10 @@ func (p *fakeProc) Window() (image.Image, float64, error) {
 		img.Set(0, 0, color.RGBA{G: uint8(p.looks.Load()), A: 255})
 	}
 	return img, 2, nil
+}
+
+func (p *fakeProc) CaretField() (image.Rectangle, bool) {
+	return p.caretField, !p.caretField.Empty()
 }
 func (p *fakeProc) Tree() (*Node, error) { return p.tree, nil }
 func (p *fakeProc) Stop() error {
@@ -663,6 +669,62 @@ func TestScreenshots(t *testing.T) {
 	if got := screenshotFile("/s", "arrivals", 1.75); got != filepath.Join("/s", "arrivals."+platform+"@1.75x.png") {
 		t.Errorf("a display's scale names its screenshots: %s", got)
 	}
+}
+
+// TestACursorWithNoPlaceIsNoDifference: an app that gives its text cursor no place (GTK 4)
+// shows it or not as it blinks, and shows it for good once it stops blinking. A screenshot taken
+// with the cursor matches a look without it, and one taken without it a look with it; anything
+// else in the field, or a cursor's column outside it, is a difference.
+func TestACursorWithNoPlaceIsNoDifference(t *testing.T) {
+	p, _, _ := desk()
+	d := &fakeDriver{proc: p}
+	h := harness(t, d)
+	h.OK("the depot app is launched")
+	white, ink := color.RGBA{R: 255, G: 255, B: 255, A: 255}, color.RGBA{R: 46, G: 52, B: 54, A: 255}
+	// A window with a text field (x 10 to 90, y 20 to 50), a cursor at x 40, and a line at x 96.
+	window := func(cursor, line bool, extra image.Point) image.Image {
+		img := image.NewRGBA(image.Rect(0, 0, 100, 60))
+		draw.Draw(img, img.Bounds(), &image.Uniform{C: white}, image.Point{}, draw.Src)
+		for y := 26; y < 44; y++ {
+			if cursor {
+				img.Set(40, y, ink)
+			}
+			if line {
+				img.Set(96, y, ink)
+			}
+		}
+		if extra != (image.Point{}) {
+			img.Set(extra.X, extra.Y, ink)
+		}
+		return img
+	}
+	p.caretField = image.Rect(10, 20, 90, 50)
+	for name, c := range map[string]struct {
+		taken, shown image.Image
+		same         bool
+	}{
+		"taken-with-shown-without":   {window(true, true, image.Point{}), window(false, true, image.Point{}), true},
+		"taken-without-shown-with":   {window(false, true, image.Point{}), window(true, true, image.Point{}), true},
+		"more-than-the-cursor":       {window(true, true, image.Point{}), window(false, true, image.Pt(60, 30)), false},
+		"a-column-outside-the-field": {window(true, true, image.Point{}), window(true, false, image.Point{}), false},
+	} {
+		shot := "cursor-" + name
+		p.shows = func(int32) image.Image { return c.taken }
+		_ = h.Fails(`the depot app looks like the "`+shot+`" screenshot`, `There was no "`+shot+`.`)
+		p.shows = func(int32) image.Image { return c.shown }
+		step := `within 1s the depot app looks like the "` + shot + `" screenshot`
+		if c.same {
+			h.OK(step)
+		} else {
+			_ = h.Fails(step, `The depot app does not look like its "`+shot+`" screenshot`)
+		}
+	}
+	// An app that places its cursor has it hidden in its window: a column that differs is one.
+	p.caretField = image.Rectangle{}
+	p.shows = func(int32) image.Image { return window(true, true, image.Point{}) }
+	_ = h.Fails(`the depot app looks like the "placed" screenshot`, `There was no "placed.`)
+	p.shows = func(int32) image.Image { return window(false, true, image.Point{}) }
+	_ = h.Fails(`within 1s the depot app looks like the "placed" screenshot`, `The depot app does not look like its "placed" screenshot`)
 }
 
 // TestScreenshotsShowTheLookCompared: a failure shows the look that was
