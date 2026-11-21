@@ -1,0 +1,26 @@
+name: runners (proof)
+
+# A proof, never to be merged: a pull request's run hands itself over to the Mac mini and the
+# Reatan, by starting their workflows on main with its number.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  hand-over:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      actions: write # starts mac-mini.yml and reatan.yml on main
+    steps:
+      - env:
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run mac-mini.yml --repo "$REPO" --ref main -f pr="$PR"
+          gh workflow run reatan.yml --repo "$REPO" --ref main -f pr="$PR"
