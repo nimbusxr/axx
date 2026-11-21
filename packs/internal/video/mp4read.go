@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -19,6 +20,10 @@ type Track struct {
 	Samples []TrackSample
 	// Duration is how long it lasts.
 	Duration time.Duration
+	// Matrix is how a player turns its frames to show them, as its tkhd box keeps it (36
+	// bytes): a phone held upright records its frames on their side, and says so here. nil
+	// when the file has none.
+	Matrix []byte
 }
 
 // TrackSample is a frame of a Track: its NAL units, each after its length.
@@ -41,7 +46,22 @@ func ReadMP4(data []byte) (*Track, error) {
 		if hdlr, ok := mp4Child(mdia, "hdlr"); !ok || len(hdlr) < 12 || string(hdlr[8:12]) != "vide" {
 			continue
 		}
-		return readTrack(data, mdia)
+		t, err := readTrack(data, mdia)
+		if err != nil {
+			return nil, err
+		}
+		// The matrix is after the header's times and its layer, group and volume: 40 bytes
+		// into the box, or 52 where its times are 64-bit (version 1).
+		if tkhd, ok := mp4Child(trak, "tkhd"); ok && len(tkhd) > 0 {
+			at := 40
+			if tkhd[0] == 1 {
+				at = 52
+			}
+			if len(tkhd) >= at+36 {
+				t.Matrix = slices.Clone(tkhd[at : at+36])
+			}
+		}
+		return t, nil
 	}
 	return nil, errors.New("it has no video track")
 }

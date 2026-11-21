@@ -163,6 +163,17 @@ func (r runner) See(sc *core.Scenario, path string) error {
 			kind = "video"
 		}
 		feed = map[string]string{kind: abs}
+		if kind == "video" {
+			// The camera plays a copy of the video whose every frame is a key frame, and the
+			// video as it is when the Mac cannot make one: both play, the copy at the video's
+			// pace on a Mac short of processor time too.
+			if keyed, err := keyFramed(abs); err == nil {
+				feed = map[string]string{kind: keyed, "sees": abs}
+			} else {
+				sc.Suite().Logger().Info("the simulator's camera plays the video as it is: no copy of it could be made whose every frame is a key frame, so on a Mac short of processor time the camera may show it late",
+					"video", filepath.Base(path), "why", err)
+			}
+		}
 	default:
 		var err error
 		if s, err = scene.Load(path); err != nil {

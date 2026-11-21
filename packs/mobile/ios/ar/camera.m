@@ -37,6 +37,7 @@ static const float CF = 1598;
 typedef NS_ENUM(NSInteger, FeedKind) { FeedNone, FeedScene, FeedImage, FeedVideo };
 static FeedKind feedKind;
 static NSString *feedPath;
+static NSString *feedName;  // the file's name as the scenario gave it, for the log
 
 static CVPixelBufferRef newBGRA(size_t w, size_t h) {
     CVPixelBufferRef buf = NULL;
@@ -82,92 +83,60 @@ static CGImageRef imageOfBGRA(CVPixelBufferRef buf) {
     return img;
 }
 
-// A video plays in a loop, at its own pace, from when the camera first runs.
-static AVAssetReader *videoReader;
-static AVAssetReaderOutput *videoOutput;
-static CFTimeInterval videoStart, videoLoopStart;
-static CMSampleBufferRef videoNext;
+// A video plays in a loop, at its own pace, from when the camera first runs: the camera shows
+// the frame that is due now, whatever it showed last. It asks for that frame alone. Read in
+// turn, each frame decoded, a video fell behind on a Mac short of processor time: with three
+// simulators on one Mac, the 90 frames of a video of 3 seconds took 18.7 seconds to read, and
+// what the video ends on came that much later. axx gives the camera a copy of the video whose
+// every frame is a key frame, which is decoded with none before it (the pack's keyFramed): the
+// frame due then costs one frame's decoding, 5 ms on a Mac whose processors were all taken,
+// where a frame read in turn cost 37. A video the Mac could not copy plays as it is, and the
+// frame due costs the frames since its last key frame.
+static AVAssetImageGenerator *videoFrames;
+static double videoLength, videoFrameLength;  // in seconds
+static CFTimeInterval videoStart;
+static long videoShown = -1;        // which of the video's frames the camera showed last
+static int videoSlowFrames;         // how many times the log has told of a frame read slowly
 
 static BOOL openVideo(void) {
     AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:feedPath] options:nil];
-    NSError *err = nil;
-    videoReader = [AVAssetReader assetReaderWithAsset:asset error:&err];
-    NSArray *tracks = [asset tracksWithMediaType:AVMediaTypeVideo];
-    if (!videoReader || !tracks.count) {
-        LOG(@"cannot play %@: %@", feedPath.lastPathComponent, err ?: @"it has no video");
+    AVAssetTrack *track = [asset tracksWithMediaType:AVMediaTypeVideo].firstObject;
+    videoLength = track ? CMTimeGetSeconds(track.timeRange.duration) : 0;
+    if (!track || !(videoLength > 0)) {
+        LOG(@"cannot play %@: it has no video", feedName);
         return NO;
     }
-    // The video composition turns each frame the way the video is meant to be watched.
-    AVAssetReaderVideoCompositionOutput *out = [AVAssetReaderVideoCompositionOutput
-        assetReaderVideoCompositionOutputWithVideoTracks:tracks
-                                           videoSettings:@{(id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA)}];
-    out.videoComposition = [AVVideoComposition videoCompositionWithPropertiesOfAsset:asset];
-    [videoReader addOutput:out];
-    [videoReader startReading];
-    videoOutput = out;
+    videoFrameLength = track.nominalFrameRate > 0 ? 1.0 / track.nominalFrameRate : 1.0 / 30;
+    videoFrames = [AVAssetImageGenerator assetImageGeneratorWithAsset:asset];
+    // Each frame turned the way the video is meant to be watched, and the very frame asked for.
+    videoFrames.appliesPreferredTrackTransform = YES;
+    videoFrames.requestedTimeToleranceBefore = videoFrames.requestedTimeToleranceAfter = kCMTimeZero;
     return YES;
 }
 
-// How long the video is, as its frames say (the last one's time); how long reading the frames of
-// this pass through it has taken; and how many times the log has told of a pass read slowly.
-static double videoLength, videoReading;
-static int videoSlowPasses;
-
-// The video's next frame, decoded, with the time it took to read counted.
-static CMSampleBufferRef nextVideoSample(void) {
-    CFTimeInterval began = CACurrentMediaTime();
-    CMSampleBufferRef sample = [videoOutput copyNextSampleBuffer];
-    videoReading += CACurrentMediaTime() - began;
-    return sample;
-}
-
-// A pass through the video whose frames took longer to read than the video is long, in the log,
-// the first three times. The frames are read in turn, each one decoded, and the frame for now is
-// the last one due: when reading is slower than the video plays, the camera shows a frame, then
-// the one that is due once the frames between them are read, which is seconds on. What the video
-// ends on comes that much later: on a Mac that ran three simulators, the first frame of a video
-// of 3 seconds came after 5 seconds and the next, its last, 13 seconds after that.
-static void videoPlayedOnce(CFTimeInterval took) {
-    double reading = videoReading;
-    videoReading = 0;
-    if (videoLength <= 0 || reading < videoLength || videoSlowPasses >= 3) return;
-    videoSlowPasses++;
-    LOG(@"the video played once in %.1fs, %.1fs of them reading its frames, and is %.1fs long: the camera shows it slower than it was taken, and skips what it cannot read in time",
-        took, reading, videoLength);
-}
-
-// The video's frame for now: the last one due.
+// The video's frame for now, when it is another than the camera showed last.
 static CVPixelBufferRef videoFrame(void) {
-    if (!videoReader && !openVideo()) return NULL;
+    if (!videoFrames && !openVideo()) return NULL;
     CFTimeInterval now = CACurrentMediaTime();
-    if (!videoStart) videoStart = videoLoopStart = now;
-    CMSampleBufferRef due = NULL;
-    for (;;) {
-        if (!videoNext) {
-            videoNext = nextVideoSample();
-            if (!videoNext) {  // the end: again from the start
-                if (due) break;
-                videoPlayedOnce(CACurrentMediaTime() - videoLoopStart);
-                videoReader = nil;
-                if (!openVideo()) return NULL;
-                videoLoopStart = now;
-                videoNext = nextVideoSample();
-                if (!videoNext) return NULL;
-            }
-        }
-        double at = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(videoNext));
-        if (at > videoLength) videoLength = at;
-        if (due && at > now - videoLoopStart) break;
-        if (due) CFRelease(due);
-        due = videoNext;
-        videoNext = NULL;
-        if (at > now - videoLoopStart) break;
+    if (!videoStart) videoStart = now;
+    long due = (long)(fmod(now - videoStart, videoLength) / videoFrameLength);
+    if (due == videoShown) return NULL;
+    NSError *err = nil;
+    CGImageRef img = [videoFrames copyCGImageAtTime:CMTimeMakeWithSeconds(due * videoFrameLength, 600) actualTime:NULL error:&err];
+    CFTimeInterval took = CACurrentMediaTime() - now;
+    if (!img) {
+        if (videoSlowFrames++ < 3) LOG(@"cannot read the frame of %@ at %.2fs: %@", feedName, due * videoFrameLength, err);
+        return NULL;
     }
-    CVPixelBufferRef pixels = CMSampleBufferGetImageBuffer(due);
-    CGImageRef img = imageOfBGRA(pixels);
+    // A frame that took longer to read than it shows, in the log, the first three times: the
+    // camera then shows fewer of the video's frames than it has, each the one due when read.
+    if (took > videoFrameLength && videoSlowFrames < 3) {
+        videoSlowFrames++;
+        LOG(@"a frame of the video took %.0f ms to read, and shows for %.0f: the camera skips the frames it cannot read in time", 1000 * took, 1000 * videoFrameLength);
+    }
+    videoShown = due;
     CVPixelBufferRef frame = sensorFrameOf(img);
     CGImageRelease(img);
-    CFRelease(due);
     return frame;
 }
 
@@ -1176,6 +1145,8 @@ void axxcam_start(NSDictionary *d) {
     } else {
         return;
     }
+    // A video comes as axx's copy of it, under another name: the scenario's file is "sees".
+    feedName = [d[@"sees"] isKindOfClass:NSString.class] ? [d[@"sees"] lastPathComponent] : feedPath.lastPathComponent;
     runningSessions = [NSHashTable weakObjectsHashTable];
     previewLayers = [NSHashTable weakObjectsHashTable];
     feedQueue = dispatch_queue_create("axx.camera.feed", DISPATCH_QUEUE_SERIAL);
@@ -1558,5 +1529,5 @@ void axxcam_start(NSDictionary *d) {
             method_setImplementation(ci, (IMP)coordinatorInit);
         }
     }
-    LOG(@"the camera sees %@", feedKind == FeedScene ? @"the scene" : feedPath.lastPathComponent);
+    LOG(@"the camera sees %@", feedKind == FeedScene ? @"the scene" : feedName);
 }

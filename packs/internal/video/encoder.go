@@ -123,8 +123,13 @@ const (
 )
 
 // Quality is how finely a video keeps what changed: the quantizers its frames
-// take, from the finest to the coarsest; higher is smaller and blurrier.
-type Quality struct{ MinQP, MaxQP int32 }
+// take, from the finest to the coarsest; higher is smaller and blurrier. And
+// how often a frame is a key frame, which is decoded with no frame before it:
+// KeyFrames frames from one to the next, or one every 10 seconds when 0.
+type Quality struct {
+	MinQP, MaxQP int32
+	KeyFrames    int
+}
 
 var (
 	// ScreenQuality is for a desktop's screen, captured as it is: what
@@ -153,6 +158,9 @@ type Clip struct {
 	Samples       []Sample
 	// End is when the clip's last frame stops showing.
 	End time.Duration
+	// Matrix is how a player turns the clip's frames to show them (a tkhd box's matrix, 36
+	// bytes); nil for frames shown as they are encoded.
+	Matrix []byte
 }
 
 // Encoder encodes frames of one size as H.264.
@@ -210,6 +218,9 @@ func NewEncoderOf(width, height int, fps float64, q Quality) (*Encoder, error) {
 	p.maxFrameRate = float32(fps)
 	p.temporalLayerNum, p.spatialLayerNum = 1, 1
 	p.intraPeriod = uint32(max(1, fps*10)) // a key frame every 10 seconds or so, to seek to
+	if q.KeyFrames > 0 {
+		p.intraPeriod = uint32(q.KeyFrames) //nolint:gosec // a count of frames
+	}
 	p.multipleThreadIdc = 1
 	// One parameter set for the whole video: an MP4 file keeps one, and each
 	// key frame refers to it.

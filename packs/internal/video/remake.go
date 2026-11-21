@@ -15,6 +15,36 @@ func Remake(data []byte, out io.Writer, width, height int, q Quality, draw func(
 	if err != nil {
 		return err
 	}
+	return remake(t, out, width, height, q, draw, nil)
+}
+
+// KeyFrames writes an MP4 file's H.264 video to out as another whose every frame is a key
+// frame: of the same size, shown the same way up and at the same times. A player shows any
+// frame of it without decoding those before it, which a video as cameras and encoders write
+// them does not allow: there, most frames are what changed since the one before.
+func KeyFrames(data []byte, out io.Writer, q Quality) error {
+	t, err := ReadMP4(data)
+	if err != nil {
+		return err
+	}
+	q.KeyFrames = 1
+	return remake(t, out, t.Width, t.Height, q, func(dst, src *image.YCbCr) {
+		for _, p := range [3]struct {
+			dst, src []byte
+			ds, ss   int
+			half     int
+		}{{dst.Y, src.Y, dst.YStride, src.YStride, 1}, {dst.Cb, src.Cb, dst.CStride, src.CStride, 2}, {dst.Cr, src.Cr, dst.CStride, src.CStride, 2}} {
+			w := min(dst.Rect.Dx(), src.Rect.Dx()) / p.half
+			h := min(dst.Rect.Dy(), src.Rect.Dy()) / p.half
+			for y := range h {
+				copy(p.dst[y*p.ds:y*p.ds+w], p.src[y*p.ss:y*p.ss+w])
+			}
+		}
+	}, t.Matrix)
+}
+
+// remake is Remake of a track already read, its frames turned for a player as matrix says.
+func remake(t *Track, out io.Writer, width, height int, q Quality, draw func(dst, src *image.YCbCr), matrix []byte) error {
 	if len(t.Samples) == 0 {
 		return errors.New("its video has no frames")
 	}
@@ -86,7 +116,9 @@ func Remake(data []byte, out io.Writer, width, height int, q Quality, draw func(
 	if shown == 0 {
 		return errors.New("its video has no frame OpenH264 could decode")
 	}
-	return WriteMP4(out, []Clip{enc.Finish(t.Duration)})
+	clip := enc.Finish(t.Duration)
+	clip.Matrix = matrix
+	return WriteMP4(out, []Clip{clip})
 }
 
 // Frames are the frames of an MP4 file's H.264 video, in the order they show: what a test

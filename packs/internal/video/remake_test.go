@@ -119,3 +119,94 @@ func TestFramesReadsAVideoBack(t *testing.T) {
 		t.Error("what is no video was read as one")
 	}
 }
+
+// A video's copy whose every frame is a key frame has the video's frames, at their times and
+// of its size, and is shown the way up the video is: a phone held upright writes its frames on
+// their side, and the turn a player gives them is kept. Any one frame of it decodes with none
+// before it.
+func TestKeyFrames(t *testing.T) {
+	e, err := NewEncoderOf(320, 240, 10, StreamQuality)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, f := range frames(320, 240, 10) {
+		if err := e.Encode(f, time.Duration(i)*100*time.Millisecond); err != nil {
+			t.Fatal(err)
+		}
+	}
+	clip := e.Finish(time.Second)
+	// A quarter turn, as a phone held upright says of its video.
+	clip.Matrix = concat(u32(0), u32(0x10000), u32(0), u32(0xffff0000), u32(0), u32(0), u32(240<<16), u32(0), u32(0x40000000))
+	var in bytes.Buffer
+	if err := WriteMP4(&in, []Clip{clip}); err != nil {
+		t.Fatal(err)
+	}
+	source, err := ReadMP4(in.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := 0
+	for _, s := range source.Samples {
+		if s.Key {
+			keys++
+		}
+	}
+	if keys != 1 {
+		t.Fatalf("the video to copy has %d key frames of %d frames: the test wants one", keys, len(source.Samples))
+	}
+	var out bytes.Buffer
+	if err := KeyFrames(in.Bytes(), &out, StreamQuality); err != nil {
+		t.Fatal(err)
+	}
+	track, err := ReadMP4(out.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if track.Width != 320 || track.Height != 240 || len(track.Samples) != 10 {
+		t.Fatalf("the copy is %dx%d of %d frames, not 320x240 of 10", track.Width, track.Height, len(track.Samples))
+	}
+	if !bytes.Equal(track.Matrix, clip.Matrix) {
+		t.Errorf("the copy is turned %x, and the video %x", track.Matrix, clip.Matrix)
+	}
+	if track.Samples[7].At != 700*time.Millisecond || track.Duration != time.Second {
+		t.Errorf("its 8th frame shows at %s, and it lasts %s: not 700ms and 1s", track.Samples[7].At, track.Duration)
+	}
+	var sets []byte
+	for _, nal := range append(track.SPS, track.PPS...) {
+		sets = append(append(sets, 0, 0, 0, 1), nal...)
+	}
+	// The 8th frame alone, by a decoder that has seen no other: its square is where the 8th
+	// of the original is, x 171 to 271; red is Cr high.
+	for i, s := range track.Samples {
+		if !s.Key {
+			t.Errorf("frame %d of the copy is no key frame", i+1)
+		}
+	}
+	dec, err := NewDecoder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dec.Close()
+	if _, err := dec.Decode(sets); err != nil {
+		t.Fatal(err)
+	}
+	au, err := annexB(track.Samples[7].Data, track.LengthSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := dec.Decode(au)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f == nil {
+		if f, err = dec.Flush(); err != nil || f == nil {
+			t.Fatalf("the 8th frame does not decode by itself: %v", err)
+		}
+	}
+	if cr := f.Cr[f.COffset(220, 120)-f.COffset(0, 0)]; cr < 180 {
+		t.Errorf("the 8th frame, decoded by itself, shows no red square where the original's is: Cr %d", cr)
+	}
+	if cr := f.Cr[f.COffset(60, 120)-f.COffset(0, 0)]; cr > 150 {
+		t.Errorf("the 8th frame, decoded by itself, shows a red square where the original's first is: Cr %d", cr)
+	}
+}

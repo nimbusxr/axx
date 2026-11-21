@@ -388,6 +388,8 @@ On a simulator, the app's capture session takes the camera as its input, as on a
 - a **preview layer** shows them, and its conversions (a code's place on the screen, a point of interest) go by them;
 - the camera answers what an app sets (focus, exposure, zoom, torch, HDR) as a phone's does, without changing what it sees.
 
+A video plays at its own pace: the camera shows the frame that is due at each moment, and skips the frames a busy Mac has no time for. So that it can, axx gives the simulator a copy of the video in which every frame is whole in itself. A video as a phone or an encoder writes it keeps most frames as what changed since the frame before, and the frame due would cost every frame before it. axx makes the copy once for a video and keeps it in its cache. It makes it of an H.264 video, with Cisco's OpenH264, which it downloads the first time, as it does for desktop videos (OpenH264 Video Codec provided by Cisco Systems, Inc.). A video in another format, HEVC say, plays as it is.
+
 The app asks for the camera as it would on a phone; `permissions | camera` (`CAMERA` on Android) grants it from the start. A scenario taps what an AR app's camera shows by its name in the scene:
 
 ```gherkin
