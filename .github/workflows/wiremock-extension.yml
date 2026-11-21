@@ -205,15 +205,23 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: ./gradlew --no-daemon --console=plain shadowJar -Pversion="${VERSION}"
       - if: ${{ !inputs.dry-run }}
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: extensions/axx-wiremock/build/libs/axx-wiremock-${{ inputs.version }}-all.jar
+      # The jar, and its provenance beside it (the attestation's Sigstore bundle, a line of
+      # JSON): what `gh attestation verify --bundle` checks without asking GitHub, and what
+      # OpenSSF Scorecard looks for on a release.
       - if: ${{ !inputs.dry-run }}
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
           VERSION: ${{ inputs.version }}
-        run: gh release upload "${TAG}" "build/libs/axx-wiremock-${VERSION}-all.jar" --clobber
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          jar="build/libs/axx-wiremock-${VERSION}-all.jar"
+          jq -c . "$BUNDLE" > "$jar.intoto.jsonl"
+          gh release upload "${TAG}" "$jar" "$jar.intoto.jsonl" --clobber
       - if: ${{ inputs.dry-run }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:

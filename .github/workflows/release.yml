@@ -401,9 +401,20 @@ jobs:
           APPLE_API_KEY_PATH: ${{ steps.apple.outputs.key-path }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+      - id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-checksums: dist/checksums.txt
+      # The provenance of everything checksums.txt lists, on the release too (the attestation's
+      # Sigstore bundle, a line of JSON): what `gh attestation verify --bundle` checks without
+      # asking GitHub, and what OpenSSF Scorecard looks for on a release.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.axx_tag }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          jq -c . "$BUNDLE" > "axx_${TAG#v}.intoto.jsonl"
+          gh release upload "$TAG" "axx_${TAG#v}.intoto.jsonl" --clobber --repo "$GITHUB_REPOSITORY"
 
   # Apple's answer for everything the release sent it (ADR 0016): the launcher and the macOS
   # binaries. It fails on a refusal; Apple still at it after 8 minutes is a warning.
@@ -541,7 +552,8 @@ jobs:
     environment: ${{ needs.release-please.outputs.dry-run == 'false' && 'release' || '' }}
     permissions:
       contents: write # the .vsix release asset
-      id-token: write # the stores' trusted publishing
+      id-token: write # the stores' trusted publishing, and the attestation
+      attestations: write
     defaults:
       run:
         working-directory: ide/vscode
@@ -576,11 +588,20 @@ jobs:
           retention-days: 14
 
       - if: needs.release-please.outputs.dry-run == 'false'
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: ide/vscode/${{ steps.vsix.outputs.file }}
+      # The .vsix, and its provenance beside it (the attestation's Sigstore bundle, a line of JSON).
+      - if: needs.release-please.outputs.dry-run == 'false'
         name: attach the .vsix to the release
         env:
           GH_TOKEN: ${{ github.token }}
           VSIX: ${{ steps.vsix.outputs.file }}
-        run: gh release upload "$TAG" "$VSIX" --clobber --repo "$GITHUB_REPOSITORY"
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          jq -c . "$BUNDLE" > "$VSIX.intoto.jsonl"
+          gh release upload "$TAG" "$VSIX" "$VSIX.intoto.jsonl" --clobber --repo "$GITHUB_REPOSITORY"
       - if: needs.release-please.outputs.dry-run == 'false'
         name: publish to the Visual Studio Marketplace
         env:
