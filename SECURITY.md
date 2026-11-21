@@ -14,7 +14,7 @@ within 90 days, crediting the reporter unless they prefer otherwise.
 
 ## Scope notes
 
-axx executes commands you configure (`apps.*.command`, `cleanup`, readiness `exec` checks) with your
+axx executes commands you configure (`services.*.command`, `cleanup`, readiness `exec` checks) with your
 privileges, and it disables TLS verification for the services under test by default, because it
 targets local builds. Neither is a vulnerability in itself; please report ways axx runs code or
 reaches hosts that the configuration did not ask for.
