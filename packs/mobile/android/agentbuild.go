@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/nimbusxr/axx/internal/npm"
+	"github.com/nimbusxr/axx/packs/internal/memcheck"
 )
 
 // Agent is an ART TI agent for a debuggable app's process: its native library, of C++, and the
@@ -30,6 +31,22 @@ type Agent struct {
 // next runs. It is the folder that has the library (lib<Name>.so) and the classes
 // (classes.dex). axx itself stays pure Go: what it builds runs on the device.
 func BuildAgent(ctx context.Context, sdk, abi string, a Agent) (string, error) {
+	dir, err := buildAgent(ctx, sdk, abi, a)
+	if err != nil {
+		return "", err
+	}
+	// axx's own tests build it under a memory checker (memcheck), which lists the library.
+	if _, err := memcheck.Record(filepath.Join(dir, "lib"+a.Name+".so"), nil); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// buildAgent is BuildAgent's build. A checked build's library needs the checker's runtime, which
+// is in a process only from its start: the app the tests attach it to is one built to start
+// under it (the example's -Pmemcheck=true). The checker reads its options as the app starts,
+// before any agent is there, so an agent brings none (memcheck.Source).
+func buildAgent(ctx context.Context, sdk, abi string, a Agent) (string, error) {
 	triple := map[string]string{"arm64-v8a": "aarch64-linux-android26", "x86_64": "x86_64-linux-android26"}[abi]
 	if triple == "" {
 		return "", fmt.Errorf("an emulator of the %s ABI cannot run axx's agents: arm64-v8a and x86_64 can", abi)
@@ -76,7 +93,7 @@ func BuildAgent(ctx context.Context, sdk, abi string, a Agent) (string, error) {
 		return "", fmt.Errorf("cannot read the JDK's jvmti.h: %w", err)
 	}
 	h := sha256.New()
-	for _, data := range [][]byte{[]byte(a.Name), a.Native, a.Java, header, []byte(ndk + tools[len(tools)-1] + platforms[len(platforms)-1] + javaHome + abi)} {
+	for _, data := range [][]byte{[]byte(a.Name), a.Native, a.Java, header, []byte(ndk + tools[len(tools)-1] + platforms[len(platforms)-1] + javaHome + abi), memcheck.Key()} {
 		h.Write(data)
 	}
 	cache := npm.CacheDir(cacheFor(a.Name))
@@ -119,7 +136,8 @@ func BuildAgent(ctx context.Context, sdk, abi string, a Agent) (string, error) {
 		}
 		return nil
 	}
-	if err := run(compiler, "-shared", "-fPIC", "-static-libstdc++", "-std=c++17", "-O2", "-I"+tmp, filepath.Join(tmp, "agent.cc"), "-llog", "-ldl", "-o", filepath.Join(tmp, "lib"+a.Name+".so")); err != nil {
+	compile := append([]string{"-shared", "-fPIC", "-static-libstdc++", "-std=c++17", "-O2", "-I" + tmp, filepath.Join(tmp, "agent.cc"), "-llog", "-ldl", "-o", filepath.Join(tmp, "lib"+a.Name+".so")}, checked(abi)...)
+	if err := run(compiler, compile...); err != nil {
 		return "", err
 	}
 	if err := run(javac, "--release", "8", "-classpath", platforms[len(platforms)-1], "-d", classes, filepath.Join(tmp, a.JavaFile)); err != nil {
@@ -146,6 +164,21 @@ func BuildAgent(ctx context.Context, sdk, abi string, a Agent) (string, error) {
 		}
 	}
 	return dir, nil
+}
+
+// checked is what the compiler gets more for a checked build of an agent (memcheck): on arm64,
+// HWAddressSanitizer in AddressSanitizer's place, the one Android has for it (its runtime is the
+// device's own, from Android 14), as AddressSanitizer is the one for an x86-64 emulator.
+func checked(abi string) []string {
+	flags := memcheck.Clang()
+	if abi == "arm64-v8a" {
+		for i, flag := range flags {
+			if flag == "-fsanitize=address" {
+				flags[i] = "-fsanitize=hwaddress"
+			}
+		}
+	}
+	return flags
 }
 
 // cacheFor is the folder of axx's cache an agent is built into: models-android's where it

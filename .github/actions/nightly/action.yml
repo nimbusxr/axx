@@ -42,6 +42,11 @@ runs:
               elif command -v otool > /dev/null && ! otool -L "$library" | grep -q libclang_rt.asan; then
                 echo "::error::A library listed as built under the memory checker does not link it: $library"
                 echo "unchecked=true" >> "$GITHUB_OUTPUT"
+              elif ! command -v otool > /dev/null && command -v readelf > /dev/null && ! readelf -d "$library" | grep -q -E 'libclang_rt\.(hw)?asan'; then
+                # An Android agent, on a Linux runner: AddressSanitizer's runtime, or on arm64
+                # HWAddressSanitizer's.
+                echo "::error::A library listed as built under the memory checker does not link it: $library"
+                echo "unchecked=true" >> "$GITHUB_OUTPUT"
               else
                 echo "  $library"
               fi
