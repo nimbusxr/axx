@@ -374,6 +374,18 @@ func (e *Engine) Init(ctx context.Context) error {
 	return nil
 }
 
+// Experimental are the project's packs that are experimental
+// (core.Manifest.Experimental), in the order they load.
+func (e *Engine) Experimental() []string {
+	var names []string
+	for _, p := range e.Packs {
+		if p.Pack.Manifest().Experimental {
+			names = append(names, p.Name)
+		}
+	}
+	return names
+}
+
 // AfterRun lets packs implementing core.Finisher check the run as a whole;
 // each returned error becomes a run error.
 func (e *Engine) AfterRun(ctx context.Context) []runner.RunError {

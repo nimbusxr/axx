@@ -113,6 +113,13 @@ type Manifest struct {
 	Namespace string `json:"namespace,omitempty"`
 	// Doc is a Markdown summary shown in `axx steps` and generated docs.
 	Doc string `json:"doc,omitempty"`
+	// Experimental marks a pack that may still change, or go, in any release:
+	// what it adds (its steps, settings, commands and what they write) is not
+	// yet under the promises axx makes of what a suite builds on. A project
+	// adds it as it adds any pack, which is how it says it wants it; axx says
+	// that it is experimental when the project adds it, and when a run or
+	// one of its own commands uses it. A pack that is to stay drops the mark.
+	Experimental bool `json:"experimental,omitempty"`
 	// Requires names the packs axx publishes that this pack builds on
 	// (gcp-core for gcp-storage): selecting it loads them too, before it.
 	Requires []string    `json:"requires,omitempty"`

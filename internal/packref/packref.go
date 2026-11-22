@@ -30,10 +30,13 @@ type Pack struct {
 	Name string `json:"name"`
 	// Doc says what the pack does and what it reaches (the databases,
 	// brokers or platforms it works with).
-	Doc      string           `json:"doc,omitempty"`
-	Requires []string         `json:"requires,omitempty"`
-	Params   []core.ParamType `json:"params,omitempty"`
-	Steps    []core.StepDef   `json:"steps"`
+	Doc      string   `json:"doc,omitempty"`
+	Requires []string `json:"requires,omitempty"`
+	// Experimental is a pack that may still change, or go, in any release
+	// (core.Manifest.Experimental).
+	Experimental bool             `json:"experimental,omitempty"`
+	Params       []core.ParamType `json:"params,omitempty"`
+	Steps        []core.StepDef   `json:"steps"`
 	// Settings is the JSON Schema of the pack's section in axx.yaml
 	// (packs.<name>), when it has one.
 	Settings json.RawMessage `json:"settings,omitempty"`

@@ -358,6 +358,11 @@ the skills instead: `axx skills install`.
 - Step expression text is public API. Never change existing step text by accident; add new steps instead. axx
   is in beta: when the owner decides to remove or change a step, take its old text out of the catalog with
   `go test ./internal/engine -run TestStepCatalog -prune`.
+- A feature whose shape is not settled arrives as an experimental pack (`core.Manifest.Experimental`, ADR 0021, the
+  docs' "Stability" page): adding the pack is the opt-in, axx says what it is where a project meets it (`axx pack add`,
+  a run, the pack's commands, the lists of packs), and it may change in any release. Such a pack adds no exit code and
+  no field of the `--json` envelope, and as things are no step: a step of axx's is frozen the day it lands. It becomes
+  stable by dropping the mark.
 - The deprecation policy (ADR 0004, the docs' "Deprecation policy" page): nothing is removed within a
   major version; what is replaced is deprecated first, keeps working and warns where it is used; the
   next major drops everything deprecated. A step: `StepDef.DeprecatedBy` says what to use

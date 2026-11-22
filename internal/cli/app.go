@@ -61,6 +61,9 @@ type App struct {
 	// so, in what the command answers.
 	notPrepared error
 	note        string
+	// notedExperimental is set once the command said which of the packs it
+	// uses are experimental.
+	notedExperimental bool
 	// hookProblems are the packs' command hooks that never run, for `axx
 	// doctor`.
 	hookProblems []HookProblem

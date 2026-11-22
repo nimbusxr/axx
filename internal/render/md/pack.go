@@ -41,6 +41,9 @@ func PackPage(reg *match.Registry, p PackInfo, linkBase string, frontmatter bool
 	if !frontmatter {
 		fmt.Fprintf(&b, "\n# %s\n", p.Name)
 	}
+	if m.Experimental {
+		fmt.Fprintf(&b, "\n> **Experimental:** this pack may change, or go, in any release. What it adds is not yet under [the promises Axx makes](%s) of what a suite builds on.\n", stabilityLink)
+	}
 	if m.Doc != "" {
 		fmt.Fprintf(&b, "\n%s\n", strings.TrimSpace(m.Doc))
 	}
@@ -253,7 +256,13 @@ type PackGroup struct {
 // PackSummary is a pack as the overview lists it.
 type PackSummary struct {
 	Name, Summary string
+	// Experimental is a pack that may still change, or go, in any release.
+	Experimental bool
 }
+
+// stabilityLink is the docs' page on what "experimental" means, as the docs' pages link each
+// other.
+const stabilityLink = "/explanations/stability/"
 
 // PacksOverview renders the list of the packs axx publishes, by group,
 // each linked to its page below linkBase.
@@ -278,7 +287,11 @@ func PacksOverview(groups []PackGroup, linkBase string, frontmatter bool) (strin
 		}
 		b.WriteString("\n| Pack | For |\n|---|---|\n")
 		for _, p := range g.Packs {
-			fmt.Fprintf(&b, "| [`%s`](%s%s/) | %s |\n", p.Name, linkBase, p.Name, escapePipes(p.Summary))
+			summary := escapePipes(p.Summary)
+			if p.Experimental {
+				summary += " *(experimental)*"
+			}
+			fmt.Fprintf(&b, "| [`%s`](%s%s/) | %s |\n", p.Name, linkBase, p.Name, summary)
 			n++
 		}
 	}

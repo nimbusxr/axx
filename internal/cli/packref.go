@@ -212,8 +212,11 @@ func renderPackMap(w io.Writer, used map[string]bool) {
 	}
 	for _, p := range packset.Catalog {
 		mark := ""
+		if experimentalPack(p.Name) {
+			mark = "  (experimental)"
+		}
 		if used[p.Name] {
-			mark = "  (used)"
+			mark += "  (used)"
 		}
 		fmt.Fprintf(w, "  %-*s  %s%s\n", width, p.Name, p.Summary, mark)
 	}
@@ -222,13 +225,15 @@ func renderPackMap(w io.Writer, used map[string]bool) {
 // PackDetail is `axx pack show`: a pack, what it reaches, its settings and
 // its steps, as `axx steps` lists them (foldedSteps).
 type PackDetail struct {
-	Pack     string     `json:"pack"`
-	Summary  string     `json:"summary"`
-	Used     bool       `json:"used"`
-	Requires []string   `json:"requires,omitempty"`
-	Doc      string     `json:"doc,omitempty"`
-	Settings []Setting  `json:"settings,omitempty"`
-	Steps    []StepInfo `json:"steps"`
+	Pack     string   `json:"pack"`
+	Summary  string   `json:"summary"`
+	Used     bool     `json:"used"`
+	Requires []string `json:"requires,omitempty"`
+	// Experimental is a pack that may still change, or go, in any release.
+	Experimental bool       `json:"experimental,omitempty"`
+	Doc          string     `json:"doc,omitempty"`
+	Settings     []Setting  `json:"settings,omitempty"`
+	Steps        []StepInfo `json:"steps"`
 	// StepCount is the pack's number of steps (Steps may leave them out).
 	StepCount int          `json:"stepCount"`
 	Related   []PackSketch `json:"related,omitempty"`
@@ -285,6 +290,9 @@ func related(name string) []PackSketch {
 
 func renderPackDetail(w io.Writer, d PackDetail) error {
 	fmt.Fprintf(w, "%s: %s\n", d.Pack, d.Summary)
+	if d.Experimental {
+		fmt.Fprintln(w, "Experimental: "+strings.TrimPrefix(experimentalNotice([]string{d.Pack}), "the "+d.Pack+" pack is experimental: "))
+	}
 	if !d.Used {
 		fmt.Fprintln(w, notInProject(d.Pack))
 	}

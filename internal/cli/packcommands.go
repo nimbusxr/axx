@@ -31,13 +31,14 @@ func addPackCommands(app *App, root *cobra.Command) {
 				continue
 			}
 			taken[c.Name] = true
-			root.AddCommand(packCommand(app, np.Name, c))
+			root.AddCommand(packCommand(app, np.Name, np.Pack.Manifest().Experimental, c))
 		}
 	}
 }
 
-// packCommand is a pack's command as one of axx's.
-func packCommand(app *App, pack string, c core.Command) *cobra.Command {
+// packCommand is a pack's command as one of axx's. One of an experimental pack says so as it
+// runs.
+func packCommand(app *App, pack string, experimental bool, c core.Command) *cobra.Command {
 	use := c.Name
 	if c.Args != "" {
 		use += " " + c.Args
@@ -67,13 +68,16 @@ func packCommand(app *App, pack string, c core.Command) *cobra.Command {
 		values[f.Name] = func() string { return *v }
 	}
 	for _, sub := range c.Commands {
-		cmd.AddCommand(packCommand(app, pack, sub))
+		cmd.AddCommand(packCommand(app, pack, experimental, sub))
 	}
 	if c.Run == nil {
 		return cmd
 	}
 	cmd.Args = wrapArgs(argsBetween(c.MinArgs, c.MaxArgs))
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if experimental {
+			app.noteExperimental([]string{pack})
+		}
 		flags := make(map[string]string, len(values))
 		for name, v := range values {
 			flags[name] = v()

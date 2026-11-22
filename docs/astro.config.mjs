@@ -326,6 +326,7 @@ export default defineConfig({
 						'explanations/axx-for-agents',
 						'explanations/agent-evals',
 						'explanations/faq',
+						'explanations/stability',
 						'explanations/deprecation-policy',
 						'explanations/security',
 						'explanations/roadmap',

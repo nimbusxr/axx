@@ -497,6 +497,11 @@ func searchDocs(all []Step) []stepsearch.Step {
 func packMap() string {
 	var b strings.Builder
 	for _, p := range packset.Catalog {
+		// One that may still change says so, where an agent chooses a pack.
+		if ref, ok := packref.Lookup(p.Name); ok && ref.Experimental {
+			fmt.Fprintf(&b, "%s: %s (experimental: it may change in any release)\n", p.Name, p.Summary)
+			continue
+		}
 		fmt.Fprintf(&b, "%s: %s\n", p.Name, p.Summary)
 	}
 	return b.String()

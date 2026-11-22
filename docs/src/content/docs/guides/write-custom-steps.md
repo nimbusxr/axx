@@ -332,3 +332,17 @@ Checks: []core.Check{{
 ```
 
 A check says what it found (`Detail`), and, when something is wrong, what puts it right (`Hint`). `CheckWarn` is for what only some scenarios need; `CheckFail` for what none can run without.
+
+## Say that a pack may still change
+
+A pack whose steps or settings are not settled yet says so in its manifest:
+
+```go
+return core.Manifest{
+	Name:         "carrier",
+	Experimental: true,
+	// ...
+}
+```
+
+Axx then tells the people who use it: `axx pack add` says the pack is experimental, `axx run` and the pack's own commands say so once on standard error, and `axx pack list` marks it. Take the line out when the pack is settled. [Stability](/explanations/stability/) says what the stage means.

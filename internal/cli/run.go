@@ -131,6 +131,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if err != nil {
 		return err
 	}
+	a.noteExperimental(e.Experimental())
 	cfg := e.Config
 	pauses, err := a.pauseAt(e, f.pauseAt)
 	if err != nil {

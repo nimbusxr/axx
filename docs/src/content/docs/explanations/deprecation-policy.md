@@ -5,6 +5,8 @@ description: What Axx promises about the things you build on - steps, commands a
 
 Your suite builds on Axx's steps, its commands and flags, the settings of `axx.yaml`, and its exit codes and error codes. This page says what happens when one of them is replaced.
 
+A part that is new and may still change is marked experimental, and is not covered by this page until it is stable: [Stability](/explanations/stability/) says what that means.
+
 ## The rule
 
 1. **Nothing is removed within a major version.** A suite that runs on Axx `1.0` runs on every `1.x`.

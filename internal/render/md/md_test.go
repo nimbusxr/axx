@@ -293,3 +293,38 @@ func TestAStepsExamplesAreABlockEach(t *testing.T) {
 		}
 	}
 }
+
+// A pack that may still change says so at the top of its page and in the list of packs; a pack
+// that does not has neither.
+func TestAnExperimentalPackSaysSo(t *testing.T) {
+	reg, p := registry(t)
+	plain, err := PackPage(reg, p, "/references/packs/", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Manifest.Experimental = true
+	marked, err := PackPage(reg, p, "/references/packs/", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const note = "> **Experimental:** this pack may change, or go, in any release."
+	if !strings.Contains(marked, note) || !strings.Contains(marked, "(/explanations/stability/)") {
+		t.Errorf("an experimental pack's page:\n%s", marked)
+	}
+	if strings.Contains(plain, "Experimental") {
+		t.Errorf("a pack's page that is not experimental:\n%s", plain)
+	}
+
+	out, err := PacksOverview([]PackGroup{{Packs: []PackSummary{
+		{Name: "rest", Summary: "REST"},
+		{Name: "controls-core", Summary: "Controls", Experimental: true},
+	}}}, "/references/packs/", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"| [`rest`](/references/packs/rest/) | REST |", "| [`controls-core`](/references/packs/controls-core/) | Controls *(experimental)* |"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}

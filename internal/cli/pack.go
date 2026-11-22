@@ -62,7 +62,7 @@ func newPackShowCmd(app *App) *cobra.Command {
 				return axxerr.New(CodePackArg, exitcode.Usage, "%q is not a pack axx publishes", name).
 					WithHint("`axx pack list` lists axx's packs; a project's own packs are in its axx-packs.yaml")
 			}
-			d := PackDetail{Pack: name, Summary: cat.Summary, Requires: cat.Requires, Doc: ref.Doc, Settings: settingsOf(ref.Settings), Related: related(name)}
+			d := PackDetail{Pack: name, Summary: cat.Summary, Requires: cat.Requires, Experimental: ref.Experimental, Doc: ref.Doc, Settings: settingsOf(ref.Settings), Related: related(name)}
 			// Whether the project uses it: axx-packs.yaml lists it, or a pack that
 			// builds on it. Its steps are the reference's, as this axx's.
 			if _, f, _, err := app.packFile(); err == nil {
@@ -118,7 +118,7 @@ func newPackReferenceCmd(app *App) *cobra.Command {
 					steps[i] = s
 				}
 				ref.Packs = append(ref.Packs, packref.Pack{
-					Name: m.Name, Doc: m.Doc, Requires: m.Requires, Params: m.Params, Steps: steps, Settings: m.ConfigSchema,
+					Name: m.Name, Doc: m.Doc, Requires: m.Requires, Experimental: m.Experimental, Params: m.Params, Steps: steps, Settings: m.ConfigSchema,
 				})
 			}
 			b, err := json.MarshalIndent(ref, "", "  ")
@@ -204,7 +204,13 @@ func newPackAddCmd(app *App) *cobra.Command {
 			if err := f.Save(dir); err != nil {
 				return err
 			}
-			return app.Emit(map[string]any{"added": added, "packs": f.Packs, "file": filepath.Join(dir, packset.FileName)}, func(w io.Writer) error {
+			// An experimental pack says what it is as a project takes it up.
+			experimental := experimentalAmong(added)
+			data := map[string]any{"added": added, "packs": f.Packs, "file": filepath.Join(dir, packset.FileName)}
+			if len(experimental) > 0 {
+				data["experimental"] = experimental
+			}
+			return app.Emit(data, func(w io.Writer) error {
 				if !existed {
 					fmt.Fprintf(w, "created %s\n", packset.FileName)
 				}
@@ -212,8 +218,14 @@ func newPackAddCmd(app *App) *cobra.Command {
 					_, err := fmt.Fprintln(w, "nothing to add; already listed")
 					return err
 				}
-				_, err := fmt.Fprintf(w, "added %s\n", strings.Join(added, ", "))
-				return err
+				if _, err := fmt.Fprintf(w, "added %s\n", strings.Join(added, ", ")); err != nil {
+					return err
+				}
+				if notice := experimentalNotice(experimental); notice != "" {
+					_, err := fmt.Fprintln(w, notice)
+					return err
+				}
+				return nil
 			})
 		},
 	}
@@ -257,6 +269,16 @@ type PackInfo struct {
 	Used  bool   `json:"used"`
 	// Summary says what the pack reaches.
 	Summary string `json:"summary,omitempty"`
+	// Experimental is a pack that may still change, or go, in any release.
+	Experimental bool `json:"experimental,omitempty"`
+}
+
+// marked is a pack's summary, with what stage the pack is at when it is experimental.
+func (p PackInfo) marked() string {
+	if p.Experimental {
+		return p.Summary + "  (experimental)"
+	}
+	return p.Summary
 }
 
 func newPackListCmd(app *App) *cobra.Command {
@@ -294,7 +316,7 @@ func newPackListCmd(app *App) *cobra.Command {
 					summary = "not prepared, so its steps are missing here"
 				}
 				used[en.Key()] = true
-				rows = append(rows, PackInfo{Pack: en.Raw, Kind: en.Kind.String(), Steps: steps[name], Used: true, Summary: summary})
+				rows = append(rows, PackInfo{Pack: en.Raw, Kind: en.Kind.String(), Steps: steps[name], Used: true, Summary: summary, Experimental: experimentalPack(en.Key())})
 			}
 			rows = append(rows, packsNotUsed(used)...)
 			return app.Emit(map[string]any{"file": existed, "packs": rows}, func(w io.Writer) error {
@@ -308,14 +330,14 @@ func newPackListCmd(app *App) *cobra.Command {
 					fmt.Fprintf(w, "this project's packs (%s):\n", packset.FileName)
 					for _, r := range rows {
 						if r.Used {
-							fmt.Fprintf(w, "  %-*s  %-9s  %s\n", width, r.Pack, plural(r.Steps, "step"), r.Summary)
+							fmt.Fprintf(w, "  %-*s  %-9s  %s\n", width, r.Pack, plural(r.Steps, "step"), r.marked())
 						}
 					}
 				}
 				fmt.Fprintln(w, "\naxx's packs it does not use (`axx pack show <name>`: what one reaches, its settings and steps):")
 				for _, r := range rows {
 					if !r.Used {
-						fmt.Fprintf(w, "  %-*s  %s\n", width, r.Pack, r.Summary)
+						fmt.Fprintf(w, "  %-*s  %s\n", width, r.Pack, r.marked())
 					}
 				}
 				return nil
@@ -331,7 +353,7 @@ func packsNotUsed(used map[string]bool) []PackInfo {
 	var rows []PackInfo
 	for _, p := range packset.Catalog {
 		if !used[p.Name] {
-			rows = append(rows, PackInfo{Pack: p.Name, Kind: packset.Published.String(), Summary: p.Summary})
+			rows = append(rows, PackInfo{Pack: p.Name, Kind: packset.Published.String(), Summary: p.Summary, Experimental: experimentalPack(p.Name)})
 		}
 	}
 	return rows
