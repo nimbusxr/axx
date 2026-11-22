@@ -146,6 +146,55 @@ androidComponents {
     }
 }
 
+/**
+ * What starts the app under a memory checker: for each ABI, the script Android starts a debuggable
+ * app through (wrap.sh, from src/memcheck) and, where the device has none, the checker's runtime
+ * (the NDK's). For the tests of axx's own native code, which it attaches to the app: a checker
+ * must be in a process from its start.
+ */
+abstract class MemoryChecker : DefaultTask() {
+    @get:Input
+    abstract val ndk: Property<String>
+
+    @get:InputDirectory
+    abstract val wrappers: DirectoryProperty
+
+    @get:Input
+    abstract val abis: ListProperty<String>
+
+    // The runtime, as native libraries (<abi>/lib….so), and the script, as resources
+    // (lib/<abi>/wrap.sh): the build packs only libraries from the first, and both land in the
+    // APK's lib/<abi>.
+    @get:OutputDirectory
+    abstract val libraries: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val scripts: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        // Only this build's ABIs: none an earlier build left.
+        libraries.get().asFile.deleteRecursively()
+        scripts.get().asFile.deleteRecursively()
+        for (abi in abis.get()) {
+            val script = File(scripts.get().dir("lib/$abi").asFile.apply { mkdirs() }, "wrap.sh")
+            wrappers.get().file("wrap-$abi.sh").asFile.copyTo(script, overwrite = true)
+            // On arm64 the checker is HWAddressSanitizer, whose runtime Android has itself (14 and
+            // later). Elsewhere it is AddressSanitizer, whose runtime the app brings.
+            val dir = libraries.get().dir(abi).asFile.apply { mkdirs() }
+            if (abi != "arm64-v8a") {
+                val name = "libclang_rt.asan-$abi-android.so"
+                val runtime = File(ndk.get(), "toolchains/llvm/prebuilt").walk().first { it.name == name }
+                runtime.copyTo(File(dir, name), overwrite = true)
+            }
+        }
+    }
+}
+
+// -Pmemcheck=true: a debug build that starts under the memory checker (MemoryChecker).
+val memcheck = providers.gradleProperty("memcheck").map { it == "true" }.getOrElse(false)
+val appAbis = providers.gradleProperty("abis").orElse("arm64-v8a,x86_64").map { it.split(",") }
+
 android {
     namespace = "example.parcels.courier"
     compileSdk = 37
@@ -200,6 +249,32 @@ android {
     // ML Kit and MediaPipe map their models from the APK, which keeps them uncompressed.
     androidResources {
         noCompress += "tflite"
+    }
+
+    // Android runs wrap.sh from the app's installed native libraries, which it has only of an
+    // app that has them unpacked.
+    if (memcheck) {
+        packaging {
+            jniLibs {
+                useLegacyPackaging = true
+            }
+        }
+    }
+}
+
+if (memcheck) {
+    val memoryChecker = tasks.register<MemoryChecker>("memoryChecker") {
+        ndk.set(androidComponents.sdkComponents.ndkDirectory.map { it.asFile.path })
+        wrappers.set(layout.projectDirectory.dir("src/memcheck"))
+        abis.set(appAbis)
+        libraries.set(layout.buildDirectory.dir("generated/memcheck/jniLibs"))
+        scripts.set(layout.buildDirectory.dir("generated/memcheck/resources"))
+    }
+    androidComponents {
+        onVariants(selector().withBuildType("debug")) { variant ->
+            variant.sources.jniLibs?.addGeneratedSourceDirectory(memoryChecker, MemoryChecker::libraries)
+            variant.sources.resources?.addGeneratedSourceDirectory(memoryChecker, MemoryChecker::scripts)
+        }
     }
 }
 

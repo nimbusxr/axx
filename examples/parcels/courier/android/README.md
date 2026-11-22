@@ -16,6 +16,12 @@ later) and the Android SDK (`ANDROID_HOME`, or `sdk.dir` in `local.properties`),
 CMake the app's native code is built with (`ndkVersion` and `externalNativeBuild` in
 `app/build.gradle.kts`).
 
+`./gradlew assembleDebug -Pmemcheck=true` gives a debug build that starts under a memory checker
+(HWAddressSanitizer on an arm64 device, AddressSanitizer on an x86-64 emulator), through the
+script Android starts a debuggable app with (`app/src/memcheck`). It is for axx's own tests of
+the agents it attaches to the app, built under the same checker (`AXX_MEMCHECK`): a checker must
+be in a process from its start.
+
 ## The photo check
 
 A photo the courier attaches must show the parcel: an image classifier (MobileNet, quantized)
