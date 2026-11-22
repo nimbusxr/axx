@@ -5,6 +5,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -184,6 +185,10 @@ type Engine struct {
 
 	resolver *interp.Resolver
 	inited   []NamedPack
+	// shard and partial are what kind of run the engine's is (RunIs).
+	shard, partial string
+	// said is what the packs said of the run as a whole (core.Run.Say).
+	said []string
 	// told is what the services and hooks told axx (SetProperties).
 	toldMu sync.Mutex
 	told   map[string]string
@@ -261,8 +266,24 @@ func New(opts Options) (*Engine, error) {
 		}
 	}
 
+	sections := packConfig(cfg)
+	for i, p := range packs {
+		for _, c := range manifests[i].FeatureChecks {
+			e.Registry.AddCheck(match.PackCheck{Pack: p.Name, Check: c, ProjectDir: cfg.Dir, Settings: func(v any) error {
+				raw := sections[p.Name]
+				if len(raw) == 0 {
+					return nil
+				}
+				if err := json.Unmarshal(raw, v); err != nil {
+					return fmt.Errorf("packs.%s: %w", p.Name, err)
+				}
+				return nil
+			}})
+		}
+	}
+
 	e.Suite = core.NewSuite(core.SuiteOptions{
-		PackConfig:      packConfig(cfg),
+		PackConfig:      sections,
 		Interpolate:     func(s string) string { return e.resolver.MustExpand(s) },
 		ResolvePath:     e.ResolvePath,
 		ResolvePathFrom: e.ResolvePathFrom,
@@ -386,18 +407,62 @@ func (e *Engine) Experimental() []string {
 	return names
 }
 
-// AfterRun lets packs implementing core.Finisher check the run as a whole;
-// each returned error becomes a run error.
-func (e *Engine) AfterRun(ctx context.Context) []runner.RunError {
+// RunIs says what kind of run the engine's is, for the packs that look at it
+// once it has finished (core.RunFinisher): the shard it is of a run ("" for
+// none), and why it is not a run of every scenario its configuration selects
+// ("" when it is one).
+func (e *Engine) RunIs(shard, partial string) { e.shard, e.partial = shard, partial }
+
+// AfterRun lets packs implementing core.Finisher check the run as a whole,
+// and those implementing core.RunFinisher look at its scenarios; each
+// returned error becomes a run error.
+func (e *Engine) AfterRun(ctx context.Context, res *runner.RunResult) []runner.RunError {
 	var out []runner.RunError
+	var run *core.Run
 	for _, p := range e.inited {
 		if f, ok := p.Pack.(core.Finisher); ok {
 			if err := f.Finish(ctx, e.Suite); err != nil {
 				out = append(out, runner.RunError{Source: p.Name, Message: err.Error()})
 			}
 		}
+		if f, ok := p.Pack.(core.RunFinisher); ok {
+			if run == nil {
+				run = e.finished(res)
+			}
+			if err := f.FinishRun(ctx, e.Suite, *run); err != nil {
+				out = append(out, runner.RunError{Source: p.Name, Message: err.Error()})
+			}
+		}
 	}
 	return out
+}
+
+// Said is what the packs said of the run as a whole, once it has finished
+// (core.Run.Say), in the order they said it.
+func (e *Engine) Said() []string { return e.said }
+
+// finished is a run that ended, as a pack sees it.
+func (e *Engine) finished(res *runner.RunResult) *core.Run {
+	run := &core.Run{Shard: e.shard, Partial: e.partial, Say: func(line string) { e.said = append(e.said, line) }}
+	if res == nil {
+		return run
+	}
+	run.Started = res.Started
+	run.Ended = res.Started
+	if res.NotRun > 0 && run.Partial == "" {
+		run.Partial = "it stopped before every scenario ran"
+	}
+	for _, sr := range res.Scenarios {
+		p := sr.Pickle
+		run.Scenarios = append(run.Scenarios, core.Outcome{
+			ScenarioInfo: core.ScenarioInfo{ID: p.Id, Name: p.Name, URI: p.Uri, Line: p.Line, Tags: p.TagNames, Attempt: sr.Attempt},
+			Status:       sr.Status.String(),
+		})
+		if end := sr.Started.Add(sr.Duration); end.After(run.Ended) {
+			run.Ended = end
+		}
+	}
+	return run
 }
 
 // Close releases suite resources and closes packs (reverse order).

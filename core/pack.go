@@ -85,6 +85,82 @@ type Finisher interface {
 	Finish(ctx context.Context, s *Suite) error
 }
 
+// RunFinisher is implemented by packs that look at a run's scenarios once
+// every one has finished: which ran, with which tags, and how each ended. A
+// hook cannot: a scenario's outcome is set after its hooks ran, and a hook
+// would be a step of every scenario's report. A returned error fails the run
+// and is reported after the scenarios, as a Finisher's is; it is not called
+// for dry runs or interrupted runs.
+type RunFinisher interface {
+	FinishRun(ctx context.Context, s *Suite, run Run) error
+}
+
+// Run is a finished run, as a pack sees it.
+type Run struct {
+	// Scenarios are the scenarios that ran, in the order of the run's
+	// features. One a fail-fast run never reached is not among them.
+	Scenarios []Outcome
+	// Shard is the share of a run the run is ("2/3"), "" for one that is no
+	// shard.
+	Shard string
+	// Partial says why the run is not a run of every scenario its
+	// configuration selects ("it runs the paths it names"), "" when it is one.
+	Partial string
+	// Started and Ended are when the run's first scenario started and when
+	// its last one ended.
+	Started, Ended time.Time
+	// Say tells the person who runs something of the run as a whole, a line
+	// at a time: axx prints it after the scenarios' report, on standard
+	// error. What a pack found of the run is said here, never logged.
+	Say func(line string)
+}
+
+// Outcome is a scenario that ran, and how it ended.
+type Outcome struct {
+	ScenarioInfo
+	// Status is "passed", "failed", "pending", "skipped", "undefined" or
+	// "ambiguous": the scenario's outcome with its cleanup's.
+	Status string
+}
+
+// FeatureCheck is a check a pack makes of a project's features, beside axx's
+// own: what it finds is a warning of `axx lint`, which `axx validate` and
+// `axx run` report too, an editor marks in the file, and an agent's
+// validation returns. A pack that reads something of its own in a feature (a
+// tag it gives a meaning to, say) says here when it is wrong, before a run
+// finds out.
+type FeatureCheck struct {
+	// ID names the check among lint's rules ("control-tags"); Name and
+	// Description say what it checks, to a person.
+	ID          string
+	Name        string
+	Description string
+	// Run looks at the features' scenarios, and returns what is wrong.
+	Run func(call *FeatureCheckCall) []FeatureFinding
+}
+
+// FeatureCheckCall is what a FeatureCheck is given.
+type FeatureCheckCall struct {
+	// Scenarios are the scenarios of the features that are checked.
+	Scenarios []ScenarioInfo
+	// Settings decodes the pack's settings (packs.<name> in axx.yaml) into
+	// v; ProjectDir is the directory of axx.yaml.
+	Settings   func(v any) error
+	ProjectDir string
+}
+
+// FeatureFinding is something a FeatureCheck found wrong with a scenario.
+type FeatureFinding struct {
+	// URI and Line are the scenario's (ScenarioInfo's).
+	URI  string
+	Line int
+	// Tag is the tag the finding is about ("@asvs:6.2.99"), when it is
+	// about one: the finding is then reported where the tag is written.
+	Tag string
+	// Message says what is wrong, and what would be right.
+	Message string
+}
+
 // Closer is implemented by packs that hold suite-scoped resources.
 type Closer interface {
 	Close(ctx context.Context) error
@@ -140,6 +216,9 @@ type Manifest struct {
 	// Checks are what `axx doctor` checks for the pack, in a project that
 	// uses it.
 	Checks []Check `json:"-"`
+	// FeatureChecks are the checks the pack makes of the project's features,
+	// whose findings are lint's warnings.
+	FeatureChecks []FeatureCheck `json:"-"`
 }
 
 // ArgKind declares which Gherkin step argument a step accepts.

@@ -86,7 +86,25 @@ type Registry struct {
 	cache sync.Map // text -> []Match
 	// elsewhere finds undefined texts in packs the registry does not hold.
 	elsewhere Elsewhere
+	// checks are the checks the packs make of the project's features.
+	checks []PackCheck
 }
+
+// PackCheck is a check a pack makes of the project's features
+// (core.FeatureCheck), with what it is called with: the pack's settings and
+// the project's directory.
+type PackCheck struct {
+	Pack       string
+	Check      core.FeatureCheck
+	Settings   func(v any) error
+	ProjectDir string
+}
+
+// AddCheck adds a pack's check of the features.
+func (r *Registry) AddCheck(c PackCheck) { r.checks = append(r.checks, c) }
+
+// Checks are the packs' checks of the features, in the order the packs load.
+func (r *Registry) Checks() []PackCheck { return r.checks }
 
 // NewRegistry returns a registry containing Cucumber's built-in parameter
 // types.

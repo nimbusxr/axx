@@ -375,6 +375,9 @@ func init() {
 	add("AXX-E0839", exitcode.OK, "Deprecated step",
 		"A feature uses a step that is deprecated. The step works as it did: a deprecated step, flag or setting keeps working until the next major version, which drops it. This is a warning.",
 		"Use what the message names instead, before the next major version. `axx steps show <id>` shows the step and what replaces it.")
+	add("AXX-E0840", exitcode.OK, "A pack's check of a feature",
+		"One of the project's packs found something wrong in a feature: a pack that gives a meaning to something a feature says (a tag, say) checks that it says it right. The message says what is wrong, and which pack's check it is. This is a warning: the scenario runs.",
+		"Put right what the message names. `axx lint` lists every check and the pack it is of.")
 	add("AXX-E0835", exitcode.OK, "Stale selection",
 		"A step without an ordinal (`the selection has 1 row`, `the 1st document for the selection …`) checks a scenario's first selection, but a later selection was retrieved before it and no step checks that one. The step reads as if it checked the latest, while it asserts on what came back before; the later retrieval checks nothing (or only that its rows came, for a polling one). This is a warning.",
 		"Name the selection the step means, like `the 2nd selection has 1 row`: selections are numbered in the order the scenario retrieves them.")

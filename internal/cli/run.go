@@ -193,6 +193,7 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	if pickles, err = feature.Shard(pickles, f.shard); err != nil {
 		return err
 	}
+	e.RunIs(f.shard, partialRun(f, args))
 	e.Suite.PauseAt(a.pausesOnSteps(pauses, pickles))
 	if len(pickles) == 0 {
 		a.printNotes(leftOut)
@@ -311,6 +312,10 @@ func (a *App) run(ctx context.Context, f *runFlags, args []string) error {
 	res := r.Run(ctx, pickles)
 	if lease != nil {
 		lease.Result(hostResult(res))
+	}
+	// What the packs say of the run as a whole (core.Run.Say).
+	for _, line := range e.Said() {
+		fmt.Fprintln(a.Stderr, line)
 	}
 	if cov != nil {
 		stopServices()
