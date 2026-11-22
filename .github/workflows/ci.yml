@@ -334,7 +334,8 @@ jobs:
             models-u-z) mapfile -t packages < <(grep -E '/format/[u-z]' <<< "$models") ;;
           esac
           echo "${packages[@]}" > "$RUNNER_TEMP/packages"
-          go test -race -tags integration -run '^$' "${packages[@]}"
+          # (The nightly run builds them as it runs them, measured: scripts/gotest.sh.)
+          [ "$AXX_NIGHTLY" = true ] || go test -race -tags integration -run '^$' "${packages[@]}"
       - name: wait for the disk space
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
@@ -573,7 +574,8 @@ jobs:
             true-*) packages=(./packs/mobile/...) ;;
             *) packages=(./packs/mobile/... ./packs/models/android/...) ;;
           esac
-          go test -race -tags integration -run '^$' "${packages[@]}"
+          # (The nightly run builds them as it runs them, measured: scripts/gotest.sh.)
+          [ "$AXX_NIGHTLY" = true ] || go test -race -tags integration -run '^$' "${packages[@]}"
       - uses: ./.github/actions/courier-android
         with:
           mode: finish

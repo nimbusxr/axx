@@ -14,7 +14,9 @@
 # In the nightly run (AXX_NIGHTLY=true, ci.yml's), the tests are also measured and checked:
 #   - they write a profile of the statements they ran, over every package of axx, into
 #     $AXX_COVERAGE ($RUNNER_TEMP/coverage unless set), which the run's coverage job adds up
-#     (internal/tools/covermerge); a test binary must have been built for it (scripts/mac-tests.sh);
+#     (internal/tools/covermerge); a test binary must have been built for it (scripts/mac-tests.sh).
+#     They run without the race detector then (-race is left out): with it, counting statements
+#     made the model packs' tests take over ten minutes, and every pull request runs them with it;
 #   - the packs build their C, C++ and Objective-C under a memory checker, which reports into
 #     $AXX_MEMCHECK ($RUNNER_TEMP/memcheck unless set; packs/internal/memcheck).
 set -uo pipefail
@@ -28,6 +30,11 @@ if [[ "${AXX_NIGHTLY:-}" == true ]]; then
   profile="$AXX_COVERAGE/$(date +%s)-$$-$RANDOM.out"
   cover=("-coverpkg=$(sed -n 's/^module //p' go.mod)/..." "-coverprofile=$profile")
   covertest=("-test.coverprofile=$profile")
+  args=()
+  for arg in "$@"; do
+    [[ "$arg" == -race ]] || args+=("$arg")
+  done
+  set -- ${args[@]+"${args[@]}"}
 fi
 
 json=$(mktemp)
