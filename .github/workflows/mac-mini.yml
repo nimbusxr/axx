@@ -15,6 +15,9 @@ name: mac-mini
 on:
   push:
     branches: [main]
+  # Every night, every job, with axx's Objective-C under a memory checker (see the ios job).
+  schedule:
+    - cron: "43 7 * * *"
   # By hand, or for a pull request, whose own run hands it over (runners.yml), with its number.
   workflow_dispatch:
     inputs:
@@ -36,16 +39,17 @@ jobs:
   # (the job runs on main) and the pull request's list of files: nothing of the
   # pull request's is checked out here. A push to main runs the jobs for what a bot's merged pull
   # request changed (bots' pull requests do not run here); everyone else's ran before the merge,
-  # so their pushes run nothing. Manual runs run every job.
+  # so their pushes run nothing. Manual runs, and the nightly run, run every job.
   changes:
-    # The gate. Main only (a manual run from another branch could not use the mini anyway), and
-    # of pushes, a bot's merge. A pull request handed over (a manual run with its number) is held
+    # The gate. Main only (a manual run from another branch could not use the mini anyway; the
+    # nightly run is main's), and of pushes, a bot's merge. A pull request handed over (a manual run with its number) is held
     # by the first step to what GitHub says of it: an open one for main, from this repository's
     # branches, not a bot's.
     if: >-
       github.ref == 'refs/heads/main' && (
       (github.event_name == 'push' && endsWith(github.event.head_commit.author.name, '[bot]')) ||
-      github.event_name == 'workflow_dispatch')
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule')
     runs-on: ubuntu-26.04
     permissions:
       contents: read
@@ -146,11 +150,22 @@ jobs:
           export PATH="$RUNNER_TEMP/bin:$PATH"
           axx fixtures check
           axx fixtures generate
+      # The nightly run, and a manual run of main, check memory: axx builds the Objective-C it
+      # loads into the simulators and the couriers' app (the simulators' library, the AR library,
+      # the Apple model adapter) under AddressSanitizer, which writes a report for each process
+      # it finds a fault in (packs/internal/memcheck; .github/actions/nightly fails the job for
+      # one, below). On the mini the scenarios take no longer for it; on GitHub's macOS runners
+      # they took up to two and a half times as long, so ci.yml's ios job does not.
       - working-directory: examples/parcels/acceptance
+        env:
+          AXX_MEMCHECK: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr == '')) && format('{0}/memcheck', runner.temp) || '' }}
         run: |
           export PATH="$RUNNER_TEMP/bin:$PATH"
+          if [ -n "$AXX_MEMCHECK" ]; then mkdir -p "$AXX_MEMCHECK"; fi
           axx run --tags @ios --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
             --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed --set packs.mobile-ios.devices=3
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/nightly
       # The scenarios whose pages run a model on the GPU, through WebGPU (@gpu): the mini's has
       # Metal, and ci.yml's Linux runners have no GPU.
       - name: the scenarios that need a GPU

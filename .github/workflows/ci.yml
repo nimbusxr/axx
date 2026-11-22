@@ -889,18 +889,17 @@ jobs:
     # The iOS pack, on simulators axx makes, with the parcels example's couriers' iOS app. The
     # example's iOS scenarios need the whole example, and macOS runners have no Docker: they
     # run on developers' Macs.
-    # The tests run on eleven runners, a simulator each, some 2 to 4 minutes' worth on each after
+    # The tests run on nine runners, a simulator each, some 2 to 4 minutes' worth on each after
     # some 4.5 of setting up (the simulator's first boot takes 2 to 3; a part's first test takes a
     # minute longer, as the simulator's first app does), so that no job runs past 10:
     # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one; the
-    # camera's on four; the notifications', the reminder's, the long round's and the documents'
-    # on one each; sharing the van, with the web view's, on one; the others on the eleventh.
-    # The nightly run checks memory (checked; packs/internal/memcheck) in the parts whose tests
-    # run the pack's Objective-C: the camera's (the AR library), and the notifications', the
-    # reminder's and the documents' (the simulators' library), each small enough for it. On
-    # these runners a part's tests took up to two and a half times as long checked (the
-    # reminder's with the long round's, 4.5 minutes as a rule: 6.7, and twice over 10), so the
-    # parts that run none of that code are not.
+    # camera's on four; the notifications' on one; the reminder's, with the long round's, on one;
+    # sharing the van, with the web view's, on one; the others on the ninth.
+    # The nightly run does not check memory here (packs/internal/memcheck): with the pack's
+    # libraries built checked, a part's tests took up to two and a half times as long on these
+    # runners (the reminder's part, 4.5 minutes as a rule: 6.7, and twice over 10), and the
+    # reminder's background task outran the 35 seconds it has. On a Mac of more cores they take
+    # no longer checked: the Mac mini's nightly run checks them (mac-mini.yml).
     name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
@@ -911,31 +910,21 @@ jobs:
           - tests: couriers
             select: -test.run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
           - tests: camera-1
-            checked: "1"
             select: -test.run=^(TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
           - tests: camera-2
-            checked: "1"
             select: -test.run=^TestACourierMeasuresAParcelOnASimulator$
           - tests: camera-3
             select: -test.run=^(TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator)$
           - tests: camera-4
-            checked: "1"
             select: -test.run=^(TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator)$
           - tests: notifications
-            checked: "1"
             select: -test.run=^TestACourierFollowsNotificationsOnASimulator$
           - tests: reminder
-            checked: "1"
-            select: -test.run=^TestACourierIsRemindedOfTheRoundOnASimulator$
-          - tests: long-round
-            select: -test.run=^TestACourierFindsAParcelFarDownTheRoundOnASimulator$
-          - tests: documents
-            checked: "1"
-            select: -test.run=^TestACourierAttachesADocumentOnASimulator$
+            select: -test.run=^(TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierFindsAParcelFarDownTheRoundOnASimulator)$
           - tests: shares
             select: -test.run=^(TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator)$
           - tests: others
-            select: -test.skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator|TestACourierFindsAParcelFarDownTheRoundOnASimulator|TestACourierAttachesADocumentOnASimulator)$
+            select: -test.skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator|TestACourierFindsAParcelFarDownTheRoundOnASimulator)$
           # Four of them again through an axx host, in the tests' process (AXX_TEST_HOSTED): the
           # host's side of the pack leases the simulator and starts the app, as for a run in an
           # agent's sandbox. They read the builds of the part whose tests they run.
@@ -993,8 +982,6 @@ jobs:
           SELECT: ${{ matrix.select }}
           AXX_TEST_HOSTED: ${{ matrix.hosted }}
           AXX_TEST_FAILURES: ${{ runner.temp }}/failure
-          # The nightly run, in the parts that check memory.
-          AXX_MEMCHECK: ${{ env.AXX_NIGHTLY == 'true' && matrix.checked && format('{0}/memcheck', runner.temp) || '' }}
         # (The tests' output is kept for the step after this one; with pipefail, a test that
         # fails still fails the step.)
         run: |
@@ -1721,8 +1708,14 @@ jobs:
         with:
           pattern: statements-*
           path: ${{ runner.temp }}/coverage
-      - run: |
-          go run ./internal/tools/covermerge -out "$RUNNER_TEMP/coverage.out" "$RUNNER_TEMP/coverage" | tee -a "$GITHUB_STEP_SUMMARY"
+      # The whole must hold the 80% the OpenSSF Best Practices badge asks of a project at its
+      # silver level. Not on a night when a job failed: its tests' statements are missing then,
+      # and the job's own failure says so.
+      - env:
+          MINIMUM: ${{ contains(needs.*.result, 'failure') && '0' || '80' }}
+        run: |
+          set -o pipefail
+          go run ./internal/tools/covermerge -min "$MINIMUM" -out "$RUNNER_TEMP/coverage.out" "$RUNNER_TEMP/coverage" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coverage

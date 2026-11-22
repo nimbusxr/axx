@@ -382,12 +382,12 @@ the skills instead: `axx skills install`.
 - Every night CI runs every job on main (`ci.yml`'s schedule; `AXX_NIGHTLY`), with what a pull
   request's run leaves out for its time: `scripts/gotest.sh` has the tests say which statements
   they ran, of every package of axx, and the `coverage` job adds them up over all the jobs
-  (`internal/tools/covermerge`: a statement counts when any job ran it); and in the jobs whose
-  tests run it (`AXX_MEMCHECK`: the iOS job's `checked` parts, the model adapters'), the packs
-  build their C, C++ and Objective-C under a memory checker (`packs/internal/memcheck`), whose
-  reports fail the job that has one. `.github/actions/nightly` is the last step of every job that
-  runs tests: a new such job gets it too, and joins the `coverage` job's `needs`. On CI's runners
-  a part's tests take up to two and a half times as long checked: a checked part is small.
+  (`internal/tools/covermerge`: a statement counts when any job ran it, and the whole must be
+  80%); and in the jobs that set `AXX_MEMCHECK` (the model adapters'), the packs build their C,
+  C++ and Objective-C under a memory checker (`packs/internal/memcheck`), whose reports fail the
+  job that has one. `.github/actions/nightly` is the last step of every job that runs tests: a
+  new such job gets it too, and joins the `coverage` job's `needs`. On GitHub's macOS runners the
+  iOS pack's tests take up to two and a half times as long checked, so they are not checked there.
 - No CI job runs past 10 minutes, its setting up included, and each test step's timeout says so
   (`-timeout 10m`): a job whose tests grow past it runs in parts (a matrix, by its tests' times
   on CI's runners, which `gotestsum`'s slowest list gives; `axx run --shard i/n` for a feature),
