@@ -818,3 +818,41 @@ func TestAControlUnderANumberPadIsReachedThroughTheBar(t *testing.T) {
 		t.Errorf("the pad was closed with a key %d times: it has none", n)
 	}
 }
+
+// A field that took none of what was typed, or only its end, is typed into again: a simulator's
+// keyboard drops the keys it is sent before it is ready, which its first use takes seconds to be,
+// and the driver has typed all the same. What a field holds after four more tries is left to it.
+func TestAFieldThatDidNotTakeItsKeysIsTypedIntoAgain(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		field, text string
+		drop, keep  int // how often the keys are dropped, and how many of the last are kept
+		typed       int // how often the driver typed
+		want        string
+	}{
+		{"all of its keys taken", "Courier ID", "CR-LEJ-12", 0, 0, 1, "CR-LEJ-12"},
+		{"none taken, once", "Courier ID", "CR-LEJ-12", 1, 0, 2, "CR-LEJ-12"},
+		{"only the last three taken, once", "Courier ID", "CR-LEJ-12", 1, 3, 2, "CR-LEJ-12"},
+		{"none of a password's taken, once", "PIN", "4711", 1, 0, 2, "4711"},
+		{"only the last of a password's taken, once", "PIN", "4711", 1, 1, 2, "4711"},
+		{"none taken, ever", "Courier ID", "CR-LEJ-12", 9, 0, 5, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app := courier(t)
+			h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+			register(h, app.URL)
+			h.OK("the courier app is launched")
+			app.DropTyping(tc.drop, tc.keep)
+			h.OK(fmt.Sprintf(`the %q field in the courier app is filled with '%q'`, tc.field, tc.text))
+			typed := 0
+			for _, c := range app.Commands() {
+				if c == "type "+tc.text {
+					typed++
+				}
+			}
+			if got := app.Typed(at(t, screens(t), "sign-in", mobilecore.RoleField, tc.field)); got != tc.want || typed != tc.typed {
+				t.Errorf("the field holds %q after %d times typed, want %q after %d: %v", got, typed, tc.want, tc.typed, app.Commands())
+			}
+		})
+	}
+}

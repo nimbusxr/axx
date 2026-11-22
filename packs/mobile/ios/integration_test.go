@@ -100,13 +100,15 @@ func report(t *testing.T, h *cloudtest.Harness) {
 		// and the log had only that XCTest made it); all of what iOS's resolver of documents
 		// for apps and its store of document ids say; and what SpringBoard, iOS's service of
 		// notifications and RunningBoard say of the app (its notifications, its priority).
-		if r, ok := d.(*running); ok && r.dev != nil {
-			out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", r.dev.udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
+		// What the device says of itself: the simulator may be one the axx host runs.
+		udid, _ := d.Describe()["udid"].(string)
+		if udid != "" {
+			out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
 				`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
 					` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
 					` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`+
 					` OR (process == "Courier" AND subsystem == "com.apple.UIKit" AND category == "EventDispatch")`+
-					` OR process == "ResolverService" OR process == "revisiond" OR eventMessage BEGINSWITH "axx models:"`+
+					` OR process == "ResolverService" OR process == "revisiond" OR eventMessage BEGINSWITH "axx models:" OR eventMessage BEGINSWITH "[axx ar]"`+
 					` OR ((process == "SpringBoard" OR process == "usernotificationsd" OR process == "runningboardd") AND eventMessage CONTAINS[c] "courier")`).CombinedOutput()
 			lines := strings.Split(string(out), "\n")
 			t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-2000):], "\n"))
