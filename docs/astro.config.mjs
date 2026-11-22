@@ -327,6 +327,7 @@ export default defineConfig({
 						'explanations/agent-evals',
 						'explanations/faq',
 						'explanations/deprecation-policy',
+						'explanations/security',
 						'explanations/roadmap',
 						'explanations/adrs',
 					],

@@ -37,6 +37,21 @@ Integration tests use Docker via testcontainers-go: `go test -tags integration .
    together; otherwise it passes at once. What reaches main has been tested: main runs no tests,
    and only refreshes the caches pull requests read.
 
+## Coding style
+
+A contribution follows the style below. Each line names what checks it, so a change that passes
+the checks is in style.
+
+| Language | Style | What checks it |
+| --- | --- | --- |
+| Go (most of axx) | [Effective Go](https://go.dev/doc/effective_go) and [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments), as the tools hold code to them: gofmt's layout as gofumpt tightens it, imports grouped by goimports with axx's own (`github.com/nimbusxr/axx`) in a group of their own, and the linters in [`.golangci.yml`](.golangci.yml). | `mise run lint` (`golangci-lint run`). CI runs it on pull requests that change Go, and the pre-commit hook formats the files you stage. |
+| Feature files | The one layout `axx fmt` writes. | A test keeps the repository's features formatted (`internal/featurefmt`). After editing one, run `go run ./cmd/axx fmt` with the file's path. |
+| Java (`extensions/axx-wiremock`, `ide/intellij`) | No style guide is enforced beyond the compiler. The WireMock extension is compiled with `-Xlint:deprecation` and `-Xlint:unchecked`, which report warnings. The IntelliJ plugin must pass the IntelliJ Plugin Verifier (`verifyPlugin`), which fails a plugin that uses the platform's internal or deprecated API, or API scheduled for removal. | `./gradlew build` in each folder, and `verifyPlugin` for the plugin. CI runs both. |
+| TypeScript (`ide/vscode`) | No style guide is enforced beyond the compiler. TypeScript's strict mode is on, with its checks for unused names, missing returns and fall-through in a `switch` (`tsconfig.json`). | `npm run typecheck`, which CI runs. |
+| Every other file | [`.editorconfig`](.editorconfig): UTF-8, line feeds, a final newline, two spaces (tabs in Go and Makefiles, four spaces in Java, Kotlin and Python). | Your editor applies it. Nothing in CI checks it. |
+
+Where nothing checks a style, write new code as the code around it is written.
+
 ## Developer Certificate of Origin
 
 Every commit must be signed off (`git commit -s`), certifying the
