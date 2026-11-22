@@ -50,7 +50,24 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
-    files: [LICENSE, NOTICE, README.md]
+    # Every file of an archive has its commit's time and one owner, whoever makes the archive
+    # and when: one commit gives the same archives, bit for bit (scripts/build-twice.sh).
+    builds_info:
+      owner: root
+      group: root
+      mode: 0755
+      mtime: "{{ .CommitDate }}"
+    files:
+      - src: LICENSE
+        info: &archived
+          owner: root
+          group: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: NOTICE
+        info: *archived
+      - src: README.md
+        info: *archived
 
 checksum:
   name_template: checksums.txt

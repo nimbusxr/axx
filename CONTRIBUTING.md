@@ -93,6 +93,14 @@ GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser release --snapshot --cle
 scripts/release-check.sh
 ```
 
+One commit gives the same release files, bit for bit. CI builds them twice and compares them; to do the same locally, with
+the changes committed:
+
+```sh
+scripts/build-twice.sh linux      # or darwin, windows: that system's binaries
+scripts/build-twice.sh archives   # every target's archive, and checksums.txt
+```
+
 The docs site's root is the latest release's docs, built from its tag. To change them without a
 new release (a fixed guide, a new Open Graph card), tag the release with those changes as
 `docs-<tag>` and run the docs workflow. The tag may change `docs/` only, so the root still

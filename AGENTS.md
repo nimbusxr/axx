@@ -378,6 +378,10 @@ the skills instead: `axx skills install`.
   axx's module would be an LFS pointer in the module a project's axx downloads. CI's jobs that
   read the model files pull them (`.github/actions/lfs`).
 - Keep `CGO_ENABLED=0` builds working: pure-Go dependencies only.
+- One commit gives the same release files, bit for bit: the binaries and their archives carry
+  nothing of the machine or the clock (`-trimpath`, the commit's time and one owner on every file,
+  `.goreleaser.yaml`). CI's `build-twice` job builds them twice and compares
+  (`scripts/build-twice.sh`): keep it so.
 - CI runs the jobs a pull request needs, from the files it changes (`scripts/ci-changes.sh`).
   A new kind of input to a job (a folder its tests read, say) goes there too.
 - Every night CI runs every job on main (`ci.yml`'s schedule; `AXX_NIGHTLY`), with what a pull
