@@ -5,6 +5,7 @@ package mobileios
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"image/jpeg"
 	"maps"
 	"os"
@@ -100,8 +101,16 @@ func report(t *testing.T, h *cloudtest.Harness) {
 		// and the log had only that XCTest made it); all of what iOS's resolver of documents
 		// for apps and its store of document ids say; and what SpringBoard, iOS's service of
 		// notifications and RunningBoard say of the app (its notifications, its priority).
+		// Through an axx host the device is the host's side's: its simulator is the one that is
+		// booted (CI's jobs have one).
+		udid := ""
 		if r, ok := d.(*running); ok && r.dev != nil {
-			out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", r.dev.udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
+			udid = r.dev.udid
+		} else if booted := bootedSimulators(ctx); len(booted) == 1 {
+			udid = booted[0]
+		}
+		if udid != "" {
+			out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
 				`subsystem BEGINSWITH "com.apple.DocumentManager" OR subsystem BEGINSWITH "com.apple.FileProvider" OR subsystem BEGINSWITH "example.parcels"`+
 					` OR (process == "testmanagerd" AND eventMessage BEGINSWITH "Synthesizing event")`+
 					` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`+
@@ -130,6 +139,29 @@ func report(t *testing.T, h *cloudtest.Harness) {
 	for _, kept := range keepScreens(t.Name(), h.Sink.Attachments, os.Getenv("AXX_TEST_FAILURES")) {
 		t.Log(kept)
 	}
+}
+
+// bootedSimulators are the UDIDs of the simulators that are booted.
+func bootedSimulators(ctx context.Context) []string {
+	out, err := exec.CommandContext(ctx, "xcrun", "simctl", "list", "devices", "booted", "-j").Output()
+	if err != nil {
+		return nil
+	}
+	var listed struct {
+		Devices map[string][]struct {
+			UDID string `json:"udid"`
+		} `json:"devices"`
+	}
+	if json.Unmarshal(out, &listed) != nil {
+		return nil
+	}
+	var udids []string
+	for _, runtime := range slices.Sorted(maps.Keys(listed.Devices)) {
+		for _, d := range listed.Devices[runtime] {
+			udids = append(udids, d.UDID)
+		}
+	}
+	return udids
 }
 
 // warm makes the test's simulator before its scenario: setting up the

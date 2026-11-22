@@ -64,12 +64,15 @@ type Server struct {
 	sessions int
 	elements map[string]string // element ID -> the XPath it was found by
 	typed    map[string]string // XPath -> what was typed
-	commands []string          // mobile: commands and other actions, in order
-	caps     map[string]any
-	shots    int
-	state    int    // the app's state, as XCUITest reports it: 1 not running, 4 in front
-	under    string // the screen under the notifications, while they are open
-	moving   map[string]int
+	// dropping is how many more times a field typed into loses its keys (DropTyping), all but
+	// the last keeping of them.
+	dropping, keeping int
+	commands          []string // mobile: commands and other actions, in order
+	caps              map[string]any
+	shots             int
+	state             int    // the app's state, as XCUITest reports it: 1 not running, 4 in front
+	under             string // the screen under the notifications, while they are open
+	moving            map[string]int
 	// arriving are the next reads of a dialog's text that find it still
 	// coming in, with no text; blank is whether the last read did, when an
 	// answer is lost.
@@ -265,6 +268,15 @@ func (s *Server) Commands() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.commands...)
+}
+
+// DropTyping has the next times a field is typed into lose their keys, all of them or all but
+// the last keep, as a keyboard that is not ready yet drops the keys it is sent: the driver has
+// typed, and the field holds less.
+func (s *Server) DropTyping(times, keep int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dropping, s.keeping = times, keep
 }
 
 // Typed is what was typed into the element an XPath finds.
@@ -546,6 +558,17 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			case "hittable":
 				shown, _ := e.attr("visible")
 				reply(shown != "false" && !slices.Contains(s.app.Unplaced, xpath))
+			case "value":
+				// A field's text, as iOS's driver gives it: what was typed into it, a dot for each
+				// character of a password; its placeholder (the screen's own value) while empty.
+				v, _ := e.attr("value")
+				if typed := s.typed[xpath]; typed != "" {
+					v = typed
+					if kind, _ := e.attr("type"); kind == "XCUIElementTypeSecureTextField" {
+						v = strings.Repeat("•", len([]rune(typed)))
+					}
+				}
+				reply(v)
 			default:
 				v, _ := e.attr(am[2])
 				reply(v)
@@ -607,8 +630,13 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			text, _ := body["text"].(string)
-			s.typed[xpath] += text
 			s.commands = append(s.commands, "type "+text)
+			if s.dropping > 0 {
+				s.dropping--
+				r := []rune(text)
+				text = string(r[max(0, len(r)-s.keeping):])
+			}
+			s.typed[xpath] += text
 			reply(nil)
 		default:
 			fail("unknown command", path)

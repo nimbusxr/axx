@@ -193,6 +193,9 @@ func (family) Fill(sc *core.Scenario, app *appcore.App, field, text string) erro
 		if err != nil {
 			return fmt.Errorf("cannot type into the %s field: %w", quoted(field), err)
 		}
+		if text != "" && typesWithKeys(sc, app.Name) {
+			return typedAgain(ctx, sc, el, field, text)
+		}
 		return nil
 	})
 }
