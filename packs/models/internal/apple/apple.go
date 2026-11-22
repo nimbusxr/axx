@@ -178,7 +178,7 @@ func (p Platform) Supported(a *platform.Artifact) error {
 // suite, and kept in axx's cache for the next.
 func (p Platform) Library(ctx context.Context, s *core.Suite, arch string) (string, error) {
 	arch = clangArch(arch)
-	return core.Cached(s, "models-apple/"+p.Name+"/library/"+arch, func() (string, error) {
+	return memcheck.Record(core.Cached(s, "models-apple/"+p.Name+"/library/"+arch, func() (string, error) {
 		sdk, err := exec.CommandContext(ctx, "xcrun", "--sdk", p.SDK, "--show-sdk-version").Output()
 		if err != nil {
 			return "", p.Unsupported("%s model stubs need Xcode: %v", p.Title, err)
@@ -239,7 +239,7 @@ func (p Platform) Library(ctx context.Context, s *core.Suite, arch string) (stri
 			}
 		}
 		return lib, nil
-	})
+	}))
 }
 
 // FoundationLibrary is the Foundation Models adapter, built for the platform on an

@@ -40,7 +40,7 @@ var librarySources embed.FS
 // simulatorLibrary is the library, built once for the Mac's simulators with Xcode's compiler into
 // axx's cache.
 func simulatorLibrary(ctx context.Context, s *core.Suite) (string, error) {
-	return core.Cached(s, Name+"/library", func() (string, error) {
+	return memcheck.Record(core.Cached(s, Name+"/library", func() (string, error) {
 		arch := SimulatorArch(ctx)
 		sources, err := fs.Glob(librarySources, "library/*.m")
 		if err != nil {
@@ -108,7 +108,7 @@ func simulatorLibrary(ctx context.Context, s *core.Suite) (string, error) {
 			return "", err
 		}
 		return lib, nil
-	})
+	}))
 }
 
 // springboardStatuses is where the library tells, a file for each simulator, how it went in

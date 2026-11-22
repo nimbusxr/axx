@@ -161,6 +161,8 @@ jobs:
           AXX_MEMCHECK: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pr == '')) && format('{0}/memcheck', runner.temp) || '' }}
         run: |
           export PATH="$RUNNER_TEMP/bin:$PATH"
+          # (None of an earlier job's: the folder says that this one checks memory.)
+          rm -rf "${RUNNER_TEMP:?}/memcheck"
           if [ -n "$AXX_MEMCHECK" ]; then mkdir -p "$AXX_MEMCHECK"; fi
           axx run --tags @ios --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
             --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed --set packs.mobile-ios.devices=3

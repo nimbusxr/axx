@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/internal/memcheck"
 )
 
 // What the library reported counts only while the SpringBoard it reported from runs: a
@@ -193,5 +194,43 @@ func TestTheSpringBoardLibraryBuildsForTheSimulators(t *testing.T) {
 	again, err := simulatorLibrary(context.Background(), core.NewSuite(core.SuiteOptions{}))
 	if err != nil || again != lib {
 		t.Errorf("built again: %q, %v", again, err)
+	}
+}
+
+// With a folder for its reports, the library is built under the memory checker, another build
+// beside the usual one, and listed in the folder as built checked: also when a later suite finds
+// it built.
+func TestTheSpringBoardLibraryIsBuiltCheckedAndListed(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("iOS simulators run on macOS only")
+	}
+	t.Setenv("HOME", t.TempDir())
+	usual, err := simulatorLibrary(context.Background(), core.NewSuite(core.SuiteOptions{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listed, _ := memcheck.Libraries(); len(listed) != 0 {
+		t.Fatalf("nothing is checked, and yet listed: %v", listed)
+	}
+	t.Setenv(memcheck.Env, t.TempDir())
+	for range 2 {
+		checked, err := simulatorLibrary(context.Background(), core.NewSuite(core.SuiteOptions{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if checked == usual {
+			t.Fatalf("the checked build is the usual one: %s", checked)
+		}
+		links, err := exec.Command("otool", "-L", checked).Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(links), "libclang_rt.asan") {
+			t.Errorf("the checked build does not link the checker:\n%s", links)
+		}
+		listed, err := memcheck.Libraries()
+		if err != nil || len(listed) != 1 || listed[0] != checked {
+			t.Errorf("listed %v, %v, want %s once", listed, err, checked)
+		}
 	}
 }
