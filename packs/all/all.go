@@ -18,7 +18,9 @@ import (
 	azureblob "github.com/nimbusxr/axx/packs/azure/blob"
 	azureservicebus "github.com/nimbusxr/axx/packs/azure/servicebus"
 	"github.com/nimbusxr/axx/packs/cli"
+	controlsasvs "github.com/nimbusxr/axx/packs/controls/asvs"
 	controlscore "github.com/nimbusxr/axx/packs/controls/core"
+	controlsnist "github.com/nimbusxr/axx/packs/controls/nist"
 	coveragecore "github.com/nimbusxr/axx/packs/coverage/core"
 	coveragego "github.com/nimbusxr/axx/packs/coverage/go"
 	coveragejvm "github.com/nimbusxr/axx/packs/coverage/jvm"
@@ -102,7 +104,9 @@ func Packs() map[string]core.Pack {
 		"web-network":      webnetwork.Pack(),
 		"web-lighthouse":   weblighthouse.Pack(),
 		"web-coverage":     webcoverage.Pack(),
+		"controls-asvs":    controlsasvs.Pack(),
 		"controls-core":    controlscore.Pack(),
+		"controls-nist":    controlsnist.Pack(),
 		"coverage-core":    coveragecore.Pack(),
 		"coverage-go":      coveragego.Pack(),
 		"coverage-jvm":     coveragejvm.Pack(),

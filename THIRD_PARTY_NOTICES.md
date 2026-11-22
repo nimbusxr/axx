@@ -189,3 +189,33 @@ In addition, the Cisco-provided binary of this Software is licensed under Cisco'
                           v1.0
 ```
 
+## OWASP Application Security Verification Standard 5.0.0
+
+- Source: https://github.com/OWASP/ASVS, at the commit of its 5.0.0 release
+  (`5cf9b032440be53ce345ab3c130fda46ba1ce7a2`)
+- License: Creative Commons Attribution-ShareAlike 4.0 International
+  (https://creativecommons.org/licenses/by-sa/4.0/). Copyright © 2008-2025 The OWASP Foundation.
+- Used by: the `controls-asvs` pack (`packs/controls/asvs`), which shows a requirement's text
+  with its source. It is in a project's axx only when the project adds that pack.
+- Vendored file, embedded into the pack, in `packs/controls/asvs/data/`:
+  - `asvs.flat.json.gz`:
+    `5.0/docs_en/OWASP_Application_Security_Verification_Standard_5.0.0_en.flat.json`,
+    unmodified but gzip-compressed; SHA-256 of the uncompressed file:
+    `8201b20eec2908c3380ac600c91c8ba746346fbb808859366abb232027532311`
+  - `LICENSE.md`: the notice above, beside the file
+- The license covers the standard, not axx: axx reads the file, and what it writes of a
+  project's controls (its evidence, its reports' data) names requirements by their IDs and has
+  none of the standard's text.
+
+## NIST SP 800-53, revision 5 (release 5.2.0)
+
+- Source: https://github.com/usnistgov/oscal-content, at commit
+  `5006f18c8047643eaa70e35dd0d20a58bcc41856`:
+  `nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_catalog-min.json` (SHA-256
+  `1cbaf5f25aa1c70610324e278323f1d3be380b9183a0e1f44074976d5da55291`)
+- License: in the public domain, as a work of the United States government (CC0 1.0 worldwide)
+- Used by: the `controls-nist` pack (`packs/controls/nist`)
+- Derived file, embedded into the pack, in `packs/controls/nist/data/`:
+  - `sp800-53.json.gz`: each control's and enhancement's ID, title and family, taken from the
+    catalog by `internal/tools/controlsdata`, gzip-compressed
+
