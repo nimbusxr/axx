@@ -90,10 +90,11 @@ func TestAWebDriverAgentThatDoesNotAnswerIsReportedWithWhatBecameOfIt(t *testing
 	}
 }
 
-// A WebDriverAgent whose process ends as it starts is not waited for: it is launched again, and
-// the run is told what became of it. Here xcrun is a script that counts its launches and lists
-// no process of WebDriverAgent, and the test answers as WebDriverAgent once it was launched a
-// second time, or never.
+// A WebDriverAgent whose process ends as it starts is not waited for: it is launched again, on
+// another port, and the run is told what became of it. Here another program has the port it was
+// given first, xcrun is a script that notes the port of each launch and lists no process of
+// WebDriverAgent, and the test answers as WebDriverAgent, on the port a simulator's server is
+// given next, once it was launched a second time, or never.
 func TestAWebDriverAgentThatEndsAsItStartsIsLaunchedAgain(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("iOS simulators run on macOS only")
@@ -120,7 +121,7 @@ func TestAWebDriverAgentThatEndsAsItStartsIsLaunchedAgain(t *testing.T) {
 			tools := t.TempDir()
 			count := filepath.Join(tools, "launches")
 			script := "#!/bin/sh\ncase \"$*\" in\n" +
-				"*\" launch \"*) echo x >> '" + count + "' ;;\n" +
+				"*\" launch \"*) echo \"$SIMCTL_CHILD_USE_PORT\" >> '" + count + "' ;;\n" +
 				"*\"launchctl list\"*) printf 'PID\\tStatus\\tLabel\\n4711\\t0\\tcom.apple.SpringBoard\\n' ;;\n" +
 				"*\"log show\"*) printf 'Timestamp               Ty Process[PID:TID]\\n' ;;\n" +
 				"esac\n"
@@ -128,18 +129,24 @@ func TestAWebDriverAgentThatEndsAsItStartsIsLaunchedAgain(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Setenv("PATH", tools+string(os.PathListSeparator)+os.Getenv("PATH"))
-			launched := func() int {
+			ports := func() []string {
 				b, _ := os.ReadFile(count)
-				return strings.Count(string(b), "x")
+				return strings.Fields(string(b))
 			}
+			launched := func() int { return len(ports()) }
+			other := httptest.NewServer(http.NotFoundHandler())
+			defer other.Close()
 			wda := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				if tc.answers == 0 || launched() < tc.answers {
 					w.WriteHeader(http.StatusServiceUnavailable)
 				}
 			}))
 			defer wda.Close()
-			port := wda.Listener.Addr().(*net.TCPAddr).Port
-			d := &device{udid: "9F3B2D3E-0000-0000-0000-000000000000", name: "axx iPhone 16, iOS 26.5 (1)", wdaPort: port, mjpegPort: port}
+			taken, port := other.Listener.Addr().(*net.TCPAddr).Port, wda.Listener.Addr().(*net.TCPAddr).Port
+			free := freeServerPort
+			freeServerPort = func() (int, error) { return port, nil }
+			t.Cleanup(func() { freeServerPort = free })
+			d := &device{udid: "9F3B2D3E-0000-0000-0000-000000000000", name: "axx iPhone 16, iOS 26.5 (1)", wdaPort: taken, mjpegPort: taken}
 			var warned []string
 			err := d.ensureWDA(t.Context(), func(msg string, _ ...any) { warned = append(warned, msg) })
 			if tc.want == "" && err != nil {
@@ -150,6 +157,18 @@ func TestAWebDriverAgentThatEndsAsItStartsIsLaunchedAgain(t *testing.T) {
 			}
 			if got := strconv.Itoa(launched()); got != tc.launches {
 				t.Errorf("it was launched %s times, want %s", got, tc.launches)
+			}
+			for i, got := range ports() {
+				want := strconv.Itoa(port)
+				if i == 0 {
+					want = strconv.Itoa(taken)
+				}
+				if got != want {
+					t.Errorf("launch %d was given port %s, want %s (the first is the port another program has, the others the next free one)", i+1, got, want)
+				}
+			}
+			if tc.want == "" && d.wdaURL() != wda.URL {
+				t.Errorf("WebDriverAgent is asked at %s, and answers at %s", d.wdaURL(), wda.URL)
 			}
 			if len(warned) != tc.warned {
 				t.Errorf("the run was told %d times that it ended, want %d: %q", len(warned), tc.warned, warned)

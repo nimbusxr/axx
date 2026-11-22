@@ -19,7 +19,6 @@ import (
 	"github.com/nimbusxr/axx/internal/filelock"
 	"github.com/nimbusxr/axx/internal/npm"
 	"github.com/nimbusxr/axx/internal/proc"
-	"github.com/nimbusxr/axx/packs/mobile/internal/appium"
 )
 
 // device is a simulator of a pool: a clone axx made for the run, or one the
@@ -270,12 +269,6 @@ func (p *pool) signal() {
 func (p *pool) start(ctx context.Context) (*device, error) {
 	d := &device{version: p.version, set: p.set}
 	var err error
-	if d.wdaPort, err = appium.FreePort(); err != nil {
-		return nil, err
-	}
-	if d.mjpegPort, err = appium.FreePort(); err != nil {
-		return nil, err
-	}
 	switch {
 	case p.own != nil:
 		d.udid, d.name = p.own.UDID, p.own.Name
@@ -309,6 +302,12 @@ func (p *pool) start(ctx context.Context) (*device, error) {
 	if reused {
 		p.suite.Logger().Info("WebDriverAgent answers on the iOS simulator, as the run before left it", "simulator", d.name)
 	} else {
+		// Its ports are taken now, not before the simulator booted: a booting simulator starts
+		// a hundred programs, and one of them can take a port that was free a minute ago.
+		if err := d.takePorts(); err != nil {
+			d.stop()
+			return nil, err
+		}
 		if err := d.ensureWDA(ctx, p.suite.Logger().Warn); err != nil {
 			d.stop()
 			return nil, err

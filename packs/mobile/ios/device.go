@@ -54,9 +54,6 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 			return nil, err
 		}
 		d.pool, d.dev, d.key = p, dev, p.key
-		// WebDriverAgent itself: the session is a request to it, the app not
-		// launched yet (a step launches it, or opens a link).
-		client = &appium.Client{URL: dev.wdaURL(), HTTP: &http.Client{}}
 		if err := d.reset(ctx, sc.Suite()); err != nil {
 			p.release(dev)
 			return nil, err
@@ -65,6 +62,10 @@ func (r runner) Start(sc *core.Scenario) (mobilecore.Device, error) {
 			p.release(dev)
 			return nil, err
 		}
+		// WebDriverAgent itself: the session is a request to it, the app not
+		// launched yet (a step launches it, or opens a link). Where it answers
+		// now: one launched again has other ports.
+		client = &appium.Client{URL: dev.wdaURL(), HTTP: &http.Client{}}
 	}
 	if d.dev == nil {
 		caps = a.capabilities(d.bundleID)
