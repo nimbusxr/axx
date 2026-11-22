@@ -112,6 +112,9 @@ type Server struct {
 	// losing are the next taps the app takes no notice of, as a drawer that has slid in takes a
 	// touch for a drag until it has told itself it is open.
 	losing int
+	// lighting is how many screenshots a tap the app takes no notice of lights its control up
+	// for (LightUp), and lit how many of them are still to come.
+	lighting, lit int
 }
 
 // Start runs the fake for a test.
@@ -251,6 +254,15 @@ func (s *Server) LoseTaps(taps int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.losing = taps
+}
+
+// LightUp has a tap the app takes no notice of light its control up all the same, for the next
+// screenshots, as a row does under a finger whether or not the app acts on the tap: the screen
+// changes, and is then as it was.
+func (s *Server) LightUp(shots int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lighting = shots
 }
 
 // Show moves the app to a screen, as the app would by itself.
@@ -573,6 +585,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			}
 			if s.losing > 0 {
 				s.losing--
+				s.lit = s.lighting
 				s.commands = append(s.commands, "lost tap "+xpath)
 				reply(nil)
 				return
@@ -705,6 +718,10 @@ func (s *Server) shot() []byte {
 			sum = sum*31 + int(r)
 		}
 		c = color.RGBA{uint8(sum), uint8(sum >> 8), uint8(sum >> 16), 0xff}
+	}
+	if s.lit > 0 {
+		s.lit--
+		c = color.RGBA{0xd0, 0xd0, 0xd0, 0xff}
 	}
 	if s.sliding > 0 {
 		s.sliding--

@@ -93,11 +93,14 @@ func TestATapThatShowedNothingIsTappedAgain(t *testing.T) {
 		name       string
 		came       bool
 		lost, taps int
+		lit        int // the screenshots a lost tap lights its control up for
 		wantScreen string
 	}{
-		{"came in, its tap lost", true, 1, 2, "delivery"},
-		{"came in, its tap taken", true, 0, 1, "delivery"},
-		{"there from the start, its tap lost", false, 1, 1, "deliveries"},
+		{"came in, its tap lost", true, 1, 2, 0, "delivery"},
+		// The control lights up under the tap and goes dark again: no sign that the app took it.
+		{"came in, its tap lost, its control lit for a moment", true, 1, 2, 1, "delivery"},
+		{"came in, its tap taken", true, 0, 1, 0, "delivery"},
+		{"there from the start, its tap lost", false, 1, 1, 0, "deliveries"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app := courier(t)
@@ -111,6 +114,7 @@ func TestATapThatShowedNothingIsTappedAgain(t *testing.T) {
 				app.Show("deliveries")
 			}
 			app.LoseTaps(tc.lost)
+			app.LightUp(tc.lit)
 			h.OK(`the "PX-MOB-9401" list item is tapped in the courier app`)
 			taps := 0
 			for _, c := range app.Commands() {
