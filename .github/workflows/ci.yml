@@ -43,8 +43,7 @@ permissions:
   contents: read
 
 env:
-  # TEMPORARY, for the measurement: this pull request runs as the nightly run does.
-  AXX_NIGHTLY: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+  AXX_NIGHTLY: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -1693,7 +1692,7 @@ jobs:
   # acceptance jobs run axx itself, built to say what it ran.
   coverage:
     needs: [test, integration, web, mobile, ios, coreml, windows-models, webllm, desktop, acceptance]
-    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }}
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
