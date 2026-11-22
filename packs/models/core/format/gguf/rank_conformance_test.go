@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/nimbusxr/axx/internal/npm"
 	"github.com/nimbusxr/axx/packs/models/core/internal/llamacpp"
 	"github.com/nimbusxr/axx/packs/models/core/modelstest"
 	"github.com/nimbusxr/axx/packs/models/core/stub"
@@ -50,9 +49,8 @@ func TestLlamaCppRanksAsTheStubSays(t *testing.T) {
 	var jobs []llamacpp.Job
 	var names []string
 	for _, m := range realRerankers {
-		metadataOf(t, m.url, m.sha256)
 		// The head itself: its tensors' infos say it has a classifier.
-		c, err := readContract(filepath.Join(npm.CacheDir("models-heads"), m.sha256))
+		c, err := readContract(headOf(t, m.url, m.sha256))
 		if err != nil {
 			t.Fatalf("%s: %v", m.name, err)
 		}

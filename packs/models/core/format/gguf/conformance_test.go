@@ -4,18 +4,12 @@ package gguf
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"testing"
 
-	"github.com/nimbusxr/axx/internal/npm"
 	"github.com/nimbusxr/axx/packs/models/core/internal/llamacpp"
 	"github.com/nimbusxr/axx/packs/models/core/internal/lm"
 	"github.com/nimbusxr/axx/packs/models/core/modelstest"
@@ -39,40 +33,22 @@ var realModels = []struct{ name, url, sha256 string }{
 	{"Phi-3.5 (SentencePiece)", "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_0.gguf", "64c039ef2d3300d4a3afd9e51d854249f6443e01d92829082bd9f0ec5aa060b6"},
 }
 
+// headOf is a model's head: fetched once into axx's cache, where CI keeps it between runs as
+// it keeps the other real models' files (modelstest.FetchRange), and written to a file.
+func headOf(t *testing.T, url, sum string) string {
+	t.Helper()
+	head := filepath.Join(t.TempDir(), "head.gguf")
+	if err := os.WriteFile(head, modelstest.FetchRange(t, url, 0, headSize-1, sum), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return head
+}
+
 // metadataOf fetches a model's head, once, into axx's cache, and writes its
 // metadata as a GGUF file of its own.
 func metadataOf(t *testing.T, url, sum string) string {
 	t.Helper()
-	dir := npm.CacheDir("models-heads")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	head := filepath.Join(dir, sum)
-	if _, err := os.Stat(head); err != nil {
-		req, err := http.NewRequest(http.MethodGet, url, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.Header.Set("Range", fmt.Sprintf("bytes=0-%d", headSize-1))
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		b, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		b = b[:min(len(b), headSize)]
-		h := sha256.Sum256(b)
-		if got := hex.EncodeToString(h[:]); got != sum {
-			t.Fatalf("%s: its head's SHA-256 is %s, want %s", url, got, sum)
-		}
-		if err := os.WriteFile(head, b, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	f, err := Read(head, false)
+	f, err := Read(headOf(t, url, sum), false)
 	if err != nil {
 		t.Fatal(err)
 	}
