@@ -143,26 +143,43 @@ func (family) Press(sc *core.Scenario, app *appcore.App, ak appcore.Kind, name s
 	})
 }
 
-// tapAgain taps a control once more when its tap showed nothing at all: for two seconds the
-// screen stays the screen before it, pixel for pixel, the control where it was. A person whose tap
+// tapAgain taps a control once more when its tap showed nothing that lasted: the screen is, two
+// seconds on, the screen before it, pixel for pixel, the control where it was. A person whose tap
 // did nothing taps again. A tap that was taken shows, as a drawer closes, a dialog goes, a row
-// lights up or a spinner turns, and is not repeated, nor is one on a control no longer there: a
-// tap taken twice would do twice what it does (a delivery confirmed twice). Two seconds leave a
-// tap whose app waits for an answer, on a busy emulator, the time to show it.
+// lights up and stays lit or a spinner turns, and is not repeated, nor is one on a control no
+// longer there: a tap taken twice would do twice what it does (a delivery confirmed twice). Two
+// seconds leave a tap whose app waits for an answer, on a busy emulator, the time to show it.
+//
+// A change that does not last is no sign of a tap taken: a row lights up under a finger and goes
+// dark again whether or not the app acts on the tap (the system file picker's drawer, on CI's
+// emulator: "Downloads" lit up for a moment, the picker stayed on Recent, and the one look at
+// the screen that found the row lit took the tap for taken). So the screen is read until it is at
+// rest: changed and still so at the next look, the tap stands; back to the screen before the tap,
+// it is tapped again. One that is still changing five seconds on is left alone.
 func tapAgain(ctx context.Context, sc *core.Scenario, d Device, app string, k kind, name string, before image.Image) error {
-	for end := time.Now().Add(2 * time.Second); ; {
+	var last image.Image
+	asBefore := 0 // looks in a row that found the screen as it was before the tap
+	for start := time.Now(); ; {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(tapShows / 4):
 		}
 		after, err := maskedShot(ctx, d)
-		if err != nil || !same(before, after) {
-			return nil //nolint:nilerr // the tap showed, or the screen cannot say: it stands
+		if err != nil {
+			return nil //nolint:nilerr // the screen cannot say: the tap stands
 		}
-		if !time.Now().Before(end) {
-			break
+		if same(before, after) {
+			if asBefore++; asBefore >= 2 && time.Since(start) >= tapShows {
+				break
+			}
+		} else {
+			if last != nil && same(last, after) || time.Since(start) >= tapShows*5/2 {
+				return nil // the tap showed, and what it showed stayed; or the screen keeps changing
+			}
+			asBefore = 0
 		}
+		last = after
 	}
 	el, _, _, err := target(sc, d, app, k, name, 0)
 	if err != nil || el == nil {
@@ -174,6 +191,10 @@ func tapAgain(ctx context.Context, sc *core.Scenario, d Device, app string, k ki
 	}
 	return nil
 }
+
+// tapShows is how long a tap has to show on the screen before it is taken for one the app took no
+// notice of.
+const tapShows = 2 * time.Second
 
 func (family) Fill(sc *core.Scenario, app *appcore.App, field, text string) error {
 	return onDevice(sc, app.Name, false, func(ctx context.Context, d Device) error {
