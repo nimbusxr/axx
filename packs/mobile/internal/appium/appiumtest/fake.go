@@ -109,6 +109,8 @@ type Server struct {
 	// landing is the screen the app lands on right after the next read of the screen, as a list
 	// still scrolling as it is read does.
 	landing string
+	// landingAfter are the reads of the screen before the one it lands after.
+	landingAfter int
 	// driftUntil is when the app's controls stop moving, as a drawer sliding in or a list
 	// settling after a scroll moves them; a tap meanwhile is lost.
 	driftUntil time.Time
@@ -239,7 +241,16 @@ func (s *Server) KeyboardClosings() int {
 func (s *Server) Lands(screen string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.landing = screen
+	s.landing, s.landingAfter = screen, 0
+}
+
+// LandsAfter has the app move on to a screen right after a later read of the screen, reads of it
+// from now: a list that comes in while a step is at work on the screen before it, which the
+// step read and has not acted on yet.
+func (s *Server) LandsAfter(reads int, screen string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.landing, s.landingAfter = screen, reads
 }
 
 // Drifting has the app's controls move for a while, as a drawer sliding in or a list settling
@@ -352,7 +363,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		reply(s.app.Screens[s.screen])
-		if s.landing != "" {
+		if s.landing != "" && s.landingAfter > 0 {
+			s.landingAfter--
+		} else if s.landing != "" {
 			s.screen, s.landing = s.landing, ""
 		}
 	case path == "/screenshot":

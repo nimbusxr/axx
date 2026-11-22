@@ -1,6 +1,7 @@
 package mobileios
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -144,4 +145,21 @@ func TestAControlOfAScreenStillLoadingIsScrolledIntoView(t *testing.T) {
 	h.OK(`the "PX-MOB-9401" list item is scrolled into view in the courier app`)
 	mobilecore.SetActionTimeout(300 * time.Millisecond)
 	_ = h.Fails(`the "PX-MOB-9499" list item is scrolled into view in the courier app`, `No list item named "PX-MOB-9499"`)
+}
+
+// A list that comes in while the scroll step is at work on the screen before it (the step has
+// read that screen, and looks along one of its rows, or pages it) does not fail the step with
+// what the driver says of a control no longer there: the step looks again, at the screen there is.
+func TestAScreenThatChangesUnderTheScrollStepIsLookedAtAgain(t *testing.T) {
+	for reads := range 8 {
+		t.Run(fmt.Sprintf("after %d reads", reads), func(t *testing.T) {
+			app := courier(t)
+			h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+			register(h, app.URL)
+			h.OK("the courier app is launched")
+			t.Cleanup(mobilecore.SetActionTimeout(5 * time.Second))
+			app.LandsAfter(reads, "deliveries")
+			h.OK(`the "PX-MOB-9401" list item is scrolled into view in the courier app`)
+		})
+	}
 }

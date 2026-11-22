@@ -508,9 +508,15 @@ func scrollTo(sc *core.Scenario, d Device, app string, k kind, name string) erro
 	// A screen that has no such control anywhere may still be loading it (a list that fills as
 	// its app is answered, a file picker that has not listed its folder yet): the step looks
 	// again for as long as an action waits for its control, as a tap does.
+	// And a screen that changes while the step is at work on it (the list comes in as the step
+	// looks along a row of the screen before it) has the driver say that a control is no longer
+	// there: that says the screen changed, not that the step failed, and it looks again.
 	for end := time.Now().Add(actionTimeout); ; {
 		shown, err := scrollFor(sc, d, k, name, true)
-		if err != nil || shown {
+		changed := err != nil && sc.Context().Err() == nil && (appium.IsNoSuchElement(err) || appium.IsStale(err))
+		if changed && time.Now().Before(end) {
+			note(sc, "scrolling to a control", name, err)
+		} else if err != nil || shown {
 			return err
 		}
 		if !time.Now().Before(end) {
