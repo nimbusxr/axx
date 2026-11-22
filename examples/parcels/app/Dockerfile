@@ -24,9 +24,19 @@ RUN npm ci --ignore-scripts --no-audit --no-fund \
  && cp node_modules/@tensorflow/tfjs/dist/tf.fesm.min.js node_modules/@tensorflow/tfjs/dist/tf.fesm.min.js.map /out/ \
  && cp node_modules/@mlc-ai/web-llm/lib/index.js /out/web-llm.js \
  && cp node_modules/@mlc-ai/web-llm/lib/index.js.map /out/index.js.map
-ADD --chmod=644 --checksum=sha256:e73dc9f4b165e4488b532dee6df1f07b64fdd7e22438ae953387526ca5f13e3b \
-  https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/025bcaf3780fa8254f5e5efd3bfea0a5397248f4/web-llm-models/v0_2_84/base/SmolLM2-135M-Instruct-q4f32_1_cs1k-webgpu.wasm \
-  /out/
+# The model library is downloaded, and held to its SHA-256. A download that fails is tried again:
+# an ADD of its address is not, and a connection that dropped while it was read failed the whole
+# build (CI's, twice).
+RUN lib=SmolLM2-135M-Instruct-q4f32_1_cs1k-webgpu.wasm \
+ && for attempt in 1 2 3 4 5; do \
+      wget -q -T 60 -O "/out/$lib" \
+        "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/025bcaf3780fa8254f5e5efd3bfea0a5397248f4/web-llm-models/v0_2_84/base/$lib" \
+        && break; \
+      echo "the download of $lib failed (attempt $attempt of 5)" >&2; \
+      sleep $((attempt * 3)); \
+    done \
+ && echo "e73dc9f4b165e4488b532dee6df1f07b64fdd7e22438ae953387526ca5f13e3b  /out/$lib" | sha256sum -c - \
+ && chmod 644 "/out/$lib"
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 COPY --from=build /out/parcels /usr/local/bin/parcels
