@@ -301,7 +301,6 @@ static jint attachNext(JavaVM *vm, const std::string &next) {
 extern "C" JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM *vm, char *options, void *) {
   if (!options)
     return JNI_ERR;
-  { volatile int past = 40; char *volatile axx_fault = static_cast<char *>(malloc(8)); axx_fault[past] = 1; __android_log_print(4, "axx", "TEMPORARY-FAULT wrote %d", axx_fault[past]); free(axx_fault); } // TEMPORARY-FAULT
   std::string all(options), next;
   size_t comma = all.find(',');
   directory = all.substr(0, comma);
