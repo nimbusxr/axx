@@ -68,5 +68,8 @@ policy are frozen, and agent-eval success meets its target.
   frozen (ADR 0003, and the schemas' section here), and tests hold them.
 - Until `v1.0.0`, a minor version may remove or change something without it.
 
+What is new and may still change is not under the policy yet: a pack can be experimental
+(ADR 0021), and the policy covers it from the release in which it drops that mark.
+
 The policy is published as the docs' "Deprecation policy" page. A deprecated step warns today
 (`axx lint`'s deprecated steps check, AXX-E0839, in `axx validate` and `axx run` too).

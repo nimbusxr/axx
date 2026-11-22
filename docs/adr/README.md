@@ -26,3 +26,4 @@ CLI JSON output or exit codes, the `axx.yaml` schema, or release/versioning poli
 | [0018](0018-a-pack-has-a-side-in-the-axx-host.md) | A pack has a side in the axx host, and web-core's starts the browser a sandbox keeps from starting | Accepted |
 | [0019](0019-devices-and-apps-start-in-the-axx-host-once-approved.md) | Devices and desktop apps start in the axx host, each app once its person approved it | Accepted |
 | [0020](0020-a-scroll-is-asked-of-the-view-a-swipe-is-a-finger.md) | A scroll is asked of the view; a swipe is a finger | Proposed |
+| [0021](0021-a-pack-can-be-experimental.md) | A pack can be experimental: it may still change, and adding it is the opt-in | Accepted |

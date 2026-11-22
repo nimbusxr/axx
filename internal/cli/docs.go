@@ -165,7 +165,7 @@ func packGroups(manifests map[string]core.Manifest) []md.PackGroup {
 		case strings.HasPrefix(p.Name, "azure-"):
 			g = 5
 		}
-		groups[g].Packs = append(groups[g].Packs, md.PackSummary{Name: p.Name, Summary: p.Summary})
+		groups[g].Packs = append(groups[g].Packs, md.PackSummary{Name: p.Name, Summary: p.Summary, Experimental: experimentalPack(p.Name)})
 	}
 	return groups
 }
