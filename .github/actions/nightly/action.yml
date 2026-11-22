@@ -47,18 +47,27 @@ runs:
               fi
             done < <(sort -u "$temp/memcheck/libraries")
           fi
-          # The machine as the checked tests end: its memory, its load, and what took its
-          # processors. The checker is in every process a simulator starts once axx's library is
-          # in it, and each takes more for it: on a Mac with nothing to spare, what a simulator
-          # does in the background (its notifications, say) waits a minute for its turn.
-          if command -v memory_pressure > /dev/null; then
-            echo "The machine after the checked tests:"
-            echo "  memory: $(($(sysctl -n hw.memsize) / 1073741824)) GB"
-            echo "  swap:   $(sysctl -n vm.swapusage)"
-            echo "  $(memory_pressure | tail -n 1)"
-            echo "  processors: $(sysctl -n hw.ncpu), load over 1, 5 and 15 minutes: $(sysctl -n vm.loadavg)"
-            echo "  the processes that took the most processor time (percent, MB, name):"
-            ps -Ao pcpu=,rss=,comm= -r | awk 'NR <= 12 { name = $3; sub(/.*\//, "", name); printf "    %6s %7d  %s\n", $1, $2 / 1024, name }'
+        fi
+        # A Mac as its tests end, checked or not, so that the two can be told apart: its memory,
+        # its load, what took its processors, and the crash reports macOS wrote during the job.
+        # Under the checker every process a simulator starts runs it once axx's library is in
+        # it: on a Mac with nothing to spare, what a simulator does in the background (its
+        # notifications, say) then waits a minute for its turn.
+        if command -v memory_pressure > /dev/null; then
+          checked=no
+          if [ -d "$temp/memcheck" ]; then checked=yes; fi
+          echo "The machine after the tests (memory checked: $checked):"
+          echo "  memory: $(($(sysctl -n hw.memsize) / 1073741824)) GB"
+          echo "  swap:   $(sysctl -n vm.swapusage)"
+          echo "  $(memory_pressure | tail -n 1)"
+          echo "  processors: $(sysctl -n hw.ncpu), load over 1, 5 and 15 minutes: $(sysctl -n vm.loadavg)"
+          echo "  the processes that took the most processor time (percent, MB, name):"
+          ps -Ao pcpu=,rss=,comm= -r | awk 'NR <= 12 { name = $3; sub(/.*\//, "", name); printf "    %6s %7d  %s\n", $1, $2 / 1024, name }'
+          reports="$HOME/Library/Logs/DiagnosticReports"
+          if [ -d "$reports" ] && [ -e "${GITHUB_EVENT_PATH:-}" ]; then
+            echo "  the crash reports macOS wrote during the job, by process:"
+            crashed=$(find "$reports" -type f -name '*.ips' -newer "$GITHUB_EVENT_PATH" | sed -E 's|.*/||; s/-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]+.*//' | sort | uniq -c | sort -rn | awk 'NR <= 15 { printf "    %5d  %s\n", $1, $2 }')
+            echo "${crashed:-    none}"
           fi
         fi
     - if: steps.left.outputs.coverage == 'true'
