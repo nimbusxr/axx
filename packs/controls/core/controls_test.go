@@ -501,7 +501,7 @@ func TestTheReportBeforeAnyRun(t *testing.T) {
 	}
 	for _, want := range []string{
 		"controls: 0 of 5 required are covered, 5 not covered", "required: security/house.yaml (House rules 2027.1, 5 controls)",
-		"house:lockout", "no scenario is tagged @house:lockout", "no run has written its evidence yet: `axx run` does",
+		"house:lockout          its scenarios have not run yet", "no run has written its evidence yet: `axx run` does",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
@@ -640,7 +640,7 @@ func TestListAndShow(t *testing.T) {
 	out, _, err = call(t, dir, decode, []string{"show", "@house:lockout"}, nil, nil)
 	for _, want := range []string{
 		"house:lockout  An account locks after five wrong passwords", "in House rules 2027.1",
-		"required by security/house.yaml, which takes 2 passing scenarios to prove it", "not covered: no scenario is tagged @house:lockout",
+		"required by security/house.yaml, which takes 2 passing scenarios to prove it", "not covered: its scenarios have not run yet",
 		"no run has written its evidence yet", "a scenario claims it with the tag @house:lockout",
 	} {
 		if err != nil || !strings.Contains(out, want) {

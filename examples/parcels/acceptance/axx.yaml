@@ -98,6 +98,16 @@ services:
 # The portal's screenshots are kept for Linux (CI) and macOS: each is compared on its own
 # platform; on others, the screenshot steps pass without comparing.
 packs:
+  # The controls the service is to cover (security/controls.yaml), and what covers the ones no
+  # scenario proves: `axx controls report` shows how each stands, and CI runs `axx controls
+  # check`, which fails when one is not covered.
+  controls-core:
+    require: [security/controls.yaml]
+    evidence: [security/pen-test-2026-09.yaml]
+    exceptions:
+      - control: asvs:6.2.1
+        kind: not-applicable
+        reason: Nobody signs in with a password. A shop's system signs in with its client credentials, and the portal with the shop's token.
   web-screenshots:
     platforms: [linux, darwin]
   # The labels the service draws (manifest-documents.feature), compared where CI and its

@@ -32,6 +32,7 @@ Feature: Address check
       | X-Api-Key | example-address-key |
       | Accept    | application/json    |
 
+  @asvs:2.2.1
   Scenario: Parcels to undeliverable postcodes are refused
     Given a POST request to /api/parcels
     And a request payload using an application/json content example

@@ -1593,6 +1593,21 @@ jobs:
             examples/${{ matrix.example }}/acceptance/.axx/logs/
           if-no-files-found: ignore
           retention-days: 7
+      # The controls the example is to cover (its security/controls.yaml): the report is the job's
+      # summary, and the check fails the job when a required control is not covered. What the
+      # check judged goes to the controls-attest job.
+      - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
+        name: the controls the scenarios prove
+        working-directory: examples/parcels/acceptance
+        run: |
+          axx controls report --format markdown >> "$GITHUB_STEP_SUMMARY"
+          axx controls check
+      - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: controls-parcels
+          path: examples/parcels/acceptance/.axx/controls/checked.json
+          retention-days: 7
       # The run's coverage report.
       - if: ${{ !cancelled() && matrix.example == 'parcels' && needs.changes.outputs.tests == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -1632,6 +1647,33 @@ jobs:
   # The parcel-support example's image (.github/actions/support-image), kept by main for pull
   # requests to load in a minute. Main's acceptance job runs only parcels, so without this job
   # every pull request built the image, for 6 to 9 minutes, in both of parcel-support's jobs.
+  # The example's controls, signed (the docs' "Sign what was checked"): an attestation that says
+  # which workflow made the file `axx controls check` wrote, on which commit. On main only, and
+  # never for a pull request: the job has the two permissions an attestation takes, and runs
+  # nothing of the repository, only the action on the file the acceptance job uploaded.
+  controls-attest:
+    name: the example's controls, attested
+    needs: [changes, acceptance]
+    if: needs.changes.outputs.tests == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.event_name != 'merge_group'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: controls-parcels
+      - id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: checked.json
+      - name: the file is the one the attestation is of
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: gh attestation verify checked.json --repo "$GITHUB_REPOSITORY" --bundle "$BUNDLE"
+
   support-image:
     needs: changes
     if: github.event_name == 'push' && needs.changes.outputs.examples == 'true'

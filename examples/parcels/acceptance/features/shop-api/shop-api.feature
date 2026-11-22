@@ -13,6 +13,7 @@ Feature: The shop API
       | user     | parcels                                   |
       | password | parcels                                   |
 
+  @asvs:8.2.2
   Scenario: The shops' platform lists a shop's parcels with a token it signed
     Given a seeds/shop-api.yaml db seed
     And the shop token with the following properties:
@@ -27,6 +28,7 @@ Feature: The shop API
       | parcels[0].reference | PX-API-9201   |
       | parcels[1].reference | PX-API-9202   |
 
+  @asvs:8.2.2
   Scenario: A token for another shop is refused
     Given the shop token with the following properties:
       | key        | ${sys:shops.token-key} |

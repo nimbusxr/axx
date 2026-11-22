@@ -163,6 +163,7 @@ Feature: Register parcels
     And the 2nd ordered response status code is 409
     And the response body contains 'already registered' for 2nd ordered response
 
+  @asvs:2.2.1
   Scenario: Parcels over 30 kg are refused
     Given the OpenAPI validation levels are:
       | validation.request.body.schema.maximum | IGNORE |

@@ -101,6 +101,10 @@ type ControlResult struct {
 	// (Expired) or not.
 	Exception *Exception `json:"exception,omitempty"`
 	Expired   bool       `json:"expired,omitempty"`
+
+	// unrun is set when no run's evidence is in the report: a control that is
+	// not covered may be one whose scenarios have not run yet.
+	unrun bool
 }
 
 // ScenarioRef is a scenario that claims a control.
@@ -289,6 +293,7 @@ func (p *project) report(run *Evidence, others []*Evidence, at time.Time) *Repor
 		if e, ok := excepted[ref]; ok {
 			cr.Exception, cr.Expired = &e, !e.in(at)
 		}
+		cr.unrun = run == nil
 		return cr
 	}
 
@@ -425,6 +430,9 @@ func (cr ControlResult) why() string {
 	}
 	if cr.Exception != nil && cr.Expired {
 		return fmt.Sprintf("its exception ended on %s", cr.Exception.Until)
+	}
+	if cr.unrun {
+		return "its scenarios have not run yet"
 	}
 	return "no scenario is tagged @" + cr.Control
 }
