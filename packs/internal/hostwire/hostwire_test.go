@@ -139,10 +139,19 @@ func TestACallNoLongerWaitedForEndsInTheHost(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("the host's handler never heard the call was no longer waited for")
 	}
-	mu.Lock()
-	defer mu.Unlock()
-	if strings.Join(told, "; ") != `log "the simulator boots"; log "the app starts"` {
-		t.Errorf("told: %v", told)
+	// What the host told is read on the connection's own time, after the call's end is: the
+	// test waits for it, as nothing says the last of it was read when the handler has ended.
+	want := `log "the simulator boots"; log "the app starts"`
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(time.Millisecond) {
+		mu.Lock()
+		got := strings.Join(told, "; ")
+		mu.Unlock()
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("told: %s, want %s", got, want)
+		}
 	}
 }
 
