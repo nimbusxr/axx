@@ -43,7 +43,8 @@ runs:
         echo "$RESTORED" > "$RUNNER_TEMP/models-real-restored"
         touch "$RUNNER_TEMP/models-real-began"
         echo "restored ${RESTORED:-nothing}: $(find "$DIR" -type f 2> /dev/null | wc -l) files, $(du -sh "$DIR" 2> /dev/null | cut -f1)"
-    - if: inputs.mode == 'save' && github.ref == 'refs/heads/main'
+    # TEMPORARY, for this pull request's proof: one part keeps its files here too.
+    - if: inputs.mode == 'save' && (github.ref == 'refs/heads/main' || inputs.part == 'models-onnx-js')
       id: kept
       shell: bash
       env:
