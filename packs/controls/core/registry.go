@@ -171,16 +171,42 @@ func (f *Framework) same(a, b string) bool {
 	return strings.EqualFold(a, b)
 }
 
-// nearest is the control of the framework whose ID is closest to one that is
-// not in it, "" when none is close: what a mistyped tag probably meant.
+// nearest is the control of the framework that an ID which is not in it most
+// likely meant, "" when none is close: one of the same part of the framework
+// first (7.2.1 for 7.2.99, IA-5 for IA-55), then one a letter or two away.
 func (f *Framework) nearest(id string) string {
-	best, bestDist := "", 3
+	id = strings.ToLower(id)
+	best, bestShared, bestDist := "", 0, 0
 	for _, c := range f.Controls {
-		if d := distance(strings.ToLower(c.ID), strings.ToLower(id)); d < bestDist {
-			best, bestDist = c.ID, d
+		other := strings.ToLower(c.ID)
+		shared, dist := sharedParts(other, id), distance(other, id)
+		// One of another part of the framework is near only when it is all but
+		// the same word.
+		if shared == 0 && (dist > 2 || dist*4 > len(id)) {
+			continue
+		}
+		if best == "" || shared > bestShared || shared == bestShared && dist < bestDist {
+			best, bestShared, bestDist = c.ID, shared, dist
 		}
 	}
 	return best
+}
+
+// sharedParts is how many of the parts an ID is written in (between its dots
+// and hyphens) two IDs start with alike, when each has more than one.
+func sharedParts(a, b string) int {
+	split := func(s string) []string {
+		return strings.FieldsFunc(s, func(r rune) bool { return r == '.' || r == '-' || r == '(' || r == ')' })
+	}
+	pa, pb := split(a), split(b)
+	if len(pa) < 2 || len(pb) < 2 {
+		return 0
+	}
+	n := 0
+	for n < len(pa)-1 && n < len(pb)-1 && pa[n] == pb[n] {
+		n++
+	}
+	return n
 }
 
 // distance is the edit distance of two short strings.

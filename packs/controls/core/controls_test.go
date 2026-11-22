@@ -811,3 +811,21 @@ func TestAnAgentAsksWhatIsLeftToCover(t *testing.T) {
 		t.Errorf("a control the framework has not: %v", err)
 	}
 }
+
+// What a mistyped ID most likely meant is a control of the same part of its
+// framework, before one that only looks alike.
+func TestTheNearestControl(t *testing.T) {
+	f := &Framework{Key: "asvs", Controls: []Control{{ID: "1.2.9"}, {ID: "7.2.1"}, {ID: "7.2.4"}, {ID: "7.10.1"}, {ID: "12.1.1"}}}
+	for id, want := range map[string]string{"7.2.99": "7.2.1", "7.2.44": "7.2.4", "7.10.9": "7.10.1", "1.2.8": "1.2.9", "40.1.1": "", "password": ""} {
+		if got := f.nearest(id); got != want {
+			t.Errorf("the nearest to %s is %q, want %q", id, got, want)
+		}
+	}
+	named := &Framework{Key: "house", Controls: []Control{{ID: "session-end"}, {ID: "lockout"}}}
+	if got := named.nearest("sesion-end"); got != "session-end" {
+		t.Errorf("the nearest to sesion-end is %q", got)
+	}
+	if got := named.nearest("two-person-rule"); got != "" {
+		t.Errorf("the nearest to two-person-rule is %q", got)
+	}
+}
