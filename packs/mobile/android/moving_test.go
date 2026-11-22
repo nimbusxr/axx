@@ -132,3 +132,20 @@ func TestATapThatShowedNothingIsTappedAgain(t *testing.T) {
 		})
 	}
 }
+
+// A screen still loading when the scroll step looks has no such control anywhere yet: the step
+// looks again for as long as an action waits for its control, as a tap does, and fails only
+// for one that never comes.
+func TestAControlOfAScreenStillLoadingIsScrolledIntoView(t *testing.T) {
+	app := courier(t)
+	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
+	register(h, app.URL)
+	h.OK("the courier app is launched")
+	t.Cleanup(mobilecore.SetActionTimeout(5 * time.Second))
+	// The list comes in a while after the step has looked all over the screen before it.
+	loaded := time.AfterFunc(700*time.Millisecond, func() { app.Show("deliveries") })
+	t.Cleanup(func() { loaded.Stop() })
+	h.OK(`the "PX-MOB-9401" list item is scrolled into view in the courier app`)
+	mobilecore.SetActionTimeout(300 * time.Millisecond)
+	_ = h.Fails(`the "PX-MOB-9499" list item is scrolled into view in the courier app`, `No list item named "PX-MOB-9499"`)
+}

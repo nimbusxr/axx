@@ -401,6 +401,7 @@ func TestScrollingAFormWithTheKeyboardUpDragsAboveIt(t *testing.T) {
 	h := cloudtest.New(t, appcore.Pack(), mobilecore.Pack(), Pack())
 	register(h, app.URL)
 	h.OK("the courier app is launched")
+	t.Cleanup(mobilecore.SetActionTimeout(300 * time.Millisecond))
 	_ = h.Fails(`the "Hand Over" button is scrolled into view in the courier app`, `No button named "Hand Over"`)
 	drags := 0
 	for _, c := range app.Commands() {
