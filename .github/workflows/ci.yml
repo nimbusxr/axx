@@ -919,43 +919,111 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - tests: couriers
-            select: -test.run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
-          - tests: camera-1
-            select: -test.run=^(TestThePhoneMovesThroughTheScene|TestTheCameraSeesASceneAnImageOrAVideo)$
-          - tests: camera-2
-            select: -test.run=^TestACourierMeasuresAParcelOnASimulator$
-          - tests: camera-3
-            select: -test.run=^(TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator)$
-          - tests: camera-4
-            select: -test.run=^(TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator)$
-          - tests: notifications
-            select: -test.run=^TestACourierFollowsNotificationsOnASimulator$
-          - tests: reminder
-            select: -test.run=^(TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierFindsAParcelFarDownTheRoundOnASimulator)$
-          - tests: shares
-            select: -test.run=^(TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator)$
-          - tests: others
-            select: -test.skip=^(TestCouriersOnASimulator|TestRecordingsOnASimulator|TestThePhoneMovesThroughTheScene|TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator|TestTheCameraSeesASceneAnImageOrAVideo|TestACourierMeasuresAParcelOnASimulator|TestACourierWalksUpToAParcelAndMeasuresItOnASimulator|TestACourierPhotographsAParcelAtTheDoorOnASimulator|TestACourierFollowsNotificationsOnASimulator|TestACourierIsRemindedOfTheRoundOnASimulator|TestACourierSharesTheVanOnASimulator|TestACourierReportsAProblemInAWebViewOnASimulator|TestACourierFindsAParcelFarDownTheRoundOnASimulator)$
-          # Four of them again through an axx host, in the tests' process (AXX_TEST_HOSTED): the
-          # host's side of the pack leases the simulator and starts the app, as for a run in an
-          # agent's sandbox. They read the builds of the part whose tests they run.
-          - tests: hosted-couriers
+          # TEMP, to be removed: the sign-in again and again (TestZZSignInLoop).
+          - tests: loop-01
             builds: couriers
+            temp: "1"
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-02
+            builds: couriers
+            temp: "1"
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-03
+            builds: couriers
+            temp: "1"
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-04
+            builds: couriers
+            temp: "1"
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-05
+            builds: couriers
+            temp: "1"
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-06
+            builds: couriers
+            temp: "1"
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-07
+            builds: couriers
+            temp: "1"
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-08
+            builds: couriers
+            temp: "1"
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-09
+            builds: couriers
+            temp: "1"
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-10
+            builds: couriers
+            temp: "1"
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-11
+            builds: couriers
+            temp: "1"
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-12
+            builds: couriers
+            temp: "1"
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-13
+            builds: couriers
+            temp: "1"
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-14
+            builds: couriers
+            temp: "1"
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-15
+            builds: couriers
+            temp: "1"
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: loop-16
+            builds: couriers
+            temp: "1"
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: hosted-loop-1
+            builds: couriers
+            temp: "1"
             hosted: "1"
-            select: -test.run=^(TestCouriersOnASimulator|TestRecordingsOnASimulator)$
-          - tests: hosted-camera-2
-            builds: camera-2
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: hosted-loop-2
+            builds: couriers
+            temp: "1"
             hosted: "1"
-            select: -test.run=^TestACourierMeasuresAParcelOnASimulator$
-          - tests: hosted-camera-4
-            builds: camera-4
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: hosted-loop-3
+            builds: couriers
+            temp: "1"
             hosted: "1"
-            select: -test.run=^(TestACourierReadsATornLabelOnASimulator|TestACourierScansALabelOnASimulator)$
-          - tests: hosted-notifications
-            builds: notifications
+            debug: "1"
+            select: -test.run=^TestZZSignInLoop$
+          - tests: hosted-loop-4
+            builds: couriers
+            temp: "1"
             hosted: "1"
-            select: -test.run=^TestACourierFollowsNotificationsOnASimulator$
+            debug: "0"
+            select: -test.run=^TestZZSignInLoop$
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -994,6 +1062,8 @@ jobs:
           SELECT: ${{ matrix.select }}
           AXX_TEST_HOSTED: ${{ matrix.hosted }}
           AXX_TEST_FAILURES: ${{ runner.temp }}/failure
+          AXX_TEMP_PART: ${{ matrix.tests }}
+          AXX_TEMP_DEBUG_LOG: ${{ matrix.debug }}
         # (The tests' output is kept for the step after this one; with pipefail, a test that
         # fails still fails the step.)
         run: |
@@ -1009,7 +1079,7 @@ jobs:
             echo "::warning::WebDriverAgent ended as it started in this job, and axx launched it again: this step's log has what became of it"
             grep -A 45 'WebDriverAgent ended as it started' "$RUNNER_TEMP/ios-tests.log"
           fi
-      - if: ${{ !cancelled() && !matrix.hosted }}
+      - if: ${{ !cancelled() && !matrix.hosted && !matrix.temp }}
         uses: ./.github/actions/simulator-builds
         with:
           part: ios-${{ matrix.tests }}
