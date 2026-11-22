@@ -33,7 +33,17 @@ Each scenario gets a fresh **world**: its registered services and the state each
 
 ## 5. Packs
 
-A **pack** is a bundle of steps, parameter types and hooks, its settings in `axx.yaml` and its tools for agents (`axx mcp`), plus the per-scenario context its steps share. The packs are `rest`, `mock`, `grpc`, `jsonrpc`, `graphql`, `sql`, `mongo`, `redis`, `kafka`, `amqp`, `mqtt`, `nats`, `websocket`, `sse`, `asyncapi`, `logs`, `files`, `mail`, `cli`, the web packs (`web-core`, `web-screenshots`...), the cloud service packs (`aws-s3`, `gcp-pubsub`, `azure-blob`...), and `core` for shared parameter types.
+A **pack** is a bundle of steps, parameter types and hooks, its settings in `axx.yaml` and its tools for agents (`axx mcp`), plus the per-scenario context its steps share. The packs are:
+
+- for services: `rest`, `mock`, `grpc`, `jsonrpc`, `graphql`, `mcp`, `a2a`, `sql`, `mongo`, `redis`, `kafka`, `amqp`, `mqtt`, `nats`, `websocket`, `sse`, `asyncapi`, `logs`, `files`, `mail`, `cli`, `faults` and `otel`;
+- for web apps: the web packs (`web-core`, `web-screenshots`...);
+- for mobile and desktop apps: `app-core`, the mobile packs (`mobile-core`, `mobile-android`, `mobile-ios`) and the desktop packs (`desktop-core`, `desktop-macos`, `desktop-windows`, `desktop-linux`);
+- for the models apps and services run: the model packs (`models-core`, `models-ios`, `models-web`...);
+- for the coverage of the services under test: the coverage packs (`coverage-core`, `coverage-jvm`...);
+- for cloud services: the cloud service packs (`aws-s3`, `gcp-pubsub`, `azure-blob`...);
+- and `core` for shared parameter types.
+
+`axx pack list` lists them all.
 
 A project lists the packs it uses in `axx-packs.yaml`. The `axx` binary is the core alone: on first use, it builds a copy of itself with the project's packs, caches it and runs it in its place ([Choose packs](/guides/use-packs/)).
 
