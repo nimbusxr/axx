@@ -85,4 +85,10 @@ func TestAConnectionClosedAtOnceIsAServerDown(t *testing.T) {
 		seen[text[strings.LastIndex(text, ": ")+2:]]++
 	}
 	t.Logf("as Go's client reported them: %v", seen)
+
+	// And a port nothing listens on any more refuses the connection.
+	_ = l.Close()
+	if _, err := s.Source(context.Background()); !IsDown(err) {
+		t.Errorf("a refused connection is not taken for a server that is down: %v", err)
+	}
 }
