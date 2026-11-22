@@ -11,22 +11,28 @@
 # tests another job built: CI's Mac jobs), and the rest its flags (-test.run, -test.timeout): it
 # runs in that folder, as go test runs it, through $GOTEST_TEST2JSON (go tool test2json unless set).
 #
-# In the nightly run (AXX_NIGHTLY=true, ci.yml's), the tests are also measured and checked:
+# In the nightly run (AXX_NIGHTLY=true, ci.yml's), the tests are also measured:
 #   - they write a profile of the statements they ran, over every package of axx, into
 #     $AXX_COVERAGE ($RUNNER_TEMP/coverage unless set), which the run's coverage job adds up
 #     (internal/tools/covermerge); a test binary must have been built for it (scripts/mac-tests.sh).
 #     They run without the race detector then (-race is left out): with it, counting statements
-#     made the model packs' tests take over ten minutes, and every pull request runs them with it;
-#   - the packs build their C, C++ and Objective-C under a memory checker, which reports into
-#     $AXX_MEMCHECK ($RUNNER_TEMP/memcheck unless set; packs/internal/memcheck).
+#     made the model packs' tests take over ten minutes, and every pull request runs them with it.
+#
+# With AXX_MEMCHECK naming a folder (the jobs the nightly run has check memory), the packs build
+# their C, C++ and Objective-C under a memory checker, which reports there
+# (packs/internal/memcheck): the folder is made.
 set -uo pipefail
+
+if [[ -n "${AXX_MEMCHECK:-}" ]]; then
+  mkdir -p "$AXX_MEMCHECK"
+fi
 
 cover=() covertest=()
 if [[ "${AXX_NIGHTLY:-}" == true ]]; then
   temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
   temp=${temp//\\//} # a Windows runner's, for bash
-  export AXX_COVERAGE=${AXX_COVERAGE:-$temp/coverage} AXX_MEMCHECK=${AXX_MEMCHECK:-$temp/memcheck}
-  mkdir -p "$AXX_COVERAGE" "$AXX_MEMCHECK"
+  export AXX_COVERAGE=${AXX_COVERAGE:-$temp/coverage}
+  mkdir -p "$AXX_COVERAGE"
   profile="$AXX_COVERAGE/$(date +%s)-$$-$RANDOM.out"
   cover=("-coverpkg=$(sed -n 's/^module //p' go.mod)/..." "-coverprofile=$profile")
   covertest=("-test.coverprofile=$profile")
