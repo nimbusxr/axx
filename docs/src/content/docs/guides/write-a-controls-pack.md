@@ -166,6 +166,56 @@ func init() {
 
 A finding names its control as a tag does, without the `@`: `baseline:auth-1`.
 
+## The evidence file
+
+A tool needs no pack to give evidence: it can write the file itself. Evidence is JSON or YAML, and `axx controls report` and `check` take any number of such files.
+
+What a run writes, in `.axx/controls/run.json`:
+
+```json
+{
+  "version": 1,
+  "kind": "run",
+  "axx": "0.8.0",
+  "commit": "16777dd164c6dc8be54c4dd510addf814686139f",
+  "started": "2027-03-02T09:14:07Z",
+  "ended": "2027-03-02T09:16:41Z",
+  "shard": "1/3",
+  "frameworks": { "asvs": "5.0.0" },
+  "scenarios": [
+    {
+      "uri": "features/shop-api/shop-api.feature",
+      "line": 32,
+      "name": "A token for another shop is refused",
+      "status": "passed",
+      "controls": ["asvs:8.2.2"]
+    }
+  ]
+}
+```
+
+- **`scenarios`** has only the scenarios that claim a control, each with how it ended.
+- **`frameworks`** has the version of each framework the claims are of.
+- **`commit`** is the project's commit, with `"dirty": true` when the run had changes that were not committed. Evidence of two commits is never judged together.
+- **`shard`** is set for a shard of a run, and **`partial`** says why a run was not of every scenario.
+
+What another source says is a file with a `source`, optionally a `link` and a `date`, and its findings under `controls`. That is the file a person writes by hand ([Evidence from elsewhere](/guides/prove-controls/#what-a-scenario-cannot-prove)), where `controls` maps each control to `covered`, `failing`, or a `state` and a `note`. A tool can write `controls` as a list instead:
+
+```json
+{
+  "version": 1,
+  "source": "Scanner, nightly",
+  "link": "https://example.com/scans/2027-03-02",
+  "date": "2027-03-02",
+  "controls": [
+    { "control": "asvs:12.1.1", "state": "covered" },
+    { "control": "asvs:3.4.1", "state": "failing", "note": "Rule 10038" }
+  ]
+}
+```
+
+Neither has a framework's text: a control is named by its ID.
+
 ## Share it
 
 Publish the pack as a Go module, and projects add it by its path:
