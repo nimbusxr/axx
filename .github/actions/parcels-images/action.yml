@@ -12,6 +12,10 @@ description: >-
       compiled with the job's Go and its caches, and handed to the Dockerfile's final stage in
       place of its build stage (a named build context), so the image is the Dockerfile's own.
       With cover, a build for coverage (-cover), as a run with coverage has compose build it.
+    - What the portal's pages load (the Dockerfile's portal-vendor stage: npm's packages and a
+      model library, all downloaded): from a cache of that stage's files, keyed by what makes
+      them, and handed to the final stage in its place. Every job built the stage again, and a
+      download of it that failed, failed the job (twice, in two days).
 inputs:
   cover:
     description: Build the parcels service for coverage, for a run with coverage.
@@ -30,6 +34,28 @@ runs:
         flags=()
         if [ "$COVER" = true ]; then flags=(-cover -coverpkg=./...); fi
         CGO_ENABLED=0 go build "${flags[@]}" -trimpath -ldflags="-s -w" -o "$RUNNER_TEMP/parcels-app/out/parcels" .
+    - id: vendor
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/parcels-vendor
+        key: parcels-portal-vendor-${{ hashFiles('examples/parcels/app/Dockerfile', 'examples/parcels/app/portal-vendor/**') }}
+    - if: steps.vendor.outputs.cache-hit != 'true'
+      name: what the portal's pages load, built
+      shell: bash
+      # The Dockerfile's own stage, and its files taken out of it.
+      run: |
+        docker build --quiet --target portal-vendor --tag parcels-portal-vendor:ci examples/parcels/app
+        container=$(docker create parcels-portal-vendor:ci)
+        mkdir -p "$RUNNER_TEMP/parcels-vendor"
+        docker cp "$container:/out" "$RUNNER_TEMP/parcels-vendor/out"
+        docker rm "$container" > /dev/null
+    - if: steps.vendor.outputs.cache-hit != 'true'
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/parcels-vendor
+        key: parcels-portal-vendor-${{ hashFiles('examples/parcels/app/Dockerfile', 'examples/parcels/app/portal-vendor/**') }}
     - name: compose uses them
       shell: bash
       run: |
@@ -38,7 +64,7 @@ runs:
         {
           docker compose -f "$compose" config --format json \
             | jq -r '"services:", (.services | to_entries[] | select(.value.image == "parcels-wiremock:local" and .value.build != null) | "  \(.key):\n    build: !reset null")'
-          printf '  app:\n    build:\n      additional_contexts:\n        build: %s\n' "$RUNNER_TEMP/parcels-app"
+          printf '  app:\n    build:\n      additional_contexts:\n        build: %s\n        portal-vendor: %s\n' "$RUNNER_TEMP/parcels-app" "$RUNNER_TEMP/parcels-vendor"
         } > "$override"
         cat "$override"
         echo "COMPOSE_FILE=$compose:$override" >> "$GITHUB_ENV"
