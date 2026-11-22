@@ -30,6 +30,7 @@ var Ranges = []struct{ From, To, Area string }{
 	{"AXX-E0800", "AXX-E0899", "Lint"},
 	{"AXX-E0900", "AXX-E0999", "Fixtures"},
 	{"AXX-E1000", "AXX-E1099", "Coverage"},
+	{"AXX-E1100", "AXX-E1199", "Controls"},
 }
 
 var catalog = map[string]Entry{}
@@ -444,6 +445,21 @@ func init() {
 	add("AXX-E1007", u, "Kept services without coverage",
 		"A run with coverage reuses services `axx up` keeps, which it started without coverage, so the run cannot measure them. Also: another run is measuring the services `axx up --coverage` keeps, whose coverage two runs would reset for each other.",
 		"`axx down`, then `axx up --coverage`, or let the run start the services itself; or wait for the other run to end.")
+	add("AXX-E1100", u, "Invalid controls settings",
+		"packs.controls-core cannot be read, or names something the pack does not know: a list that none of the project's packs carries, a file of controls that cannot be read or names no framework, a control its framework has not, or an exception without a reason or, for an accepted one, without its last day. The message says which.",
+		"Put right what the message names. `axx controls list` shows the frameworks and the lists the project has.")
+	add("AXX-E1101", u, "Not evidence of controls",
+		"A file given as evidence cannot be read, or is none: evidence is what a run wrote (run.json, in packs.controls-core.folder), or a file that names its source and the controls it covers or fails. Also: no run has written its evidence yet.",
+		"Run the scenarios (`axx run`), or name the files or folders of the runs to judge.")
+	add("AXX-E1102", u, "Evidence that cannot be judged together",
+		"The evidence is of different commits, of different versions of axx, or of another version of a framework than the project has now. A control proven on another commit is not proven on this one, and a control's ID can mean another control in another version of its framework.",
+		"Give `axx controls check` the evidence of the runs of one commit, by one axx, with the lists the project requires now.")
+	add("AXX-E1103", exitcode.Failed, "A required control is not covered",
+		"`axx controls check` judged the evidence, and a control the project is required to cover is not covered: a scenario that claims it did not pass, no scenario claims it, it takes more scenarios than passed, or its exception has ended. Also: a tag names a control its framework has not.",
+		"Write the scenario that proves the control and give it the control's tag, or record what covers it elsewhere (packs.controls-core.evidence) or why it does not apply (exceptions). `axx controls show <control>` shows what one requires.")
+	add("AXX-E1104", u, "Unknown control, list or format",
+		"A command names a control of no framework the project has, or a control its framework has not, or a report format none of the project's packs writes.",
+		"`axx controls list` shows the project's frameworks and finds controls by a word; the message lists the formats.")
 	add("AXX-E1001", u, "Unknown coverage runtime",
 		"A service's `coverage.runtime` names a runtime that none of the project's coverage packs measures. The message lists those they do.",
 		"Add the pack of its runtime (`axx pack add coverage-<runtime>`), or name one of the runtimes listed; `report` is a service that writes lcov or Cobertura itself.")
