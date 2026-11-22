@@ -505,9 +505,22 @@ func scrollTo(sc *core.Scenario, d Device, app string, k kind, name string) erro
 		}
 		return nil
 	}
-	shown, err := scrollFor(sc, d, k, name, true)
-	if err != nil || shown {
-		return err
+	// A screen that has no such control anywhere may still be loading it (a list that fills as
+	// its app is answered, a file picker that has not listed its folder yet): the step looks
+	// again for as long as an action waits for its control, as a tap does.
+	for end := time.Now().Add(actionTimeout); ; {
+		shown, err := scrollFor(sc, d, k, name, true)
+		if err != nil || shown {
+			return err
+		}
+		if !time.Now().Before(end) {
+			break
+		}
+		select {
+		case <-sc.Context().Done():
+			return sc.Context().Err()
+		case <-time.After(200 * time.Millisecond):
+		}
 	}
 	s, err := d.Screen(sc.Context())
 	if err != nil {
