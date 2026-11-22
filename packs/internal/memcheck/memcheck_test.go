@@ -35,6 +35,10 @@ func TestCheckedBuild(t *testing.T) {
 	}
 	// The usual build and the checked one, and two that report elsewhere, keep apart in the cache.
 	here := string(Key())
+	// Nor do two of different options: a library has its options built in.
+	if !strings.Contains(here, options()) {
+		t.Errorf("Key() = %q, want the checker's options in it: %s", here, options())
+	}
 	t.Setenv(Env, t.TempDir())
 	if elsewhere := string(Key()); here == "" || here == elsewhere {
 		t.Errorf("Key() = %q for one folder and %q for another, want two keys", here, elsewhere)
@@ -47,9 +51,9 @@ func TestSourceNamesTheFolder(t *testing.T) {
 		t.Setenv(Env, dir)
 		path := filepath.Join(dir, "report")
 		// As the checker reads its options: the path whole, in quotes it has none of.
-		want := "log_path='" + path + "' abort_on_error=1"
+		want := "log_path='" + path + "' abort_on_error=1 malloc_context_size=0"
 		if strings.Contains(path, "'") {
-			want = `log_path="` + path + `" abort_on_error=1`
+			want = `log_path="` + path + `" abort_on_error=1 malloc_context_size=0`
 		}
 		if got := options(); got != want {
 			t.Errorf("options() = %s, want %s", got, want)

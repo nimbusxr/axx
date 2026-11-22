@@ -230,7 +230,10 @@ the skills instead: `axx skills install`.
   started, and it is no setting of axx. A new library of such code is built through it too
   (`memcheck.Clang`, `memcheck.Source`, `memcheck.Key` in what its place in the cache is made
   from, and `memcheck.Record` around its builder, which lists it in the folder: a job that was
-  to check memory and lists no library fails, as it checked nothing).
+  to check memory and lists no library fails, as it checked nothing). A report has the fault and
+  where axx's code was, not where the memory was allocated: a simulator's every process loads
+  the iOS pack's library, and that record took gigabytes over them (`options`, which says how
+  to see it for one run).
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `schemas/v0`: the JSON Schemas of axx.yaml and the fixture spec files, at public paths: GitHub serves them from
