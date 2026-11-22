@@ -648,24 +648,47 @@ func fingerprint(box *atspi.Element) string {
 	return b.String()
 }
 
-// visiblePart is the part of the element that shows: in its viewports and
-// scroll panes, and in its window, when the window says where it is (Java's
-// does not).
+// visiblePart is the part of the element that shows: in the areas it is in,
+// and in its window, when the window says where it is (Java's does not).
 func visiblePart(e, win *atspi.Element) atspi.Rect {
-	r := e.Extents()
+	var in []around
 	for at := e.Parent(); at != nil && !at.Same(win); at = at.Parent() {
-		if slices.Contains(areaRoles, at.Role()) {
-			if b := at.Extents(); placed(b) {
-				if !placed(r) {
-					r = b // with no place of its own, it is as far as its area shows
-				} else {
-					r = intersect(r, b)
-				}
-			}
+		in = append(in, around{role: at.Role(), at: at.Extents(), bar: func() bool { return withScrollBar(at) }})
+	}
+	return showing(e.Extents(), in, win.Extents())
+}
+
+// around is an element another is in: its role, its place, and whether it
+// has a scroll bar of its own, which is asked only where it matters.
+type around struct {
+	role string
+	at   atspi.Rect
+	bar  func() bool
+}
+
+// showing is the part of an element at r that the elements it is in (the
+// innermost first) and its window show. An area shows part of what it holds:
+// one with an area's role, and one of any role that has a scroll bar and does
+// not hold all of the element, as clipping has it (Qt's scroll area is a
+// filler: a button scrolled out of it lies over the tabs above it, where a hit
+// test finds the tabs' own filler, which the button is in too).
+func showing(r atspi.Rect, in []around, win atspi.Rect) atspi.Rect {
+	own := r
+	for _, a := range in {
+		if !placed(a.at) {
+			continue
+		}
+		if !slices.Contains(areaRoles, a.role) && (!clips(a.at, own) || !a.bar()) {
+			continue
+		}
+		if !placed(r) {
+			r = a.at // with no place of its own, it is as far as its area shows
+		} else {
+			r = intersect(r, a.at)
 		}
 	}
-	if w := win.Extents(); w.Width > 0 && w.Height > 0 {
-		r = intersect(r, w)
+	if win.Width > 0 && win.Height > 0 {
+		r = intersect(r, win)
 	}
 	return r
 }
