@@ -30,10 +30,11 @@ type Config struct {
 
 // TLSConfig configures HTTPS.
 type TLSConfig struct {
-	// Verify turns TLS certificate verification on. It is off by default
-	// (relaxed HTTPS validation), so services with self-signed certificates
-	// work out of the box.
-	Verify bool `json:"verify,omitempty"`
+	// Verify is whether a host's TLS certificate is verified: it is unless
+	// this is false, and a request to a host whose certificate does not verify
+	// fails. false accepts a certificate whatever it is, as a service under
+	// test with a certificate of its own needs.
+	Verify *bool `json:"verify,omitempty"`
 }
 
 // OpenAPIConfig holds OpenAPI validation defaults.
@@ -51,7 +52,7 @@ const configSchema = `{
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "verify": {"type": "boolean", "description": "Verify TLS certificates (default false)."}
+        "verify": {"type": "boolean", "description": "Verify TLS certificates (default true): a request to a host whose certificate does not verify fails. false accepts a certificate whatever it is, for a service under test with a certificate of its own."}
       }
     },
     "openapi": {
@@ -88,9 +89,9 @@ func load(s *core.Suite) (*settings, error) {
 			return nil, fmt.Errorf("openapi.levels: %w", err)
 		}
 		tr := http.DefaultTransport.(*http.Transport).Clone()
-		// Certificate verification is off unless packs.rest.tls.verify is set
-		// (relaxed HTTPS validation).
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: !c.TLS.Verify} //nolint:gosec // documented default, opt in with packs.rest.tls.verify
+		// Certificates are verified unless packs.rest.tls.verify is false.
+		verify := c.TLS.Verify == nil || *c.TLS.Verify
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: !verify} //nolint:gosec // only when axx.yaml says so, for a service under test with a certificate of its own
 		s.OnClose(func(context.Context) error {
 			tr.CloseIdleConnections()
 			return nil

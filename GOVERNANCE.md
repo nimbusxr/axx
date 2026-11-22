@@ -19,3 +19,9 @@ changes.
 - Changes to public contracts (Gherkin step text, CLI JSON output and exit codes, `axx.yaml`
   schema): an Architecture Decision Record in `docs/adr/`, discussed in the PR
   or a GitHub Discussion before merging.
+
+## Continuity
+
+axx belongs to NimbusXR, the company, not to one person. The company keeps what it takes to
+maintain and release axx, so that the project goes on if a maintainer cannot: issues are
+handled, changes reviewed and merged, and releases published, within a week.
