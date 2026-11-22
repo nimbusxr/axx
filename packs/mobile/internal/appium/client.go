@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -194,9 +196,24 @@ func (s *Session) do(ctx context.Context, method, p string, body, out any) error
 // IsDown reports whether a request found no server answering: it refused the connection, or
 // dropped it, as one does whose process crashed.
 func IsDown(err error) bool {
-	return errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ECONNRESET) ||
-		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	// Refused, or reset: by the system's own numbers for them (downErrnos).
+	var errno syscall.Errno
+	if errors.As(err, &errno) && slices.Contains(downErrnos, errno) {
+		return true
+	}
+	// A connection that was taken and closed at once (adb's forward, for a device whose server is
+	// gone) is one of the above when Go's client had sent its request by then. When it saw the
+	// connection closed first, it says so with an error net/http keeps to itself, and sends the
+	// request again only on a connection it had used before: so it is known here by its text.
+	var sent *url.Error
+	return errors.As(err, &sent) && sent.Err != nil && sent.Err.Error() == serverClosedIdle
 }
+
+// serverClosedIdle is net/http's errServerClosedIdle, as it reads.
+const serverClosedIdle = "http: server closed idle connection"
 
 // Delete ends the session.
 func (s *Session) Delete(ctx context.Context) error {

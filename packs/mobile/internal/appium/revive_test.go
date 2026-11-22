@@ -2,6 +2,7 @@ package appium
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -47,5 +48,47 @@ func TestSessionRevivesItsServer(t *testing.T) {
 	s.Revive = nil
 	if _, err := s.Source(context.Background()); !IsDown(err) {
 		t.Errorf("a dead server: %v", err)
+	}
+}
+
+// A connection that is taken and closed at once, as adb's forward does for a device whose server
+// is gone, is a server that is down, however Go's client comes to know it: as the end of the
+// connection where an answer was due, or, when it sees the connection closed before it sent the
+// request, as a "server closed idle connection", which it has no error value for.
+func TestAConnectionClosedAtOnceIsAServerDown(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			_ = conn.Close()
+		}
+	}()
+	c := &Client{URL: "http://" + l.Addr().String(), HTTP: &http.Client{Transport: &http.Transport{}}}
+	s := &Session{c: c, ID: "first"}
+	seen := map[string]int{}
+	for range 500 {
+		_, err := s.Source(context.Background())
+		if err == nil {
+			t.Fatal("a source from a server that answers nothing")
+		}
+		if !IsDown(err) {
+			t.Fatalf("not taken for a server that is down: %v", err)
+		}
+		text := err.Error()
+		seen[text[strings.LastIndex(text, ": ")+2:]]++
+	}
+	t.Logf("as Go's client reported them: %v", seen)
+
+	// And a port nothing listens on any more refuses the connection.
+	_ = l.Close()
+	if _, err := s.Source(context.Background()); !IsDown(err) {
+		t.Errorf("a refused connection is not taken for a server that is down: %v", err)
 	}
 }
