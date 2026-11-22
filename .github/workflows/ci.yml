@@ -30,9 +30,20 @@ on:
       # the cache keys
       - .github/actions/**
   merge_group:
+  # Every night, and by hand: every job, on main, with what a pull request's run leaves out for
+  # its time (scripts/gotest.sh's nightly mode). The tests say which statements they ran, of every
+  # package of axx, and the coverage job adds them up over all the jobs; and in the jobs that
+  # run it (AXX_MEMCHECK), the packs build their C, C++ and Objective-C under a memory checker,
+  # whose reports fail the job that has one.
+  schedule:
+    - cron: "23 7 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+env:
+  AXX_NIGHTLY: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -44,7 +55,7 @@ jobs:
   # run of the pull request tested the very same tree, which it did unless main moved since
   # (scripts/ci-tested.sh); then it runs the pull request's jobs on the new main. A push to main
   # runs no tests (tests is false): it refreshes the caches pull requests read, and the caches
-  # job keeps the newest of each.
+  # job keeps the newest of each. The nightly run runs every job.
   changes:
     runs-on: ubuntu-26.04
     permissions:
@@ -78,7 +89,9 @@ jobs:
           REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$EVENT" = merge_group ] && scripts/ci-tested.sh "$QUEUED"; then
+          if [ "$AXX_NIGHTLY" = true ]; then
+            scripts/ci-changes.sh --all
+          elif [ "$EVENT" = merge_group ] && scripts/ci-tested.sh "$QUEUED"; then
             scripts/ci-changes.sh --none
           elif [ "$EVENT" != push ] && files=$(git diff --name-only HEAD^1 HEAD); then
             printf '%s\n' "$files" | scripts/ci-changes.sh
@@ -240,6 +253,9 @@ jobs:
           build: test
           mode: save
           modules: ${{ runner.os != 'Linux' }}
+      # The nightly run: what the tests left for it (.github/actions/nightly).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
 
   integration:
     needs: changes
@@ -318,7 +334,8 @@ jobs:
             models-u-z) mapfile -t packages < <(grep -E '/format/[u-z]' <<< "$models") ;;
           esac
           echo "${packages[@]}" > "$RUNNER_TEMP/packages"
-          go test -race -tags integration -run '^$' "${packages[@]}"
+          # (The nightly run builds them as it runs them, measured: scripts/gotest.sh.)
+          [ "$AXX_NIGHTLY" = true ] || go test -race -tags integration -run '^$' "${packages[@]}"
       - name: wait for the disk space
         run: |
           for _ in $(seq 300); do [ -f "$RUNNER_TEMP/disk-freed" ] && break; sleep 2; done
@@ -351,6 +368,9 @@ jobs:
           build: integration-${{ matrix.part }}
           mode: save
           modules: "false"
+      # The nightly run: what the tests left for it (.github/actions/nightly).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
 
   web:
     needs: changes
@@ -419,6 +439,9 @@ jobs:
         uses: ./.github/actions/web-tools
         with:
           mode: save
+      # The nightly run: what the tests left for it (.github/actions/nightly).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
 
   # The emulator's device (its AVD and the snapshot emulators start from), made once for the run
   # when no run has kept it for the script that makes it (.github/actions/courier-android): on a
@@ -551,7 +574,8 @@ jobs:
             true-*) packages=(./packs/mobile/...) ;;
             *) packages=(./packs/mobile/... ./packs/models/android/...) ;;
           esac
-          go test -race -tags integration -run '^$' "${packages[@]}"
+          # (The nightly run builds them as it runs them, measured: scripts/gotest.sh.)
+          [ "$AXX_NIGHTLY" = true ] || go test -race -tags integration -run '^$' "${packages[@]}"
       - uses: ./.github/actions/courier-android
         with:
           mode: finish
@@ -627,6 +651,9 @@ jobs:
           build: mobile
           mode: save
           modules: "false"
+      # The nightly run: what the tests left for it (.github/actions/nightly).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
 
   # WireMock with axx's extensions, the image the parcels example's mocks run, built once for the
   # run when no run has kept it for the extension's files (.github/actions/wiremock-image): on a
@@ -867,6 +894,11 @@ jobs:
     # TestCouriersOnASimulator, two scenarios long, and TestRecordingsOnASimulator on one; the
     # camera's on four; the notifications' on one; the reminder's, with the long round's, on one;
     # sharing the van, with the web view's, on one; the others on the ninth.
+    # The nightly run does not check memory here (packs/internal/memcheck): with the pack's
+    # libraries built checked, a part's tests took up to two and a half times as long on these
+    # runners (the reminder's part, 4.5 minutes as a rule: 6.7, and twice over 10), and the
+    # reminder's background task outran the 35 seconds it has. On a Mac of more cores they take
+    # no longer checked: the Mac mini's nightly run checks them (mac-mini.yml).
     name: ios (${{ matrix.tests }})
     runs-on: macos-latest
     timeout-minutes: 60
@@ -983,6 +1015,9 @@ jobs:
           path: ${{ runner.temp }}/failure/
           if-no-files-found: ignore
           retention-days: 7
+      # The nightly run: what the tests left for it (.github/actions/nightly).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
 
   coreml:
     needs: [changes, mac-tests]
@@ -1043,8 +1078,11 @@ jobs:
           made=$(scripts/ios-simulator.sh)
           echo "$made"
           echo "AXX_IOS_MODELS_SIMULATOR=$(sed -n 's/.*(\([0-9A-F-]\{36\}\)) booted in .*/\1/p' <<< "$made")" >> "$GITHUB_ENV"
+      # (The nightly run checks memory here, in every part: the Apple model adapter's.)
       - if: matrix.part != 'mac'
         name: platform model adapters in the simulator
+        env:
+          AXX_MEMCHECK: ${{ env.AXX_NIGHTLY == 'true' && format('{0}/memcheck', runner.temp) || '' }}
         run: |
           case "$PART" in
             simulator-1) select=(-test.run "$SIMULATOR_1") ;;
@@ -1056,6 +1094,8 @@ jobs:
       # Models' on this image's macOS 27.
       - if: matrix.part == 'mac'
         name: platform model adapters on the Mac
+        env:
+          AXX_MEMCHECK: ${{ env.AXX_NIGHTLY == 'true' && format('{0}/memcheck', runner.temp) || '' }}
         run: scripts/gotest.sh packs/models/macos/macos.test -test.timeout=10m
       - if: ${{ !cancelled() && matrix.part != 'mac' }}
         uses: ./.github/actions/simulator-builds
@@ -1075,6 +1115,9 @@ jobs:
           path: ${{ runner.temp }}/failure/
           if-no-files-found: ignore
           retention-days: 7
+      # The nightly run: what the tests left for it (.github/actions/nightly).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
 
   windows-models:
     needs: changes
@@ -1164,6 +1207,9 @@ jobs:
             ~/AppData/Local/axx/models/cppwinrt-*
             ~/AppData/Local/axx/models/piper-*
           key: ${{ steps.windows-builds-key.outputs.key }}
+      # The nightly run: what the tests left for it (.github/actions/nightly).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
 
   webllm:
     needs: [changes, mac-tests]
@@ -1197,6 +1243,9 @@ jobs:
       - run: GOTEST_FORMAT=standard-verbose scripts/gotest.sh packs/models/core/format/mlc/mlc.test -test.timeout=10m -test.run=TestWebLLM
         env:
           AXX_WEBLLM_SHARD: ${{ matrix.shard }}/10
+      # The nightly run: what the tests left for it (.github/actions/nightly).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
 
   desktop-image:
     needs: changes
@@ -1281,8 +1330,14 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: desktop
+      # The nightly run's says which statements it ran, as it ends (scripts/depot-desk-ci.sh).
       - name: axx, with every pack
-        run: CGO_ENABLED=0 go build -o "$RUNNER_TEMP/axx" ./internal/tools/axxall
+        run: |
+          cover=()
+          if [ "$AXX_NIGHTLY" = true ]; then
+            cover=(-cover "-coverpkg=$(sed -n 's/^module //p' go.mod)/...")
+          fi
+          CGO_ENABLED=0 go build "${cover[@]}" -o "$RUNNER_TEMP/axx" ./internal/tools/axxall
       - if: needs.changes.outputs.tests == 'true'
         name: the depot desk's feature, in its image
         env:
@@ -1296,6 +1351,17 @@ jobs:
         run: |
           echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
           scripts/depot-desk-ci.sh "$IMAGE" "$BUILD" "$DISPLAY_SERVER" "$RUNNER_TEMP/axx" "$RUNNER_TEMP/out" "$((JOB_STARTED + 540 - $(date +%s)))"
+      # The nightly run: the statements axx ran, as a profile for the coverage job
+      # (.github/actions/nightly keeps it).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        name: the statements axx ran
+        run: |
+          if compgen -G "$RUNNER_TEMP/out/coverage/covmeta.*" > /dev/null; then
+            mkdir -p "$RUNNER_TEMP/coverage"
+            go tool covdata textfmt -i="$RUNNER_TEMP/out/coverage" -o="$RUNNER_TEMP/coverage/axx.out"
+          fi
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
       # Of a run that failed, and of one the job's own limit ended, or a person.
       - if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -1439,9 +1505,16 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: acceptance
+      # The nightly run's says which statements it ran, as it ends, into GOCOVERDIR.
       - name: axx, with every pack
         run: |
-          go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
+          cover=()
+          if [ "$AXX_NIGHTLY" = true ]; then
+            cover=(-cover "-coverpkg=$(sed -n 's/^module //p' go.mod)/...")
+            mkdir -p "$RUNNER_TEMP/axx-ran"
+            echo "GOCOVERDIR=$RUNNER_TEMP/axx-ran" >> "$GITHUB_ENV"
+          fi
+          go build "${cover[@]}" -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       # The parcels shop portal's features run in browsers.
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
@@ -1505,6 +1578,17 @@ jobs:
             examples/parcels/acceptance/.axx/coverage/coverage-summary.json
           if-no-files-found: ignore
           retention-days: 7
+      # The nightly run: the statements axx ran, as a profile for the coverage job
+      # (.github/actions/nightly keeps it).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        name: the statements axx ran
+        run: |
+          if compgen -G "$RUNNER_TEMP/axx-ran/covmeta.*" > /dev/null; then
+            mkdir -p "$RUNNER_TEMP/coverage"
+            go tool covdata textfmt -i="$RUNNER_TEMP/axx-ran" -o="$RUNNER_TEMP/coverage/axx.out"
+          fi
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
       # How long the example took to build, pull and start, from its log.
       - if: ${{ !cancelled() && matrix.example == 'parcels' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -1602,9 +1686,44 @@ jobs:
 
   # Single required status check; keeps branch protection simple as jobs are added. A job a
   # pull request does not need is skipped, which passes.
+  # The nightly run's coverage: the statements its jobs' tests ran, of all those of axx, added up
+  # (internal/tools/covermerge). A statement counts when any job ran it: the unit tests run on
+  # three systems, each pack's integration tests where what it talks to is, and the desktop and
+  # acceptance jobs run axx itself, built to say what it ran.
+  coverage:
+    needs: [test, integration, web, mobile, ios, coreml, windows-models, webllm, desktop, acceptance]
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+        with:
+          install_args: "go"
+          cache_save: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: statements-*
+          path: ${{ runner.temp }}/coverage
+      # The whole must hold the 80% the OpenSSF Best Practices badge asks of a project at its
+      # silver level. Not on a night when a job failed: its tests' statements are missing then,
+      # and the job's own failure says so.
+      - env:
+          MINIMUM: ${{ contains(needs.*.result, 'failure') && '0' || '80' }}
+        run: |
+          set -o pipefail
+          go run ./internal/tools/covermerge -min "$MINIMUM" -out "$RUNNER_TEMP/coverage.out" "$RUNNER_TEMP/coverage" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: coverage
+          path: ${{ runner.temp }}/coverage.out
+          retention-days: 30
+
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, courier-device, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, courier-device, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check, coverage]
     runs-on: ubuntu-26.04
     steps:
       - name: all jobs passed

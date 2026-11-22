@@ -10,7 +10,38 @@
 # Or the first argument is a test binary go test -c built into its package's folder (a job whose
 # tests another job built: CI's Mac jobs), and the rest its flags (-test.run, -test.timeout): it
 # runs in that folder, as go test runs it, through $GOTEST_TEST2JSON (go tool test2json unless set).
+#
+# In the nightly run (AXX_NIGHTLY=true, ci.yml's), the tests are also measured:
+#   - they write a profile of the statements they ran, over every package of axx, into
+#     $AXX_COVERAGE ($RUNNER_TEMP/coverage unless set), which the run's coverage job adds up
+#     (internal/tools/covermerge); a test binary must have been built for it (scripts/mac-tests.sh).
+#     They run without the race detector then (-race is left out): with it, counting statements
+#     made the model packs' tests take over ten minutes, and every pull request runs them with it.
+#
+# With AXX_MEMCHECK naming a folder (the jobs the nightly run has check memory), the packs build
+# their C, C++ and Objective-C under a memory checker, which reports there
+# (packs/internal/memcheck): the folder is made.
 set -uo pipefail
+
+if [[ -n "${AXX_MEMCHECK:-}" ]]; then
+  mkdir -p "$AXX_MEMCHECK"
+fi
+
+cover=() covertest=()
+if [[ "${AXX_NIGHTLY:-}" == true ]]; then
+  temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
+  temp=${temp//\\//} # a Windows runner's, for bash
+  export AXX_COVERAGE=${AXX_COVERAGE:-$temp/coverage}
+  mkdir -p "$AXX_COVERAGE"
+  profile="$AXX_COVERAGE/$(date +%s)-$$-$RANDOM.out"
+  cover=("-coverpkg=$(sed -n 's/^module //p' go.mod)/..." "-coverprofile=$profile")
+  covertest=("-test.coverprofile=$profile")
+  args=()
+  for arg in "$@"; do
+    [[ "$arg" == -race ]] || args+=("$arg")
+  done
+  set -- ${args[@]+"${args[@]}"}
+fi
 
 json=$(mktemp)
 trap 'rm -f "$json"' EXIT
@@ -19,9 +50,9 @@ if [[ "${1:-}" == *.test ]]; then
   dir=$(dirname "$1")
   pkg=$(sed -n 's/^module //p' go.mod)/$dir
   if [[ -n "${GOTEST_TEST2JSON:-}" ]]; then test2json=("$GOTEST_TEST2JSON"); else test2json=(go tool test2json); fi
-  (cd "$dir" && gotestsum "${format[@]}" --raw-command -- "${test2json[@]}" -t -p "$pkg" "./$(basename "$1")" -test.v=test2json "${@:2}")
+  (cd "$dir" && gotestsum "${format[@]}" --raw-command -- "${test2json[@]}" -t -p "$pkg" "./$(basename "$1")" -test.v=test2json ${covertest[@]+"${covertest[@]}"} "${@:2}")
 else
-  gotestsum "${format[@]}" -- "$@"
+  gotestsum "${format[@]}" -- ${cover[@]+"${cover[@]}"} "$@"
 fi
 status=$?
 echo "Tests over ${GOTEST_SLOWEST:-5s}:"
