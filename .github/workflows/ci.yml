@@ -533,7 +533,7 @@ jobs:
       # (AXX_MEMCHECK), and the app is the build that starts under it.
       - id: memcheck
         run: |
-          if { [ "$PART" = emulator-4 ] || [ "$PART" = emulator-5 ]; }; then # TEMPORARY: on this pull request too
+          if [ "$AXX_NIGHTLY" = true ] && { [ "$PART" = emulator-4 ] || [ "$PART" = emulator-5 ]; }; then
             echo "on=true" >> "$GITHUB_OUTPUT"
             echo "AXX_MEMCHECK=$RUNNER_TEMP/memcheck" >> "$GITHUB_ENV"
           else
@@ -665,7 +665,7 @@ jobs:
           mode: save
           modules: "false"
       # The nightly run: what the tests left for it (.github/actions/nightly).
-      - if: ${{ !cancelled() && (env.AXX_NIGHTLY == 'true' || steps.memcheck.outputs.on == 'true') }} # TEMPORARY
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
         uses: ./.github/actions/nightly
 
   # WireMock with axx's extensions, the image the parcels example's mocks run, built once for the
