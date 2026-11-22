@@ -23,7 +23,7 @@ brew install nimbusxr/tap/axx
 curl -fsSL https://raw.githubusercontent.com/nimbusxr/axx/main/scripts/install.sh | sh
 ```
 
-The script picks the newest release (pre-releases included, since every `0.x` release is one), downloads the archive for your OS and architecture, and checks it against `checksums.txt`. It installs `axx` in `/usr/local/bin` when that is writable, otherwise in `~/.local/bin`. Set `AXX_INSTALL_DIR` to choose the directory, and `AXX_VERSION` to install a given version (`0.1.0`) or the `nightly` build.
+The script picks the newest release (pre-releases included, since every `0.x` release is one), downloads the archive for your OS and architecture, and checks it against `checksums.txt`. It installs `axx` in `/usr/local/bin` when that is writable, otherwise in `~/.local/bin`. Set `AXX_INSTALL_DIR` to choose the directory (the script also takes `PREFIX`, installing in its `bin`, and `DESTDIR`, which a package's build puts in front of the directory the files are written to), and `AXX_VERSION` to install a given version (`0.1.0`) or the `nightly` build.
 
 ### Install script (Windows)
 

@@ -5,7 +5,10 @@
 #
 # Environment:
 #   AXX_VERSION      version to install (e.g. 0.1.0, v0.1.0, nightly); default: newest release
-#   AXX_INSTALL_DIR  where to put the binary; default: /usr/local/bin if writable, else ~/.local/bin
+#   AXX_INSTALL_DIR  where to put the binary; default: $PREFIX/bin when PREFIX is set, else
+#                    /usr/local/bin if writable, else ~/.local/bin
+#   PREFIX, DESTDIR  as installers take them: the binary goes to $PREFIX/bin, and DESTDIR is put
+#                    in front of the directory it is written to (a package's staging root)
 #   AXX_DOWNLOAD_URL a mirror of the releases' files (<url>/v0.1.0/checksums.txt, with the archives
 #                    beside it), for a network that cannot reach github.com; needs AXX_VERSION
 #   GITHUB_TOKEN     optional, avoids GitHub API rate limits
@@ -116,15 +119,23 @@ if command -v gh >/dev/null 2>&1 && [ "$tag" != nightly ]; then
 fi
 
 tar -xzf "$tmp/$archive" -C "$tmp" axx
+# Where axx is to be: AXX_INSTALL_DIR, or PREFIX's bin, or /usr/local/bin (when it can be written,
+# or DESTDIR says where the files go for now), or the user's own.
 dir=${AXX_INSTALL_DIR:-}
-if [ -z "$dir" ]; then
-  if [ -w /usr/local/bin ]; then dir=/usr/local/bin; else dir="$HOME/.local/bin"; fi
+if [ -z "$dir" ] && [ -n "${PREFIX:-}" ]; then
+  dir="${PREFIX%/}/bin"
 fi
-mkdir -p "$dir"
-install -m 0755 "$tmp/axx" "$dir/axx" 2>/dev/null || { cp "$tmp/axx" "$dir/axx" && chmod 0755 "$dir/axx"; }
-ln -sf "$dir/axx" "$dir/axxeptance" 2>/dev/null || true
+if [ -z "$dir" ]; then
+  if [ -n "${DESTDIR:-}" ] || [ -w /usr/local/bin ]; then dir=/usr/local/bin; else dir="$HOME/.local/bin"; fi
+fi
+# Where it is written: there, under DESTDIR when a package is being staged.
+dest="${DESTDIR:-}$dir"
+mkdir -p "$dest"
+install -m 0755 "$tmp/axx" "$dest/axx" 2>/dev/null || { cp "$tmp/axx" "$dest/axx" && chmod 0755 "$dest/axx"; }
+# (A link to the name beside it: it holds wherever the directory ends up.)
+ln -sf axx "$dest/axxeptance" 2>/dev/null || true
 
-say "installed $("$dir/axx" version 2>/dev/null || echo axx) to $dir/axx (alias: axxeptance)"
+say "installed $("$dest/axx" version 2>/dev/null || echo axx) to $dest/axx (alias: axxeptance)"
 case ":$PATH:" in
   *":$dir:"*) ;;
   *) say "add $dir to your PATH, e.g.: export PATH=\"$dir:\$PATH\"" ;;
