@@ -17,14 +17,17 @@ func newSchemaCmd(app *App) *cobra.Command {
 	var out, kind string
 	var outline, full bool
 	cmd := &cobra.Command{
-		Use:   "schema [config|factory|fixture|prototype]",
+		Use:   "schema [config|overlay|factory|fixture|prototype]",
 		Short: "Print the JSON Schema for axx.yaml or a fixture spec file",
 		Long: `Print a JSON Schema, for editors and agents: axx.yaml by default (config, or
-axx), or factory, fixture or prototype for the *.factory.yaml, *.fixture.yaml
-and *.prototype.yaml files of ` + "`axx fixtures`" + `, as an argument or with --kind.
-Reference them from the files with:
+axx); overlay for the files axx lays over it, a profile's axx.<name>.yaml and
+axx.local.yaml, which say only what differs and so require nothing that
+axx.yaml says already; or factory, fixture or prototype for the *.factory.yaml,
+*.fixture.yaml and *.prototype.yaml files of ` + "`axx fixtures`" + `, as an argument or
+with --kind. Reference them from the files with:
 
   # yaml-language-server: $schema=` + config.SchemaID + `
+  # yaml-language-server: $schema=` + config.OverlaySchemaID + `
   # yaml-language-server: $schema=` + fixtures.SchemaID("factory"),
 		Args: wrapArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,11 +43,13 @@ Reference them from the files with:
 				kind = "config" // what agents call it
 			}
 			schema := config.SchemaJSON
-			if kind != "" && kind != "config" {
+			if kind == "overlay" {
+				schema = config.OverlaySchemaJSON
+			} else if kind != "" && kind != "config" {
 				b, ok := fixtures.SchemaJSON(kind)
 				if !ok {
 					return axxerr.New("AXX-E0010", exitcode.Usage, "unknown schema kind %q", kind).
-						WithHint("use one of: config, %s; a section of axx.yaml, like lint or services, is in `axx schema --outline`", strings.Join(fixtures.SchemaKinds, ", "))
+						WithHint("use one of: config, overlay, %s; a section of axx.yaml, like lint or services, is in `axx schema --outline`", strings.Join(fixtures.SchemaKinds, ", "))
 				}
 				schema = b
 			}
@@ -64,7 +69,7 @@ Reference them from the files with:
 		},
 	}
 	cmd.Flags().StringVarP(&out, "out", "o", "", "write to a file instead of stdout")
-	cmd.Flags().StringVar(&kind, "kind", "config", "which schema: config (axx.yaml), factory, fixture or prototype")
+	cmd.Flags().StringVar(&kind, "kind", "config", "which schema: config (axx.yaml), overlay (axx.<profile>.yaml, axx.local.yaml), factory, fixture or prototype")
 	cmd.Flags().BoolVar(&outline, "outline", false, "print the keys the file may have, nested, each with one line of description (a fraction of the schema's size)")
 	cmd.Flags().BoolVar(&full, "full", false, "print the JSON Schema even in compact output, where the outline is the default")
 	return cmd

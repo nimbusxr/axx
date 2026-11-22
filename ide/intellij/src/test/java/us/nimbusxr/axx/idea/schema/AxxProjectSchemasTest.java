@@ -56,6 +56,11 @@ public class AxxProjectSchemasTest extends BasePlatformTestCase {
      * with schemaExit other than 0, `axx schema` fails.
      */
     private void fakeAxx(String version, int schemaExit) throws Exception {
+        fakeAxx(version, schemaExit, false);
+    }
+
+    /** As {@link #fakeAxx(String, int)}; withoutOverlays, it is too early to know the overlays' schema. */
+    private void fakeAxx(String version, int schemaExit, boolean withoutOverlays) throws Exception {
         String config =
                 "{\"$schema\":\"http://json-schema.org/draft-07/schema#\","
                         + "\"$id\":\"" + AxxProjectSchemas.GITHUB + "axx.schema.json\","
@@ -70,6 +75,7 @@ public class AxxProjectSchemasTest extends BasePlatformTestCase {
                         + "  --version) echo 'axx " + version + " (test)' ;;\n"
                         + "  schema)\n"
                         + "    [ " + schemaExit + " -eq 0 ] || exit " + schemaExit + "\n"
+                        + "    [ \"$3\" != overlay ] || [ -z '" + (withoutOverlays ? "early" : "") + "' ] || exit 2\n"
                         + "    if [ \"$3\" = config ]; then printf '%s' '" + config + "' > \"$5\";"
                         + " else printf '%s' '{\"type\":\"object\"}' > \"$5\"; fi ;;\n"
                         + "esac\n",
@@ -122,6 +128,19 @@ public class AxxProjectSchemasTest extends BasePlatformTestCase {
         List<String> found = complete("axx.yaml", "<caret>");
         assertTrue(found.toString(), found.contains("run") && found.contains("services"));
         assertFalse(found.toString(), found.contains("fromTheProjectsAxx"));
+    }
+
+    /**
+     * An axx from before the overlays had a schema of their own gives its others, which stay in use,
+     * and a profile's file gets the plugin's.
+     */
+    public void testAnAxxWithoutTheOverlaysSchemaGivesItsOthers() throws Exception {
+        fakeAxx("v0.7.0", 0, true);
+        update();
+        List<String> found = complete("axx.yaml", "<caret>");
+        assertTrue(found.toString(), found.contains("fromTheProjectsAxx"));
+        List<String> overlay = complete("axx.ci.yaml", "<caret>");
+        assertTrue(overlay.toString(), overlay.contains("run") && overlay.contains("services"));
     }
 
     public void testTheSameAxxIsAskedForItsSchemasOnce() throws Exception {

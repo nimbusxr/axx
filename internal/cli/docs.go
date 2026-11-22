@@ -133,6 +133,7 @@ func referenceFiles(e *engine.Engine, frontmatter bool) (map[string]string, erro
 	}
 	files["error-codes.md"] = codes
 	files["schemas/axx.schema.json"] = string(config.SchemaJSON)
+	files["schemas/"+config.OverlaySchemaFile] = string(config.OverlaySchemaJSON)
 	for name, schema := range fixtures.Schemas() {
 		files["schemas/"+name] = string(schema)
 	}

@@ -241,7 +241,10 @@ the skills instead: `axx skills install`.
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `schemas/v0`: the JSON Schemas of axx.yaml and the fixture spec files, at public paths: GitHub serves them from
-  main, and axx.yaml files name those addresses (`schemas.Base`). The editor plugins take them from the axx the project runs on
+  main, and axx.yaml files name those addresses (`schemas.Base`). The files axx lays over axx.yaml (a profile's
+  axx.<name>.yaml, axx.local.yaml) have one of their own, `axx-overlay.schema.json`, which `go generate` makes from
+  axx.yaml's (`config.GenerateOverlay`): the same keys, with nothing required in a mapping, as an overlay says only
+  what differs and axx checks the result. The editors hold those files to it, never to axx.yaml's. The editor plugins take them from the axx the project runs on
   (`axx schema --out`, again when `axx --version` answers otherwise: IntelliJ's `AxxProjectSchemas`, VS Code's `schemas.ts`), so they
   match it whatever the plugin's release; until then, and when axx can't give them, they use copies they bundle: IntelliJ's from
   the copy `go generate` keeps in its folder, VS Code's copied at its build. Keep `axx schema --kind <k> --out`
