@@ -127,7 +127,7 @@ func fetch(ctx context.Context, client *http.Client, loc string) ([]byte, error)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, unverified(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)

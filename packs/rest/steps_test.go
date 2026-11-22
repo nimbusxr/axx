@@ -476,16 +476,31 @@ func TestTLSVerification(t *testing.T) {
 	srv.Config.ErrorLog = log.New(io.Discard, "", 0) // the rejected handshake is expected
 	srv.StartTLS()
 	defer srv.Close()
-	h := newHarness(t)
-	h.service("api", srv.URL, "")
-	h.ok("a GET request to /")
-	h.ok("the request is executed") // self-signed: verification is off by default
-	h.ok("the response status code is 204")
-
-	h2 := newHarness(t, withPackConfig("rest", `{"tls":{"verify":true}}`))
-	h2.service("api", srv.URL, "")
-	h2.ok("a GET request to /")
-	h2.fails("the request is executed", "certificate")
+	// A certificate of the server's own, which no system trusts: verified unless axx.yaml says
+	// not to, and the failure says how.
+	for config, passes := range map[string]bool{
+		``:                         false,
+		`{}`:                       false,
+		`{"tls":{}}`:               false,
+		`{"tls":{"verify":true}}`:  false,
+		`{"tls":{"verify":false}}`: true,
+	} {
+		var opts []harnessOpt
+		if config != "" {
+			opts = append(opts, withPackConfig("rest", config))
+		}
+		h := newHarness(t, opts...)
+		h.service("api", srv.URL, "")
+		h.ok("a GET request to /")
+		if passes {
+			h.ok("the request is executed")
+			h.ok("the response status code is 204")
+			continue
+		}
+		if err := h.failure("the request is executed", "certificate"); !strings.Contains(err.Error(), "packs.rest.tls.verify: false") {
+			t.Errorf("with packs.rest %s the failure does not name the setting: %v", config, err)
+		}
+	}
 }
 
 func TestTimeoutAndRedirects(t *testing.T) {
