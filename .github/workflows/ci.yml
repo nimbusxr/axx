@@ -1639,6 +1639,35 @@ jobs:
       - run: goreleaser check
       - run: GORELEASER_CURRENT_TAG=$(scripts/cli-tag.sh) goreleaser build --snapshot --clean --single-target
 
+  # One commit gives the same release files, bit for bit: each system's binaries are built twice,
+  # the second time in another folder from an empty build cache, and every target's archive is
+  # made twice (scripts/build-twice.sh). In parts, as six builds from nothing pass ten minutes.
+  build-twice:
+    needs: changes
+    if: needs.changes.outputs.go == 'true' && needs.changes.outputs.tests == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [linux, darwin, windows, archives]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+        with:
+          install_args: "go goreleaser"
+          # Tools are cached from main only: pull requests read them.
+          cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/go-cache
+        with:
+          build: cross
+      - env:
+          PART: ${{ matrix.part }}
+        run: scripts/build-twice.sh "$PART"
+
   workflows:
     needs: changes
     if: needs.changes.outputs.workflows == 'true' && needs.changes.outputs.tests == 'true'
@@ -1723,7 +1752,7 @@ jobs:
 
   ci-ok:
     if: always()
-    needs: [changes, hygiene, lint, workflows, test, integration, web, courier-device, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check, coverage]
+    needs: [changes, hygiene, lint, workflows, test, integration, web, courier-device, mobile, wiremock-image, android, mac-tests, ios, coreml, windows-models, webllm, desktop-image, desktop, cross-build, example-app, example-app-python, acceptance, release-check, build-twice, coverage]
     runs-on: ubuntu-26.04
     steps:
       - name: all jobs passed
