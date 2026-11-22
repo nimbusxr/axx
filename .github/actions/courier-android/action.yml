@@ -36,6 +36,12 @@ inputs:
       made even with no emulator to run, and saved (some 4 GB, which one job uploads, not
       every one).
     default: "false"
+  memcheck:
+    description: >-
+      `true` for a job whose tests check the memory of axx's agents (AXX_MEMCHECK): its app is
+      the build that starts under the checker (the app's -Pmemcheck=true), which an agent built
+      checked needs, kept in a cache of its own.
+    default: "false"
 outputs:
   device-cached:
     description: "`true` when a run has kept the device the script makes."
@@ -50,9 +56,12 @@ runs:
         APP: ${{ hashFiles('examples/parcels/courier/android/**', '!examples/parcels/courier/android/create-emulator.sh') }}
         NATIVE: ${{ hashFiles('examples/parcels/courier/android/app/src/main/cpp/**', 'examples/parcels/courier/android/app/build.gradle.kts') }}
         DEVICE: ${{ hashFiles('examples/parcels/courier/android/create-emulator.sh') }}
+        MEMCHECK: ${{ inputs.memcheck }}
       run: |
+        checked=
+        if [ "$MEMCHECK" = true ]; then checked=-memcheck; fi
         {
-          echo "COURIER_APK_KEY=courier-apk-x86_64-$APP"
+          echo "COURIER_APK_KEY=courier-apk-x86_64$checked-$APP"
           echo "COURIER_CCACHE_KEY=courier-ccache-x86_64-$NATIVE"
           echo "COURIER_DEVICE_KEY=courier-device-$ImageOS-$DEVICE"
         } >> "$GITHUB_ENV"
@@ -121,7 +130,8 @@ runs:
         CCACHE_BASEDIR: ${{ github.workspace }}
         CCACHE_MAXSIZE: 2G
         CCACHE_COMPILERCHECK: content
-      run: (status=0; ./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 > "$RUNNER_TEMP/app.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/app.done") &
+        MEMCHECK: ${{ inputs.memcheck }}
+      run: (status=0; ./gradlew --no-daemon --console=plain assembleDebug -Pabis=x86_64 -Pmemcheck="$MEMCHECK" > "$RUNNER_TEMP/app.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/app.done") &
 
     # The emulator's device: its AVD (and adb's key, which its snapshot authorizes), the SDK's
     # emulator and platform tools, and the system image, as the script left them.

@@ -227,7 +227,11 @@ the skills instead: `axx skills install`.
   tests: with `AXX_MEMCHECK` naming a folder, the libraries the packs load into apps (the
   simulators' library, the AR library, the Apple model adapter) are built with AddressSanitizer
   and write a report there for each process it found a fault in. Nothing changes in how an app is
-  started, and it is no setting of axx. A new library of such code is built through it too
+  started, and it is no setting of axx. The Android agents are built under it too
+  (`BuildAgent`: HWAddressSanitizer on arm64, AddressSanitizer on an x86-64 emulator), and there
+  the app must start under the checker, which a process has only from its start: the example's
+  couriers' app has a build for it (`-Pmemcheck=true`, its `app/src/memcheck` scripts), and a
+  fault ends the app with the checker's report in the device's log, which a failed test prints. A new library of such code is built through it too
   (`memcheck.Clang`, `memcheck.Source`, `memcheck.Key` in what its place in the cache is made
   from, and `memcheck.Record` around its builder, which lists it in the folder: a job that was
   to check memory and lists no library fails, as it checked nothing).

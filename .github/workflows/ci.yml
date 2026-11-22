@@ -528,6 +528,17 @@ jobs:
       # A hosted part runs a part's tests: it reads that part's builds.
       - id: part
         run: echo "tests=${PART#hosted-}" >> "$GITHUB_OUTPUT"
+      # The nightly run checks the memory of axx's AR agent (packs/internal/memcheck) in the two
+      # parts whose tests attach it to the couriers' app: the agent is built under the checker
+      # (AXX_MEMCHECK), and the app is the build that starts under it.
+      - id: memcheck
+        run: |
+          if [ "$AXX_NIGHTLY" = true ] && { [ "$PART" = emulator-4 ] || [ "$PART" = emulator-5 ]; }; then
+            echo "on=true" >> "$GITHUB_OUTPUT"
+            echo "AXX_MEMCHECK=$RUNNER_TEMP/memcheck" >> "$GITHUB_ENV"
+          else
+            echo "on=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -546,6 +557,7 @@ jobs:
           mode: start
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
+          memcheck: ${{ steps.memcheck.outputs.on }}
       # The app of the vendors' SDKs that the models-android pack's tests install, from its
       # cache, or built while the rest sets up, never inside a test's limit: for the parts that
       # run that pack's tests, and, with no tests to run, kept for them.
@@ -581,6 +593,7 @@ jobs:
           mode: finish
           app: ${{ !startsWith(matrix.part, 'models-') }}
           emulator: ${{ needs.changes.outputs.tests == 'true' }}
+          memcheck: ${{ steps.memcheck.outputs.on }}
       - if: startsWith(matrix.part, 'models-') || needs.changes.outputs.tests != 'true'
         uses: ./.github/actions/android-probe
         with:
