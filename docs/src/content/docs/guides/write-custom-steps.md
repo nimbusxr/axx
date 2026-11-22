@@ -346,3 +346,52 @@ return core.Manifest{
 ```
 
 Axx then tells the people who use it: `axx pack add` says the pack is experimental, `axx run` and the pack's own commands say so once on standard error, and `axx pack list` marks it. Take the line out when the pack is settled. [Stability](/explanations/stability/) says what the stage means.
+
+## Check the features
+
+A pack that gives a meaning to something a feature says (a tag, say) can check that it says it right. What the check finds is a warning of `axx lint`, so `axx validate` and `axx run` report it too, an editor marks it in the file, and an agent's validation returns it.
+
+```go
+FeatureChecks: []core.FeatureCheck{{
+	ID:          "carrier-tags",
+	Name:        "Carrier tags",
+	Description: "A carrier's tag names a carrier the project has.",
+	Run: func(call *core.FeatureCheckCall) []core.FeatureFinding {
+		var found []core.FeatureFinding
+		for _, sc := range call.Scenarios {
+			for _, tag := range sc.Tags {
+				if name, ok := strings.CutPrefix(tag, "@carrier:"); ok && !known(name) {
+					found = append(found, core.FeatureFinding{
+						URI: sc.URI, Line: sc.Line, Tag: tag,
+						Message: "no carrier " + name + ": the carriers are in carriers.yaml",
+					})
+				}
+			}
+		}
+		return found
+	},
+}},
+```
+
+A finding that names a `Tag` is reported where the tag is written. `call.Settings` decodes the pack's settings.
+
+## Look at the whole run
+
+A pack that implements `core.RunFinisher` is handed the run once every scenario has finished: each scenario that ran, with its tags and how it ended, and whether the run was a shard or a run of part of the suite. A hook cannot know how its scenario ended.
+
+```go
+func (pack) FinishRun(ctx context.Context, s *core.Suite, run core.Run) error {
+	failed := 0
+	for _, sc := range run.Scenarios {
+		if sc.Status == "failed" && slices.Contains(sc.Tags, "@carrier:dhl") {
+			failed++
+		}
+	}
+	if failed > 0 {
+		run.Say(fmt.Sprintf("carriers: %d of DHL's scenarios failed", failed))
+	}
+	return nil
+}
+```
+
+`run.Say` prints a line after the scenarios' report. A returned error fails the run.

@@ -96,6 +96,9 @@ var (
 	frameworks = map[string]*Framework{}
 	formats    = map[string]Format{}
 	sources    = map[string]Source{}
+	// lists are the lists registered apart from their frameworks, by the
+	// framework's key.
+	lists = map[string][]List{}
 )
 
 // RegisterFramework adds a framework whose controls scenarios can claim, and
@@ -106,6 +109,23 @@ func RegisterFramework(f Framework) {
 	defer mu.Unlock()
 	f.Key = strings.ToLower(f.Key)
 	frameworks[f.Key] = &f
+}
+
+// RegisterList adds a list of the controls of a framework another pack
+// carries, by that framework's key: a company's own selection of NIST's
+// controls, say, which every project of the company's then requires by its
+// name. The framework's pack must be among the project's.
+func RegisterList(framework string, l List) {
+	mu.Lock()
+	defer mu.Unlock()
+	key := strings.ToLower(framework)
+	for i, have := range lists[key] {
+		if have.Name == l.Name {
+			lists[key][i] = l
+			return
+		}
+	}
+	lists[key] = append(lists[key], l)
 }
 
 // RegisterFormat adds a format the report can be written in.
@@ -122,11 +142,18 @@ func RegisterSource(s Source) {
 	sources[s.Name] = s
 }
 
-// registered are the registered frameworks, by key.
+// registered are the registered frameworks, by key, each with the lists
+// registered for it apart.
 func registered() map[string]*Framework {
 	mu.Lock()
 	defer mu.Unlock()
-	return maps.Clone(frameworks)
+	out := make(map[string]*Framework, len(frameworks))
+	for key, f := range frameworks {
+		with := *f
+		with.Lists = append(slices.Clone(f.Lists), lists[key]...)
+		out[key] = &with
+	}
+	return out
 }
 
 func formatOf(name string) (Format, bool) {

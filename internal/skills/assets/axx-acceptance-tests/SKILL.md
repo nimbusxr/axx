@@ -58,6 +58,10 @@ A waiting step (`within 10s a selection of at least 1 row ...`) checks again unt
 
 Each feature gets a folder named after it, holding every file only it uses (seeds, payloads, messages, expected files, fixture factories). A step finds a file next to its feature file first, then in `resources`, then beside `axx.yaml`: write `a seeds/shop-lark.yaml db seed`, not the path from the project root. A shared folder is for what a second feature needs; mocks' mappings and compose files stay with the services.
 
+## Controls
+
+Only in a project with a `controls-` pack (`axx controls list` works there). A scenario that proves a control the project is required to cover carries the control's tag, `@asvs:6.2.1`: `axx controls report` lists what is not covered yet, and `axx controls show <control>` what one requires. Tag a scenario only with a control it proves. An exception (`packs.controls-core.exceptions`) is a person's to record, never yours.
+
 ## More
 
 - `references/parameter-types.md`: what `{ordinal}`, `{word}`, `{duration}` and the others match.

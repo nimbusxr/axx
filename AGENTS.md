@@ -223,6 +223,18 @@ the skills instead: `axx skills install`.
   are checked only on whole runs (exit 6, ADR 0003); `axx coverage check` merges CI's shards. Each
   runtime's container test (`packs/coverage/internal/coveragetest`) runs a service as a user of its
   own and as the container's main process, as Compose would.
+- `packs/controls/*` (ADR 0022, experimental): which of the controls a project is required to cover its scenarios
+  prove. A scenario claims a control with a tag (`@asvs:6.2.1`); `controls-core` (`packs/controls/core`) turns a
+  finished run into evidence (`core.RunFinisher`: `.axx/controls/run.json`, the scenarios that claim a control and how
+  each ended), says how the required controls stand, and has the commands: `axx controls list|show|report|check`. A
+  run never fails because of a control: `check` is the gate, and judges one run's evidence or several runs' together
+  (`merge`), with the project's lists and exceptions or the ones it is given. It knows no framework: a list in a
+  project is a file, and packs register frameworks (`controls-asvs`, `controls-nist`), report formats and sources of
+  evidence with it (`RegisterFramework`, `RegisterList`, `RegisterFormat`, `RegisterSource`): keep it so, and
+  controls-core's own formats no different from a pack's. The frameworks' data is embedded, fetched by hand from its
+  publishers at pinned commits and hashes (`internal/tools/controlsdata`): go generate downloads nothing. Evidence
+  names controls by ID and has none of a framework's text, which has its own terms (ASVS: CC BY-SA 4.0,
+  `THIRD_PARTY_NOTICES.md`). Its check of control tags is one of lint's (`Manifest.FeatureChecks`).
 - `packs/internal/memcheck`: axx's C, C++ and Objective-C under a memory checker, for axx's own
   tests: with `AXX_MEMCHECK` naming a folder, the libraries the packs load into apps (the
   simulators' library, the AR library, the Apple model adapter) are built with AddressSanitizer

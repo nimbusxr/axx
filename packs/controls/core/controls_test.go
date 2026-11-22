@@ -829,3 +829,23 @@ func TestTheNearestControl(t *testing.T) {
 		t.Errorf("the nearest to two-person-rule is %q", got)
 	}
 }
+
+// A pack adds a list of the controls of a framework another pack carries: a
+// company's own selection, which its projects require by name.
+func TestAPackAddsAListToAnotherPacksFramework(t *testing.T) {
+	RegisterFramework(Framework{Key: "ports", Title: "Port rules", Version: "4", Controls: []Control{{ID: "P-1", Title: "Gates"}, {ID: "P-2", Title: "Cranes"}}})
+	RegisterList("Ports", List{Name: "our-ports", Title: "The port rules we prove", Controls: []Required{{ID: "p-2", Scenarios: 2}}})
+	dir, decode := newProject(t, `{"require": ["our-ports"]}`, nil)
+	p, err := loadProject(dir, decode, overrides{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := p.report(nil, nil, time.Now())
+	if len(r.Controls) != 1 || r.Controls[0].Control != "ports:P-2" || r.Controls[0].Needs != 2 || r.Lists[0].Of != "Port rules 4" {
+		t.Errorf("the report: %+v", r)
+	}
+	// The framework's own pack still has only its own lists.
+	if f := registered()["ports"]; len(f.Lists) != 1 {
+		t.Errorf("the lists of the framework: %+v", f.Lists)
+	}
+}
