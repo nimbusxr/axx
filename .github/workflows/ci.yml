@@ -1320,8 +1320,14 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: desktop
+      # The nightly run's says which statements it ran, as it ends (scripts/depot-desk-ci.sh).
       - name: axx, with every pack
-        run: CGO_ENABLED=0 go build -o "$RUNNER_TEMP/axx" ./internal/tools/axxall
+        run: |
+          cover=()
+          if [ "$AXX_NIGHTLY" = true ]; then
+            cover=(-cover "-coverpkg=$(sed -n 's/^module //p' go.mod)/...")
+          fi
+          CGO_ENABLED=0 go build "${cover[@]}" -o "$RUNNER_TEMP/axx" ./internal/tools/axxall
       - if: needs.changes.outputs.tests == 'true'
         name: the depot desk's feature, in its image
         env:
@@ -1335,6 +1341,17 @@ jobs:
         run: |
           echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
           scripts/depot-desk-ci.sh "$IMAGE" "$BUILD" "$DISPLAY_SERVER" "$RUNNER_TEMP/axx" "$RUNNER_TEMP/out" "$((JOB_STARTED + 540 - $(date +%s)))"
+      # The nightly run: the statements axx ran, as a profile for the coverage job
+      # (.github/actions/nightly keeps it).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        name: the statements axx ran
+        run: |
+          if compgen -G "$RUNNER_TEMP/out/coverage/covmeta.*" > /dev/null; then
+            mkdir -p "$RUNNER_TEMP/coverage"
+            go tool covdata textfmt -i="$RUNNER_TEMP/out/coverage" -o="$RUNNER_TEMP/coverage/axx.out"
+          fi
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
       # Of a run that failed, and of one the job's own limit ended, or a person.
       - if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -1478,9 +1495,16 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: acceptance
+      # The nightly run's says which statements it ran, as it ends, into GOCOVERDIR.
       - name: axx, with every pack
         run: |
-          go build -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
+          cover=()
+          if [ "$AXX_NIGHTLY" = true ]; then
+            cover=(-cover "-coverpkg=$(sed -n 's/^module //p' go.mod)/...")
+            mkdir -p "$RUNNER_TEMP/axx-ran"
+            echo "GOCOVERDIR=$RUNNER_TEMP/axx-ran" >> "$GITHUB_ENV"
+          fi
+          go build "${cover[@]}" -o "$RUNNER_TEMP/bin/axx" ./internal/tools/axxall
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       # The parcels shop portal's features run in browsers.
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
@@ -1544,6 +1568,17 @@ jobs:
             examples/parcels/acceptance/.axx/coverage/coverage-summary.json
           if-no-files-found: ignore
           retention-days: 7
+      # The nightly run: the statements axx ran, as a profile for the coverage job
+      # (.github/actions/nightly keeps it).
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        name: the statements axx ran
+        run: |
+          if compgen -G "$RUNNER_TEMP/axx-ran/covmeta.*" > /dev/null; then
+            mkdir -p "$RUNNER_TEMP/coverage"
+            go tool covdata textfmt -i="$RUNNER_TEMP/axx-ran" -o="$RUNNER_TEMP/coverage/axx.out"
+          fi
+      - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
+        uses: ./.github/actions/nightly
       # How long the example took to build, pull and start, from its log.
       - if: ${{ !cancelled() && matrix.example == 'parcels' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -1643,9 +1678,10 @@ jobs:
   # pull request does not need is skipped, which passes.
   # The nightly run's coverage: the statements its jobs' tests ran, of all those of axx, added up
   # (internal/tools/covermerge). A statement counts when any job ran it: the unit tests run on
-  # three systems, and each pack's integration tests where what it talks to is.
+  # three systems, each pack's integration tests where what it talks to is, and the desktop and
+  # acceptance jobs run axx itself, built to say what it ran.
   coverage:
-    needs: [test, integration, web, mobile, ios, coreml, windows-models, webllm]
+    needs: [test, integration, web, mobile, ios, coreml, windows-models, webllm, desktop, acceptance]
     if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
@@ -1659,7 +1695,7 @@ jobs:
           cache_save: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          pattern: coverage-*
+          pattern: statements-*
           path: ${{ runner.temp }}/coverage
       - run: |
           go run ./internal/tools/covermerge -out "$RUNNER_TEMP/coverage.out" "$RUNNER_TEMP/coverage" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -99,6 +99,11 @@ func merge(blocks map[string]block, r io.Reader) error {
 		if err != nil {
 			return fmt.Errorf("not a line of a coverage profile: %q", line)
 		}
+		// An example's service that an acceptance job measured writes where axx does: the examples
+		// are modules of their own, and no part of axx.
+		if strings.HasPrefix(fields[0], module+"examples/") {
+			continue
+		}
 		b := blocks[fields[0]]
 		b.statements = statements
 		b.ran = b.ran || count > 0

@@ -20,9 +20,18 @@ src=$(cd "$(dirname "$0")/../examples/parcels/depot-desk" && pwd)
 name=depot-desk-$build-$display-$$
 mkdir -p "$out"
 
+# In the nightly run (AXX_NIGHTLY=true), AXX was built to say which statements it ran (go build
+# -cover), and writes that as it ends where it is told: in OUT's coverage folder.
+cover=()
+if [[ "${AXX_NIGHTLY:-}" == true ]]; then
+  mkdir -p "$out/coverage"
+  chmod 777 "$out/coverage" # the container's user writes it
+  cover=(-e GOCOVERDIR=/out/coverage)
+fi
+
 # GNOME Shell takes /run/systemd/seats for logind's, which a container has not.
 docker run -d --name "$name" --shm-size=1g --tmpfs /run/systemd \
-  -v "$src:/src:ro" -v "$axx:/usr/local/bin/axx:ro" -v "$out:/out" \
+  -v "$src:/src:ro" -v "$axx:/usr/local/bin/axx:ro" -v "$out:/out" ${cover[@]+"${cover[@]}"} \
   "$image" depot-desk "$build" "$display" --format progress --format junit:/out/junit.xml \
   --format html:/out/report.html --set packs.desktop-core.traces=failed > /dev/null
 trap 'docker rm -f "$name" > /dev/null 2>&1 || true' EXIT

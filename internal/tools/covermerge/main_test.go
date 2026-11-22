@@ -21,6 +21,7 @@ github.com/nimbusxr/axx/core/value.go:14.2,20.3 4 0
 github.com/nimbusxr/axx/packs/sql/sql.go:30.2,31.3 1 7
 github.com/nimbusxr/axx/packs/web/core/browser.go:5.2,9.3 3 2
 github.com/nimbusxr/axx/internal/cli/run_windows.go:8.2,9.3 10 0
+github.com/nimbusxr/axx/examples/parcels/app/shipments/main.go:4.2,9.3 50 3
 `
 
 func merged(t *testing.T, profiles ...string) map[string]block {
