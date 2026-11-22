@@ -27,11 +27,32 @@ import (
 // simulator shares.
 func (d *device) wdaURL() string { return "http://127.0.0.1:" + strconv.Itoa(d.wdaPort) }
 
+// takePorts gives the simulator's WebDriverAgent its port and its screen stream's: two that no
+// socket of the Mac has (serverPort).
+func (d *device) takePorts() error {
+	wda, err := freeServerPort()
+	if err != nil {
+		return err
+	}
+	mjpeg, err := freeServerPort()
+	if err != nil {
+		return err
+	}
+	d.wdaPort, d.mjpegPort = wda, mjpeg
+	return nil
+}
+
+// freeServerPort is serverPort; a variable, for tests.
+var freeServerPort = serverPort
+
 // ensureWDA makes sure WebDriverAgent answers on the simulator, and launches
 // it when it does not. One that ends as it starts is launched again, twice at
 // most, and warn is told what became of it: on CI's Mac one aborted 11 seconds
 // after it was launched, and axx waited its 90 seconds for a process that had
-// gone, where the job run again had it answer in a few.
+// gone, where the job run again had it answer in a few. It is launched again on
+// other ports: the one that aborted had been given a port that another program
+// took, and could not start its server on it however often it was launched. So
+// its address (wdaURL) is asked for after this, never kept from before.
 func (d *device) ensureWDA(ctx context.Context, warn func(msg string, args ...any)) error {
 	if wdaUp(ctx, d.wdaURL(), time.Second) {
 		return nil
@@ -62,7 +83,10 @@ func (d *device) ensureWDA(ctx context.Context, warn func(msg string, args ...an
 				}
 				again++
 				if warn != nil {
-					warn("WebDriverAgent ended as it started on the iOS simulator: it is launched again", "simulator", d.name, "after", time.Since(launched).Round(time.Second), "what became of it", what)
+					warn("WebDriverAgent ended as it started on the iOS simulator: it is launched again, on other ports", "simulator", d.name, "after", time.Since(launched).Round(time.Second), "what became of it", what)
+				}
+				if err := d.takePorts(); err != nil {
+					return err
 				}
 				if launched, err = d.launchWDA(ctx); err != nil {
 					return err
