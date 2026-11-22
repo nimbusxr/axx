@@ -47,6 +47,19 @@ runs:
               fi
             done < <(sort -u "$temp/memcheck/libraries")
           fi
+          # The machine as the checked tests end: its memory, its load, and what took its
+          # processors. The checker is in every process a simulator starts once axx's library is
+          # in it, and each takes more for it: on a Mac with nothing to spare, what a simulator
+          # does in the background (its notifications, say) waits a minute for its turn.
+          if command -v memory_pressure > /dev/null; then
+            echo "The machine after the checked tests:"
+            echo "  memory: $(($(sysctl -n hw.memsize) / 1073741824)) GB"
+            echo "  swap:   $(sysctl -n vm.swapusage)"
+            echo "  $(memory_pressure | tail -n 1)"
+            echo "  processors: $(sysctl -n hw.ncpu), load over 1, 5 and 15 minutes: $(sysctl -n vm.loadavg)"
+            echo "  the processes that took the most processor time (percent, MB, name):"
+            ps -Ao pcpu=,rss=,comm= -r | awk 'NR <= 12 { name = $3; sub(/.*\//, "", name); printf "    %6s %7d  %s\n", $1, $2 / 1024, name }'
+          fi
         fi
     - if: steps.left.outputs.coverage == 'true'
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

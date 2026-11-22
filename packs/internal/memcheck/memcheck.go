@@ -41,12 +41,13 @@ func Dir() string {
 func Enabled() bool { return Dir() != "" }
 
 // Key is what a checked build adds to what its place in the cache is made from: the usual build
-// and the checked one never share a place, nor do two that report to different folders.
+// and the checked one never share a place, nor do two that report to different folders, nor two
+// of different options (a library has its options built in).
 func Key() []byte {
 	if !Enabled() {
 		return nil
 	}
-	return []byte("memcheck:" + Dir())
+	return []byte("memcheck:" + options())
 }
 
 // Clang is what clang (and clang++) gets more for a checked build: of a source, or of the link.
@@ -77,13 +78,21 @@ func Source() []byte {
 
 // options are the checker's, as it reads them: apart by spaces, the path in quotes, as a path
 // has colons on Windows (the checker's other separator) and may have spaces anywhere.
+//
+// The checker keeps no record of where memory was allocated and freed (malloc_context_size=0).
+// A library the iOS pack loads into a simulator is in every process the simulator starts from
+// then on, a hundred of them, and each keeps that record for all of its own allocations: on one
+// simulator the processes took 6.6 GB more with it and 3.1 GB more without, of 37 GB. A report
+// still has the fault and where axx's code was, which is what fails a job; to see where the
+// memory came from as well, run the test again with ASAN_OPTIONS=malloc_context_size=30 in the
+// process's environment, which the checker reads over these.
 func options() string {
 	path := filepath.Join(Dir(), "report")
 	quote := "'"
 	if strings.Contains(path, quote) {
 		quote = `"`
 	}
-	return "log_path=" + quote + path + quote + " abort_on_error=1"
+	return "log_path=" + quote + path + quote + " abort_on_error=1 malloc_context_size=0"
 }
 
 // LibrariesName is the file in Dir that lists the libraries built checked.
