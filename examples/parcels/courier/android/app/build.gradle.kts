@@ -173,6 +173,9 @@ abstract class MemoryChecker : DefaultTask() {
 
     @TaskAction
     fun copy() {
+        // Only this build's ABIs: none an earlier build left.
+        libraries.get().asFile.deleteRecursively()
+        scripts.get().asFile.deleteRecursively()
         for (abi in abis.get()) {
             val script = File(scripts.get().dir("lib/$abi").asFile.apply { mkdirs() }, "wrap.sh")
             wrappers.get().file("wrap-$abi.sh").asFile.copyTo(script, overwrite = true)
