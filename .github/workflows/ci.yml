@@ -306,6 +306,12 @@ jobs:
       - uses: ./.github/actions/go-cache
         with:
           build: integration-${{ matrix.part }}
+      # The real models' files the model tests hold their stubs to, as the newest run on main
+      # kept them: fetched in the tests' own time, a slow download took a job past its limit.
+      - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'models-')
+        uses: ./.github/actions/models-real
+        with:
+          part: ${{ matrix.part }}
       # Tesseract's CLI, and the libraries MediaPipe's library loads (whatever its task).
       - if: startsWith(matrix.part, 'models-')
         name: install Tesseract and EGL
@@ -362,6 +368,12 @@ jobs:
             *) select=(-skip '^TestWebLLM') ;;
           esac
           GOTEST_SLOWEST=1s scripts/gotest.sh -race -tags integration -timeout 10m "${parallel[@]}" "${select[@]}" "${packages[@]}"
+      # On main, once the tests passed: the files they asked for are kept for the runs after.
+      - if: needs.changes.outputs.tests == 'true' && startsWith(matrix.part, 'models-')
+        uses: ./.github/actions/models-real
+        with:
+          part: ${{ matrix.part }}
+          mode: save
       - if: ${{ !cancelled() }}
         uses: ./.github/actions/go-cache
         with:

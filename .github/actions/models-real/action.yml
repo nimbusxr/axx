@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: Apache-2.0
+name: models-real
+description: >-
+  The real models' files a job's tests hold their stubs to (modelstest.Fetch: each pinned by its
+  SHA-256, and named by it, in axx's cache), kept between runs. Without them every run fetched
+  its files again, inside its tests' ten minutes: a run whose downloads were slow (five minutes
+  for what takes under one) ran into its limit. restore, before the tests: the files the newest
+  run on main kept for this part. A file it lacks is fetched as before, and one that is not what
+  its name says is fetched again. save, after tests that passed: on main only (the nightly run,
+  and one started by hand), the files those tests asked for and no others, under a key of their
+  names, so that a part whose files did not change keeps nothing new. A pull request reads the
+  files and keeps none.
+inputs:
+  part:
+    description: The job's part, whose tests ask for the same files in every run.
+    required: true
+  mode:
+    description: "`restore` or `save`."
+    default: restore
+runs:
+  using: composite
+  steps:
+    - id: dir
+      shell: bash
+      run: echo "dir=$HOME/.cache/axx/models-real" >> "$GITHUB_OUTPUT"
+    # No run keeps a cache under this key: the newest of the part's is restored.
+    - if: inputs.mode == 'restore'
+      id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.dir.outputs.dir }}
+        key: models-real-${{ inputs.part }}-none
+        restore-keys: |
+          models-real-${{ inputs.part }}-
+    # What was restored, for the save, and when the tests began: a test sets the time of each
+    # file it asks for to now.
+    - if: inputs.mode == 'restore'
+      shell: bash
+      env:
+        RESTORED: ${{ steps.restore.outputs.cache-matched-key }}
+        DIR: ${{ steps.dir.outputs.dir }}
+      run: |
+        echo "$RESTORED" > "$RUNNER_TEMP/models-real-restored"
+        touch "$RUNNER_TEMP/models-real-began"
+        echo "restored ${RESTORED:-nothing}: $(find "$DIR" -type f 2> /dev/null | wc -l) files, $(du -sh "$DIR" 2> /dev/null | cut -f1)"
+    - if: inputs.mode == 'save' && github.ref == 'refs/heads/main'
+      id: kept
+      shell: bash
+      env:
+        DIR: ${{ steps.dir.outputs.dir }}
+        PART: ${{ inputs.part }}
+      run: |
+        [ -d "$DIR" ] && [ -f "$RUNNER_TEMP/models-real-began" ] || exit 0
+        # What no test asked for (a model no longer pinned, part of a file a test left as it
+        # ended) is not kept.
+        find "$DIR" -type f \( -name '.part-*' -o ! -newer "$RUNNER_TEMP/models-real-began" \) -delete
+        files=$(find "$DIR" -type f | wc -l)
+        [ "$files" -gt 0 ] || exit 0
+        key=models-real-$PART-$(find "$DIR" -type f -printf '%f\n' | LC_ALL=C sort | sha256sum | cut -c1-16)
+        echo "$files files, $(du -sh "$DIR" | cut -f1): $key"
+        if [ "$key" != "$(cat "$RUNNER_TEMP/models-real-restored")" ]; then
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+        fi
+    - if: inputs.mode == 'save' && steps.kept.outputs.key != ''
+      # A cache is an optimization: failing to save it fails nothing.
+      continue-on-error: true
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.dir.outputs.dir }}
+        key: ${{ steps.kept.outputs.key }}

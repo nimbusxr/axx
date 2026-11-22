@@ -4,19 +4,14 @@ package tflite
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"image"
 	"image/color"
-	"io"
 	"math"
-	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/nimbusxr/axx/internal/npm"
 	"github.com/nimbusxr/axx/packs/models/core/internal/mediapipe"
 	"github.com/nimbusxr/axx/packs/models/core/modelstest"
 	"github.com/nimbusxr/axx/packs/models/core/stub"
@@ -26,31 +21,7 @@ import (
 // SHA-256.
 func fetch(t *testing.T, url, sum string) string {
 	t.Helper()
-	dir := npm.CacheDir("models-real")
-	path := filepath.Join(dir, sum+filepath.Ext(url))
-	if _, err := os.Stat(path); err == nil {
-		return path
-	}
-	resp, err := http.Get(url) //nolint:gosec,noctx // a test's pinned model
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	h := sha256.Sum256(b)
-	if got := hex.EncodeToString(h[:]); got != sum {
-		t.Fatalf("%s: its SHA-256 is %s, want %s", url, got, sum)
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, b, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	return path
+	return modelstest.Fetch(t, url, sum)
 }
 
 // stubOf writes the contract of the real model at path (of the task, when

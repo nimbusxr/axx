@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -85,9 +86,8 @@ func WriteMappings(t *testing.T, dir string, ms []map[string]any) {
 // axx's cache, and returns its path there.
 func Fetch(t *testing.T, url, sum string) string {
 	t.Helper()
-	dir := npm.CacheDir("models-real")
-	path := filepath.Join(dir, sum+filepath.Ext(url))
-	if _, err := os.Stat(path); err == nil {
+	path := filepath.Join(npm.CacheDir(realModels), sum+filepath.Ext(url))
+	if cached(path, sum) {
 		return path
 	}
 	b := download(t, url, "", http.StatusOK)
@@ -95,10 +95,7 @@ func Fetch(t *testing.T, url, sum string) string {
 	if got := hex.EncodeToString(h[:]); got != sum {
 		t.Fatalf("%s: its SHA-256 is %s, want %s", url, got, sum)
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, b, 0o644); err != nil {
+	if err := keep(path, b); err != nil {
 		t.Fatal(err)
 	}
 	return path
@@ -109,22 +106,80 @@ func Fetch(t *testing.T, url, sum string) string {
 // says how long it is (an ExecuTorch program's, before its segments).
 func FetchRange(t *testing.T, url string, from, to int64, sum string) []byte {
 	t.Helper()
-	path := filepath.Join(npm.CacheDir("models-real"), sum)
-	if b, err := os.ReadFile(path); err == nil {
-		return b
+	path := filepath.Join(npm.CacheDir(realModels), sum)
+	if cached(path, sum) {
+		if b, err := os.ReadFile(path); err == nil {
+			return b
+		}
 	}
 	b := fetchRange(t, url, from, to)
 	h := sha256.Sum256(b)
 	if got := hex.EncodeToString(h[:]); got != sum {
 		t.Fatalf("%s [%d, %d]: its SHA-256 is %s, want %s", url, from, to, got, sum)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, b, 0o644); err != nil {
+	if err := keep(path, b); err != nil {
 		t.Fatal(err)
 	}
 	return b
+}
+
+// realModels is the folder of axx's cache that keeps real models' files, each named by its
+// SHA-256. CI keeps the folder between runs (.github/actions/models-real): the files a run's
+// tests asked for, and no others.
+const realModels = "models-real"
+
+// checked are the kept files this process has read and found whole.
+var checked sync.Map
+
+// cached is whether the file at path is the one its SHA-256 names. A file that is not (part of
+// one, left by a run that ended as it wrote it, or by a cache that kept it so) is fetched again.
+// A file a test asked for has its time set to now, which is how CI tells the files to keep.
+func cached(path, sum string) bool {
+	if _, ok := checked.Load(path); ok {
+		return true
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	h := sha256.New()
+	_, err = io.Copy(h, f)
+	_ = f.Close()
+	if err != nil || hex.EncodeToString(h.Sum(nil)) != sum {
+		return false
+	}
+	now := time.Now()
+	_ = os.Chtimes(path, now, now)
+	checked.Store(path, struct{}{})
+	return true
+}
+
+// keep writes a fetched file into the cache: beside its place, then renamed to it, so that a
+// run that ends as it writes leaves no part of a file under the file's name.
+func keep(path string, b []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	part, err := os.CreateTemp(filepath.Dir(path), ".part-*")
+	if err != nil {
+		return err
+	}
+	_, err = part.Write(b)
+	if cerr := part.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(part.Name(), 0o644)
+	}
+	if err == nil {
+		err = os.Rename(part.Name(), path)
+	}
+	if err != nil {
+		_ = os.Remove(part.Name())
+		return err
+	}
+	checked.Store(path, struct{}{})
+	return nil
 }
 
 func fetchRange(t *testing.T, url string, from, to int64) []byte {
