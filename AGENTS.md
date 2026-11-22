@@ -229,7 +229,8 @@ the skills instead: `axx skills install`.
   and write a report there for each process it found a fault in. Nothing changes in how an app is
   started, and it is no setting of axx. A new library of such code is built through it too
   (`memcheck.Clang`, `memcheck.Source`, `memcheck.Key` in what its place in the cache is made
-  from).
+  from, and `memcheck.Record` around its builder, which lists it in the folder: a job that was
+  to check memory and lists no library fails, as it checked nothing).
 - `internal/filecontent`: reads files by their type (text, CSV, TSV, JSON, XML, HTML, PDF, Word,
   Excel) for the steps that check a file's text or table: files, storage objects, downloads.
 - `schemas/v0`: the JSON Schemas of axx.yaml and the fixture spec files, at public paths: GitHub serves them from

@@ -45,7 +45,7 @@ var arFrameworks = []string{
 // arLibrary is the library, built once for the Mac's simulators with Xcode's compilers into
 // axx's cache: for each version of its sources and of the simulators' SDK.
 func arLibrary(ctx context.Context, s *core.Suite) (string, error) {
-	return core.Cached(s, Name+"/ar", func() (string, error) {
+	return memcheck.Record(core.Cached(s, Name+"/ar", func() (string, error) {
 		arch := SimulatorArch(ctx)
 		sdk, err := exec.CommandContext(ctx, "xcrun", "--sdk", "iphonesimulator", "--show-sdk-version").Output()
 		if err != nil {
@@ -126,7 +126,7 @@ func arLibrary(ctx context.Context, s *core.Suite) (string, error) {
 			return "", err
 		}
 		return lib, nil
-	})
+	}))
 }
 
 // arCamera is what an app's camera sees, and what axx gives the library for it. When it sees a

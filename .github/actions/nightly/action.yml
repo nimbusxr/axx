@@ -4,7 +4,10 @@ description: >-
   What a job's tests left for the nightly run (scripts/gotest.sh, with AXX_NIGHTLY): the profiles
   of the statements they ran, kept for the coverage job to add up, and the memory checker's
   reports, each a fault in axx's C, C++ or Objective-C, which fail the job and are kept with it.
-  A job that left neither does nothing here.
+  A job that was to check memory (its tests had AXX_MEMCHECK) also shows what it checked: the
+  libraries axx built under the checker, each looked at. One that built none checked nothing, and
+  fails for it: that its tests passed says nothing then.
+  A job that left none of these does nothing here.
 runs:
   using: composite
   steps:
@@ -24,6 +27,27 @@ runs:
             sed -n '1,80p' "$report"
           done
         fi
+        # The folder is there when the job's tests were to check memory (scripts/gotest.sh makes
+        # it, or the job): its list has the libraries axx built checked (memcheck.Record).
+        if [ -d "$temp/memcheck" ]; then
+          if [ ! -s "$temp/memcheck/libraries" ]; then
+            echo "::error::The job was to check memory, and axx built no library under the checker: nothing was checked."
+            echo "unchecked=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Built under the memory checker:"
+            while IFS= read -r library; do
+              if [ ! -f "$library" ]; then
+                echo "::error::A library listed as built under the memory checker is not there: $library"
+                echo "unchecked=true" >> "$GITHUB_OUTPUT"
+              elif command -v otool > /dev/null && ! otool -L "$library" | grep -q libclang_rt.asan; then
+                echo "::error::A library listed as built under the memory checker does not link it: $library"
+                echo "unchecked=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "  $library"
+              fi
+            done < <(sort -u "$temp/memcheck/libraries")
+          fi
+        fi
     - if: steps.left.outputs.coverage == 'true'
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
       with:
@@ -36,6 +60,6 @@ runs:
         name: memory-faults-${{ steps.left.outputs.name }}
         path: ${{ runner.temp }}/memcheck/report.*
         retention-days: 30
-    - if: steps.left.outputs.faults == 'true'
+    - if: steps.left.outputs.faults == 'true' || steps.left.outputs.unchecked == 'true'
       shell: bash
       run: exit 1

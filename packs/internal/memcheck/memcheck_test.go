@@ -3,6 +3,7 @@
 package memcheck
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -75,5 +76,40 @@ func TestReports(t *testing.T) {
 	want := []string{filepath.Join(dir, "report.77"), filepath.Join(dir, "report.812")}
 	if strings.Join(found, "\n") != strings.Join(want, "\n") {
 		t.Errorf("Reports() = %v, want %v", found, want)
+	}
+}
+
+func TestTheLibrariesBuiltCheckedAreListed(t *testing.T) {
+	t.Setenv(Env, "")
+	if got, err := Record("/cache/axx-ar.dylib", nil); got != "/cache/axx-ar.dylib" || err != nil {
+		t.Fatalf("Record() = %q, %v, want what it was given", got, err)
+	}
+	if listed, err := Libraries(); listed != nil || err != nil {
+		t.Fatalf("nothing is checked, and Libraries() = %v, %v", listed, err)
+	}
+
+	// The folder is made when the first library is noted.
+	dir := filepath.Join(t.TempDir(), "reports")
+	t.Setenv(Env, dir)
+	if listed, err := Libraries(); listed != nil || err != nil {
+		t.Fatalf("before any is noted, Libraries() = %v, %v", listed, err)
+	}
+	for _, library := range []string{"/cache/axx-ar.dylib", "/cache/axx-simulator.dylib", "/cache/axx-ar.dylib"} {
+		if got, err := Record(library, nil); got != library || err != nil {
+			t.Fatalf("Record(%s) = %q, %v", library, got, err)
+		}
+	}
+	// A library that did not build is none.
+	failed := errors.New("clang: no such file")
+	if _, err := Record("/cache/axx-models.dylib", failed); !errors.Is(err, failed) {
+		t.Fatalf("Record() of a build that failed: %v", err)
+	}
+	listed, err := Libraries()
+	if err != nil || strings.Join(listed, " ") != "/cache/axx-ar.dylib /cache/axx-simulator.dylib" {
+		t.Errorf("Libraries() = %v, %v, want each once, in the order noted", listed, err)
+	}
+	// Reports and the list do not take each other for one another.
+	if reports, err := Reports(); len(reports) != 0 || err != nil {
+		t.Errorf("Reports() = %v, %v, want none", reports, err)
 	}
 }
