@@ -5,6 +5,10 @@
 // a project runs on is the one axx.path names, run in the folder of the project's axx.yaml: it
 // hands over to the version that axx.yaml names, when it names one. Until axx has given them, and
 // when it can't, the schemas in this extension are used.
+//
+// A file axx lays over axx.yaml (a profile's axx.<name>.yaml, and axx.local.yaml) has a schema of
+// its own: it says only what differs, and axx checks the result. Held to axx.yaml's schema, a
+// profile's file that switches a service off was told it lacked the service's command.
 
 import { execFile } from 'node:child_process';
 import * as crypto from 'node:crypto';
@@ -22,10 +26,14 @@ export interface Kind {
   kind: string; // as `axx schema` names it
   file: string; // the file in schemas/v0, and in this extension
   names: RegExp; // the YAML files it governs
+  // A kind axx gained after its first releases: an earlier axx cannot give it, and this
+  // extension's own is used for it then, beside the schemas that axx does give.
+  since?: boolean;
 }
 
 export const KINDS: Kind[] = [
-  { kind: 'config', file: 'axx.schema.json', names: /^axx(\.[^.]+)?\.ya?ml$/ },
+  { kind: 'config', file: 'axx.schema.json', names: /^axx\.ya?ml$/ },
+  { kind: 'overlay', file: 'axx-overlay.schema.json', names: /^axx\.[^.]+\.ya?ml$/, since: true },
   { kind: 'factory', file: 'axx-factory.schema.json', names: /^.+\.factory\.ya?ml$/ },
   { kind: 'fixture', file: 'axx-fixture.schema.json', names: /^.+\.fixture\.ya?ml$/ },
   { kind: 'prototype', file: 'axx-prototype.schema.json', names: /^.+\.prototype\.ya?ml$/ },
@@ -161,7 +169,12 @@ export class ProjectSchemas {
       const texts = new Map<string, string>();
       for (const kind of KINDS) {
         const out = path.join(tmp, kind.file);
-        if ((await this.run(axx, ['schema', '--kind', kind.kind, '--out', out], dir)) === undefined) return undefined;
+        if ((await this.run(axx, ['schema', '--kind', kind.kind, '--out', out], dir)) === undefined) {
+          // A kind this axx is too early to have: this extension's own, for that kind only.
+          if (kind.since !== true) return undefined;
+          texts.set(kind.kind, fs.readFileSync(path.join(this.bundled, kind.file), 'utf8'));
+          continue;
+        }
         const text = fs.readFileSync(out, 'utf8');
         const parsed: unknown = JSON.parse(text);
         if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;

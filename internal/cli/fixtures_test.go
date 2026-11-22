@@ -210,7 +210,7 @@ func TestFixturesCleanAndUntrackDryRun(t *testing.T) {
 // --out, whichever release it is: the file is the whole schema, even in the
 // compact output an agent's or an editor's environment may set.
 func TestSchemaOutIsWhatEditorsRead(t *testing.T) {
-	for _, kind := range append([]string{"config"}, fixtures.SchemaKinds...) {
+	for _, kind := range append([]string{"config", "overlay"}, fixtures.SchemaKinds...) {
 		file := filepath.Join(t.TempDir(), kind+".schema.json")
 		if _, stderr, code := run(t, "--compact", "schema", "--kind", kind, "--out", file); code != 0 {
 			t.Fatalf("%s: exit %d: %s", kind, code, stderr)
@@ -220,7 +220,11 @@ func TestSchemaOutIsWhatEditorsRead(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := config.SchemaJSON
-		if kind != "config" {
+		switch kind {
+		case "config":
+		case "overlay":
+			want = config.OverlaySchemaJSON
+		default:
 			want, _ = fixtures.SchemaJSON(kind)
 		}
 		if !bytes.Equal(got, want) {
@@ -239,5 +243,10 @@ func TestSchemaKinds(t *testing.T) {
 	out, _, _ := run(t, "schema")
 	if !strings.Contains(out, "axx.schema.json") {
 		t.Error("the default kind is axx.yaml")
+	}
+	// The files axx lays over axx.yaml have a schema of their own, which requires nothing that
+	// axx.yaml says already.
+	if out, _, code := run(t, "schema", "overlay"); code != 0 || !strings.Contains(out, config.OverlaySchemaID) {
+		t.Errorf("overlay: exit %d", code)
 	}
 }

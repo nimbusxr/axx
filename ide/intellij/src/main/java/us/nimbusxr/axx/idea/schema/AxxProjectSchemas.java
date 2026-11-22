@@ -23,6 +23,7 @@ import us.nimbusxr.axx.idea.AxxBinary;
 import us.nimbusxr.axx.idea.ConfigFinder;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,7 +49,8 @@ import java.util.stream.Stream;
  * axx executable setting changes, when an axx.yaml changes, and when the IDE comes back to the
  * front (at most every 30 seconds). Each time, {@code axx --version} says which axx it is, and
  * only a different one is asked for its schemas. Until axx has given them, and when it can't, the
- * IDE uses the schemas the plugin bundles.
+ * IDE uses the schemas the plugin bundles. An axx too early to have a kind of schema (the
+ * overlays') gives the others, and the plugin's own is used for that kind.
  */
 @Service(Service.Level.PROJECT)
 public final class AxxProjectSchemas {
@@ -204,8 +206,12 @@ public final class AxxProjectSchemas {
                 List<String> command =
                         List.of(axx.toString(), "schema", "--kind", schema.kind(), "--out", file.toString());
                 if (run(command, dir) == null || !isSchema(file)) {
-                    LOG.info("axx at " + axx + " gave no " + schema.kind() + " schema: the plugin's is used");
-                    return false;
+                    // A kind this axx is too early to have: the plugin's own, for that kind only.
+                    if (!schema.since() || !bundled(schema, file)) {
+                        LOG.info("axx at " + axx + " gave no " + schema.kind() + " schema: the plugin's is used");
+                        return false;
+                    }
+                    LOG.info("axx at " + axx + " has no " + schema.kind() + " schema yet: the plugin's is used for it");
                 }
                 String text = Files.readString(file, StandardCharsets.UTF_8);
                 Files.writeString(path(tmp, schema, true), atSite(text), StandardCharsets.UTF_8);
@@ -224,6 +230,19 @@ public final class AxxProjectSchemas {
                     // a leftover in the IDE's cache
                 }
             }
+        }
+    }
+
+    /** Writes the plugin's own schema of a kind to file; false when it can't. */
+    private static boolean bundled(AxxSchemas.Schema schema, Path file) {
+        try (InputStream in = AxxSchemas.class.getResourceAsStream(schema.resource())) {
+            if (in == null) {
+                return false;
+            }
+            Files.copy(in, file, StandardCopyOption.REPLACE_EXISTING);
+            return isSchema(file);
+        } catch (IOException e) {
+            return false;
         }
     }
 

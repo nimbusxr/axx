@@ -1,0 +1,1008 @@
+{
+  "$defs": {
+    "Active": {
+      "additionalProperties": false,
+      "description": "Active configures tag-based application startup.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "onNoTags": {
+          "description": "OnNoTags decides what happens when the selected scenarios have no tags:\n\"fallback\" (start all enabled services, default) or \"error\".",
+          "enum": [
+            "fallback",
+            "error"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CommandHookWhole": {
+      "additionalProperties": false,
+      "description": "CommandHook runs a command before or after one of axx's commands, from the directory of axx.yaml.",
+      "oneOf": [
+        {
+          "required": [
+            "before"
+          ]
+        },
+        {
+          "required": [
+            "after"
+          ]
+        }
+      ],
+      "properties": {
+        "after": {
+          "description": "After names the axx command it runs after, whether that command\nsucceeded or failed: AXX_COMMAND_FAILED is true or false. When it fails,\na command that succeeded fails.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "before": {
+          "description": "Before names the axx command it runs before, by its words after axx:\nfixtures generate. When it fails, that command does not run.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "command": {
+          "$ref": "#/$defs/CommandWhole",
+          "description": "Command is what it runs: a string (split like a shell word list,\nwithout a shell) or an argv list. Set shell: true to run it through the\nshell."
+        },
+        "shell": {
+          "description": "Shell runs command through /bin/sh -c (cmd /C on Windows).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "type": "object"
+    },
+    "CommandWhole": {
+      "oneOf": [
+        {
+          "description": "command line, split into words without a shell unless shell: true",
+          "type": "string"
+        },
+        {
+          "description": "argv",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      ]
+    },
+    "Docs": {
+      "additionalProperties": false,
+      "description": "Docs is where the project's people read axx's documentation: the port `axx docs serve` serves it on, and the copy the links axx prints lead to (an organization's own, or `axx docs serve`'s), for a network that cannot reach the public site.",
+      "properties": {
+        "port": {
+          "description": "Port is the port `axx docs serve` serves the docs on, on 127.0.0.1: 7357\nunless set. Its --port flag wins.",
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "url": {
+          "description": "URL is the address of the docs site the links axx prints lead to (the\ndocs line of an error, the help's last line): an organization's copy,\nlike https://axx-docs.example.com, or http://127.0.0.1:7357 for `axx docs\nserve`. The AXX_DOCS_URL environment variable wins; without either, they\nlead to https://axx.nimbusxr.us.",
+          "format": "uri",
+          "pattern": "^https?://[^/?#]+(/[^?#]*)?$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Duration": {
+      "oneOf": [
+        {
+          "examples": [
+            "30s",
+            "1m30s",
+            "250ms"
+          ],
+          "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+          "type": "string"
+        },
+        {
+          "description": "seconds",
+          "minimum": 0,
+          "type": "number"
+        }
+      ]
+    },
+    "FixtureConformanceWhole": {
+      "additionalProperties": false,
+      "description": "FixtureConformance validates matched files against a schema.",
+      "properties": {
+        "filePatterns": {
+          "description": "FilePatterns are globs (relative to baseDir) of the files to validate.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "name": {
+          "description": "Name is shown in check output.",
+          "type": "string"
+        },
+        "schemaRef": {
+          "description": "SchemaRef is the schema, relative to baseDir (unlike factory.schema,\nwhich is relative to the factory file).",
+          "type": "string"
+        },
+        "schemaType": {
+          "description": "SchemaType is the family whose oracle validates the files: avro,\njson, yaml, xml, protobuf or dataset.",
+          "examples": [
+            "avro",
+            "json",
+            "yaml",
+            "xml",
+            "protobuf",
+            "dataset"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "filePatterns",
+        "schemaType",
+        "schemaRef"
+      ],
+      "type": "object"
+    },
+    "FixtureLint": {
+      "additionalProperties": false,
+      "description": "FixtureLint configures the generated lint rules.",
+      "properties": {
+        "emit": {
+          "description": "Emit writes one cross-file-unique lint rule per declared identity.\nDefault: true.",
+          "type": "boolean"
+        },
+        "output": {
+          "description": "Output is the generated rules file, relative to baseDir. Default:\naxx-lint.generated.yaml. Wire it in with lint.include.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "FixtureOutput": {
+      "additionalProperties": false,
+      "description": "FixtureOutput holds output defaults.",
+      "properties": {
+        "ignored": {
+          "description": "Ignored makes outputs gitignored derivations instead of committed\nfiles: the tool maintains exact .gitignore entries and `axx fixtures\ngenerate` materializes them. Default: false.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Fixtures": {
+      "additionalProperties": false,
+      "description": "Fixtures configures `axx fixtures`, the fixture factory: *.factory.yaml, *.fixture.yaml and *.prototype.yaml sources expanded into schema-governed fixture files, with the ownership manifest, drift and conformance checks.",
+      "properties": {
+        "baseDir": {
+          "description": "BaseDir is the resource root every fixtures path resolves against,\nrelative to axx.yaml. Default: the directory of axx.yaml.",
+          "type": "string"
+        },
+        "conformance": {
+          "description": "Conformance rules validate files no factory manages through a\nfamily's schema oracle.",
+          "items": {
+            "$ref": "#/$defs/FixtureConformanceWhole"
+          },
+          "type": "array"
+        },
+        "factories": {
+          "description": "Factories are globs (relative to baseDir) locating factory specs.\nDefault: [\"**.factory.yaml\"].",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "lint": {
+          "$ref": "#/$defs/FixtureLint",
+          "description": "Lint configures the lint rules generated from identity declarations."
+        },
+        "output": {
+          "$ref": "#/$defs/FixtureOutput",
+          "description": "Output holds module-wide output defaults; factories override them\nwith factory.output."
+        },
+        "sources": {
+          "description": "Sources are additional roots, relative to baseDir (\"../\" reaches\noutside it), walked for factory, prototype and fixture sources exactly\nlike baseDir, so fixtures can sit next to generated files that live\nelsewhere (a compose-mounted WireMock directory, say). Roots must\nexist and be disjoint from baseDir and each other.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Fmt": {
+      "additionalProperties": false,
+      "description": "Fmt is how `axx fmt`, and editors through axx lsp, lay out the project's feature files.",
+      "properties": {
+        "indent": {
+          "description": "Indent is the spaces of one level of indentation: 2 (the default) or 4.",
+          "enum": [
+            2,
+            4
+          ],
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Hooks": {
+      "additionalProperties": false,
+      "description": "Hooks run the project's own commands around axx's, by what they run around.",
+      "properties": {
+        "commands": {
+          "description": "Commands run before or after axx's commands, like `axx fixtures\ngenerate`: a schema to write before fixtures are made from it, a report\nto send after a run.",
+          "items": {
+            "$ref": "#/$defs/CommandHookWhole"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "Lint": {
+      "additionalProperties": false,
+      "description": "Lint configures `axx lint`: test-data isolation rules.",
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/LintConfig",
+          "description": "Config holds the settings shared by every rule."
+        },
+        "include": {
+          "$ref": "#/$defs/StringList",
+          "description": "Include lists rule files merged into this section (for example the\naxx-lint.generated.yaml written by `axx fixtures generate`), resolved\nrelative to the including file. Included files contribute rules and\nfurther includes only; they must not have a config block."
+        },
+        "rules": {
+          "description": "Rules are the isolation rules, run in order (included rules follow).",
+          "items": {
+            "$ref": "#/$defs/LintRuleWhole"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "LintConfig": {
+      "additionalProperties": false,
+      "description": "LintConfig holds the settings shared by every lint rule.",
+      "properties": {
+        "baseDir": {
+          "description": "BaseDir is the directory file patterns are resolved against, relative\nto axx.yaml. Default: the directory of axx.yaml.",
+          "type": "string"
+        },
+        "maxFileSize": {
+          "description": "MaxFileSize skips files larger than this many bytes, with a warning.\nDefault: 5242880 (5 MB).",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxReportedLocations": {
+          "description": "MaxReportedLocations is how many locations the human output lists per\nduplicate value before truncating. Default: 5. Machine formats list all.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxReportedValues": {
+          "description": "MaxReportedValues is how many duplicate values the human output lists\nper rule before truncating. Default: 3. Machine formats list all.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mode": {
+          "description": "Mode is \"error\" (violations make `axx lint` exit 3, default) or \"warn\"\n(violations are reported but do not fail, a scenario's second When or Then\nincluded).",
+          "enum": [
+            "error",
+            "warn"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LintRuleWhole": {
+      "additionalProperties": false,
+      "description": "LintRule is one test-data isolation rule.",
+      "properties": {
+        "description": {
+          "description": "Description says why the values must be unique; shown with violations.",
+          "type": "string"
+        },
+        "excludePatterns": {
+          "$ref": "#/$defs/StringListWhole",
+          "description": "ExcludePatterns are glob patterns removing files from the match set,\nmatched against the whole path relative to baseDir; ** crosses\ndirectories, e.g. \"**.fixture.yaml\"."
+        },
+        "filePatterns": {
+          "$ref": "#/$defs/StringListWhole",
+          "description": "FilePatterns are glob patterns (Java glob syntax: *, **, ?, [abc],\n{a,b}) selecting the files to scan, relative to baseDir. The part\nbefore the first wildcard is a directory (it may start with ../); the\nrest is matched against the end of each file path below it, so\n\"seeds/*.yaml\" also finds YAML files in subdirectories of seeds. A\npattern that ends in \"/\" matches folders, and all the files below\neach folder it matches count as one file: a scenario whose data spans\nseveral files keeps them in a folder of its own (\"seeds/*/\"), whose\nfiles may share values that no other file may."
+        },
+        "ignoreValues": {
+          "$ref": "#/$defs/ScalarListWhole",
+          "description": "IgnoreValues are values never reported (intentionally shared constants)."
+        },
+        "jsonPath": {
+          "description": "JSONPath selects the values of a jsonpath rule, e.g. \"order.id\",\n\"payments[*].id\" or \"$.items[0].sku\" (exact field paths with array\nindexes or [*]); other JSONPath expressions (\"$..id\", filters) are\nevaluated like Jayway JsonPath. Only scalar values count. A seed's rows\nread alike in YAML, flat XML (\u003cdataset\u003e) and CSV: \"$['public.closures'][*]['id']\";\nin other XML, attributes are \"@name\" fields (\"line[*].@sku\") and an\nelement with only text is a value.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "Mode overrides config.mode for this rule: \"error\" or \"warn\".",
+          "enum": [
+            "error",
+            "warn"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Name identifies the rule in reports.",
+          "type": "string"
+        },
+        "regex": {
+          "description": "Regex is a Java regular expression, applied in MULTILINE mode (^ and $\nmatch at line boundaries). Each match contributes the text of its\nfirst participating capture group.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Type is \"regex\" (default: extract values with regex) or \"jsonpath\"\n(read each file, by its extension, as JSON, YAML, XML or CSV, and\nextract the values at jsonPath).",
+          "enum": [
+            "regex",
+            "jsonpath"
+          ],
+          "type": "string"
+        },
+        "validation": {
+          "description": "Validation is \"global-unique\" (default: a value may occur once),\n\"file-unique\" (no repeats within a file; files may share values) or\n\"cross-file-unique\" (repeats within one file are fine; no two files\nmay share a value). A folder a folder pattern matches counts as one\nfile.",
+          "enum": [
+            "global-unique",
+            "file-unique",
+            "cross-file-unique"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "filePatterns"
+      ],
+      "type": "object"
+    },
+    "OpenAPI": {
+      "additionalProperties": false,
+      "description": "OpenAPI holds default validation levels, keyed by validation message key (e.g.",
+      "properties": {
+        "levels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "ReporterWhole": {
+      "oneOf": [
+        {
+          "enum": [
+            "pretty",
+            "progress",
+            "compact",
+            "junit",
+            "messages",
+            "cucumber-json",
+            "html",
+            "agent",
+            "teamcity"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "maxProperties": 1,
+          "minProperties": 1,
+          "properties": {
+            "agent": {
+              "description": "output file",
+              "type": "string"
+            },
+            "compact": {
+              "description": "output file",
+              "type": "string"
+            },
+            "cucumber-json": {
+              "description": "output file",
+              "type": "string"
+            },
+            "html": {
+              "description": "output file",
+              "type": "string"
+            },
+            "junit": {
+              "description": "output file",
+              "type": "string"
+            },
+            "messages": {
+              "description": "output file",
+              "type": "string"
+            },
+            "pretty": {
+              "description": "output file",
+              "type": "string"
+            },
+            "progress": {
+              "description": "output file",
+              "type": "string"
+            },
+            "teamcity": {
+              "description": "output file",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "Run": {
+      "additionalProperties": false,
+      "description": "Run controls execution.",
+      "properties": {
+        "coverage": {
+          "description": "Coverage measures the coverage of the services that have a coverage\nsection, as the run exercises them, with the packs of their\nruntimes. Same as axx run --coverage.",
+          "type": "boolean"
+        },
+        "exclusive": {
+          "description": "Exclusive lists tags whose scenarios run alone, after the parallel phase.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "exclusiveUses": {
+          "description": "ExclusiveUses runs alone, after the parallel phase, the scenarios that use\na step of one of these packs, or one of these steps: its ID, or the start\nof its ID, like [faults, sql.trigger]. A way to have them run alone with no\ntags, which nothing turns on for you.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "order": {
+          "description": "Order is \"defined\" (default) or \"random[:seed]\".",
+          "type": "string"
+        },
+        "paths": {
+          "description": "Paths are feature files or directories. Default: [\"features\"].",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reporters": {
+          "description": "Reporters, e.g. [\"pretty\", {\"junit\": \"build/axx/junit.xml\"}].",
+          "items": {
+            "$ref": "#/$defs/ReporterWhole"
+          },
+          "type": "array"
+        },
+        "slowdown": {
+          "$ref": "#/$defs/Duration",
+          "description": "Slowdown pauses after each action of a watched run (a click, a tap, a\ntyped field), so a person can follow it, e.g. \"500ms\". Same as\naxx run --slowdown."
+        },
+        "tags": {
+          "description": "Tags is a default tag expression, e.g. \"not @wip\". It narrows every run,\nthe files and directories named on the command line included; a scenario\npicked by its line (features/x.feature:14) runs whatever its tags.",
+          "type": "string"
+        },
+        "timeouts": {
+          "$ref": "#/$defs/Timeouts"
+        },
+        "uses": {
+          "description": "Uses keeps the scenarios that use a step of one of these packs, like\n[mobile-ios] for the scenarios that drive an iOS app: a profile per\nplatform, with no tags. Like tags, it narrows every run but a scenario\npicked by its line.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "watch": {
+          "description": "Watch shows what the scenarios do, as they do it: the packs that can\nshow it on screen do (browsers and devices in their windows). Same as\naxx run --watch.",
+          "type": "boolean"
+        },
+        "workers": {
+          "$ref": "#/$defs/Workers",
+          "description": "Workers is the number of scenarios run in parallel: a number or \"auto\"\n(number of CPUs). Default: auto."
+        }
+      },
+      "type": "object"
+    },
+    "ScalarListWhole": {
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "Services": {
+      "additionalProperties": {
+        "additionalProperties": false,
+        "description": "Service is an application or piece of infrastructure managed by axx.",
+        "properties": {
+          "active": {
+            "additionalProperties": false,
+            "properties": {
+              "tags": {
+                "description": "Tags start the service for the scenarios that have one of them.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "uses": {
+                "description": "Uses starts the service for the scenarios that use a step of one of these\npacks, like [mobile-android]: no tag needed.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "cleanup": {
+            "description": "Cleanup runs after the service stops, even if it crashed.",
+            "oneOf": [
+              {
+                "description": "command line, split into words without a shell unless shell: true",
+                "type": "string"
+              },
+              {
+                "description": "argv",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            ]
+          },
+          "command": {
+            "description": "Command starts the service: a string (split like a shell word list, without\na shell) or an argv list. Set shell: true to run it through the shell.\nIt can tell axx properties, like the ports Docker gave its containers:\nlines name=value in the file AXX_PROPERTIES names, which scenarios,\nreadiness checks and the services that depend on it read as\n${sys:name}. Its ${…} references, and those of env and cleanup, are\nfilled in as the service starts, with what the services it depends on\ntold.",
+            "oneOf": [
+              {
+                "description": "command line, split into words without a shell unless shell: true",
+                "type": "string"
+              },
+              {
+                "description": "argv",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            ]
+          },
+          "coverage": {
+            "additionalProperties": false,
+            "description": "Coverage is how the service runs when a run measures its coverage\n(axx run --coverage): the pack of its runtime measures it.",
+            "properties": {
+              "command": {
+                "description": "Command replaces command when the run measures the service, as\ndebug.command does: a build for coverage (go build -cover), or the\ncommand under coverage.py.",
+                "oneOf": [
+                  {
+                    "description": "command line, split into words without a shell unless shell: true",
+                    "type": "string"
+                  },
+                  {
+                    "description": "argv",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                ]
+              },
+              "env": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Env are variables the service gets beside env when the run measures\nit.",
+                "type": "object"
+              },
+              "mount": {
+                "description": "Mount is where the service's folder is inside its container, for a\nservice in a container: its compose file mounts ${AXX_COVERAGE_DIR}\nthere, and the runtime names files by that path.",
+                "type": "string"
+              },
+              "runtime": {
+                "description": "Runtime is what measures it: a runtime a coverage pack adds, like jvm\n(coverage-jvm), go, python or node, or report, for a service that\nwrites lcov or Cobertura into its folder itself.",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "debug": {
+            "additionalProperties": false,
+            "properties": {
+              "command": {
+                "description": "Command replaces the normal command in debug mode.",
+                "oneOf": [
+                  {
+                    "description": "command line, split into words without a shell unless shell: true",
+                    "type": "string"
+                  },
+                  {
+                    "description": "argv",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                ]
+              },
+              "debugger": {
+                "additionalProperties": false,
+                "properties": {
+                  "host": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "description": "Mode is \"ide-listens\" (the IDE listens and the service connects, e.g. JDWP\nserver=n; default for java) or \"app-listens\" (delve, --inspect, debugpy).",
+                    "enum": [
+                      "ide-listens",
+                      "app-listens"
+                    ],
+                    "type": "string"
+                  },
+                  "module": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer"
+                  },
+                  "type": {
+                    "enum": [
+                      "java",
+                      "go",
+                      "nodejs",
+                      "python"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "onUnavailable": {
+                "description": "OnUnavailable decides what happens when the debugger is not listening:\nfail, fallback (run the normal command) or retry (default).",
+                "enum": [
+                  "fail",
+                  "fallback",
+                  "retry"
+                ],
+                "type": "string"
+              },
+              "retry": {
+                "additionalProperties": false,
+                "properties": {
+                  "attempts": {
+                    "type": "integer"
+                  },
+                  "delay": {
+                    "oneOf": [
+                      {
+                        "examples": [
+                          "30s",
+                          "1m30s",
+                          "250ms"
+                        ],
+                        "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                        "type": "string"
+                      },
+                      {
+                        "description": "seconds",
+                        "minimum": 0,
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "dependsOn": {
+            "description": "DependsOn names services that must be ready first: what they tell axx\nfills in this one's command, env and cleanup.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "dir": {
+            "description": "Dir is the working directory, relative to axx.yaml.",
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Enabled defaults to true.",
+            "type": "boolean"
+          },
+          "env": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Env are variables the command gets, beside axx's own environment.",
+            "type": "object"
+          },
+          "ready": {
+            "additionalProperties": false,
+            "properties": {
+              "exec": {
+                "description": "Exec is a command that must exit 0.",
+                "oneOf": [
+                  {
+                    "description": "command line, split into words without a shell unless shell: true",
+                    "type": "string"
+                  },
+                  {
+                    "description": "argv",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                ]
+              },
+              "http": {
+                "additionalProperties": false,
+                "properties": {
+                  "url": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "interval": {
+                "description": "Interval between checks. Default: 1s.",
+                "oneOf": [
+                  {
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ],
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "type": "string"
+                  },
+                  {
+                    "description": "seconds",
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                ]
+              },
+              "log": {
+                "description": "Log is a regular expression matched against the service's output.",
+                "type": "string"
+              },
+              "tcp": {
+                "description": "TCP is a host:port that must accept connections.",
+                "type": "string"
+              },
+              "timeout": {
+                "description": "Timeout for the service to become ready. Default: 60s.",
+                "oneOf": [
+                  {
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ],
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "type": "string"
+                  },
+                  {
+                    "description": "seconds",
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "shell": {
+            "description": "Shell runs command and cleanup through /bin/sh -c (cmd /C on Windows).",
+            "type": "boolean"
+          },
+          "stop": {
+            "additionalProperties": false,
+            "properties": {
+              "grace": {
+                "description": "Grace period before the process group is killed. Default: 10s.",
+                "oneOf": [
+                  {
+                    "examples": [
+                      "30s",
+                      "1m30s",
+                      "250ms"
+                    ],
+                    "pattern": "^\\s*([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+\\s*$",
+                    "type": "string"
+                  },
+                  {
+                    "description": "seconds",
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                ]
+              },
+              "signal": {
+                "description": "Signal sent first: SIGTERM (default) or SIGINT.",
+                "enum": [
+                  "SIGTERM",
+                  "SIGINT"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "StringList": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
+    },
+    "StringListWhole": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
+    },
+    "Timeouts": {
+      "additionalProperties": false,
+      "description": "Timeouts bound steps, scenarios and hooks.",
+      "properties": {
+        "hook": {
+          "$ref": "#/$defs/Duration"
+        },
+        "scenario": {
+          "$ref": "#/$defs/Duration"
+        },
+        "step": {
+          "$ref": "#/$defs/Duration"
+        }
+      },
+      "type": "object"
+    },
+    "Workers": {
+      "oneOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "enum": [
+            "auto"
+          ],
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-overlay.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An overlay of axx.yaml: a profile's file (axx.\u003cname\u003e.yaml, chosen with --profile or AXX_PROFILE) or axx.local.yaml. It says only what differs from axx.yaml. axx lays it over axx.yaml, mapping by mapping (a list replaces the list under it), and checks the result, so nothing is required here that axx.yaml says already.",
+  "properties": {
+    "active": {
+      "$ref": "#/$defs/Active",
+      "description": "Active starts only the applications needed by the selected scenarios."
+    },
+    "axx": {
+      "description": "Axx is the version of axx this project runs on, exactly. Whichever axx is\ninstalled downloads that release once and hands over to it, so that everyone\nand CI run the same one. `axx upgrade` moves it. Without it, a project runs\non the installed axx.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "docs": {
+      "$ref": "#/$defs/Docs",
+      "description": "Docs configures where the project's people read axx's documentation:\n`axx docs serve`'s port, and where the links axx prints lead."
+    },
+    "fixtures": {
+      "$ref": "#/$defs/Fixtures",
+      "description": "Fixtures configures `axx fixtures` (fixture factories)."
+    },
+    "fmt": {
+      "$ref": "#/$defs/Fmt",
+      "description": "Fmt configures how `axx fmt`, and editors through axx lsp, lay out\nfeature files."
+    },
+    "hooks": {
+      "$ref": "#/$defs/Hooks",
+      "description": "Hooks run the project's own commands around axx's, by what they run\naround."
+    },
+    "lint": {
+      "$ref": "#/$defs/Lint",
+      "description": "Lint configures `axx lint`: test-data isolation rules that keep values\nsuch as seed ids unique so scenarios can run in parallel."
+    },
+    "openapi": {
+      "$ref": "#/$defs/OpenAPI",
+      "description": "OpenAPI holds default OpenAPI validation settings for REST services."
+    },
+    "packs": {
+      "additionalProperties": true,
+      "description": "Packs holds pack settings keyed by pack name.",
+      "type": "object"
+    },
+    "profiles": {
+      "additionalProperties": true,
+      "description": "Profiles are named overlays selected with --profile or AXX_PROFILE.",
+      "type": "object"
+    },
+    "properties": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Properties back ${sys:name} references. `-D name=value` overrides them,\nand they override what services write to the file AXX_PROPERTIES\nnames: a value you set always wins.",
+      "type": "object"
+    },
+    "resources": {
+      "description": "Resources are directories that relative resource paths in steps (seed\nfiles, schemas, payloads) resolve against, in order, once the feature\nfile's own directory has not got the file. The directory of axx.yaml is\nalways searched last.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "run": {
+      "$ref": "#/$defs/Run",
+      "description": "Run controls which features run and how."
+    },
+    "services": {
+      "$ref": "#/$defs/Services",
+      "description": "Services are the applications under test (and their infrastructure),\nstarted before scenarios run and stopped afterwards, in declaration order."
+    },
+    "version": {
+      "description": "Schema version of this file. Currently 1.",
+      "enum": [
+        1
+      ],
+      "type": "integer"
+    }
+  },
+  "title": "axx.\u003cprofile\u003e.yaml",
+  "type": "object"
+}

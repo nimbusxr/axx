@@ -1,4 +1,5 @@
-// Command genschema writes the axx.yaml JSON Schema generated from the Go types,
+// Command genschema writes the axx.yaml JSON Schema generated from the Go types, and the
+// schema of its overlays made from it,
 // and copies every schema beside it to the IntelliJ plugin's resources (-copy):
 // the plugin bundles them, and its own folder is what its releases are made of.
 package main
@@ -30,6 +31,14 @@ func main() {
 		fail(err)
 	}
 	if err := os.WriteFile(filepath.Join(wd, *out), b, 0o644); err != nil {
+		fail(err)
+	}
+	// The overlays' schema, beside it: axx.yaml's with nothing required in a mapping.
+	overlay, err := config.GenerateOverlay(b)
+	if err != nil {
+		fail(err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(filepath.Join(wd, *out)), config.OverlaySchemaFile), overlay, 0o644); err != nil {
 		fail(err)
 	}
 	if *copyTo != "" {

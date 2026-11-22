@@ -38,6 +38,21 @@ var SchemaJSON = func() []byte {
 	return b
 }()
 
+// OverlaySchemaFile is the published file name of the schema of axx.yaml's overlays.
+const OverlaySchemaFile = "axx-overlay.schema.json"
+
+// OverlaySchemaID is the published location of the overlays' schema.
+const OverlaySchemaID = schemas.Base + OverlaySchemaFile
+
+// OverlaySchemaJSON is the generated JSON Schema for axx.yaml's overlays.
+var OverlaySchemaJSON = func() []byte {
+	b, err := schemas.Read(OverlaySchemaFile)
+	if err != nil {
+		panic(err) // embedded in the binary
+	}
+	return b
+}()
+
 // JSONSchema describes Duration.
 func (Duration) JSONSchema() *ijs.Schema {
 	return &ijs.Schema{OneOf: []*ijs.Schema{
@@ -147,6 +162,114 @@ func Generate(goComments bool) ([]byte, error) {
 	}
 	buf.WriteByte('\n')
 	return buf.Bytes(), nil
+}
+
+// GenerateOverlay makes the schema of axx.yaml's overlays (a profile's axx.<name>.yaml, and
+// axx.local.yaml) from axx.yaml's own. An overlay says only what differs: axx lays it over
+// axx.yaml, mapping by mapping, and checks the result, so a service an overlay switches off
+// need not say its command again. The overlays' schema is axx.yaml's with nothing required in a
+// mapping. A list in an overlay replaces the list under it, so what a list's entries require
+// stays required.
+func GenerateOverlay(axxYAML []byte) ([]byte, error) {
+	var root map[string]any
+	if err := json.Unmarshal(axxYAML, &root); err != nil {
+		return nil, err
+	}
+	defs, _ := root["$defs"].(map[string]any)
+	// A definition is written once for the mappings that refer to it, with nothing required, and
+	// once more, whole, under another name, when a list's entries refer to it too.
+	const whole = "Whole"
+	out := map[string]any{}
+	var partial func(v any, inList bool) any
+	define := func(name string, inList bool) string {
+		as := name
+		if inList {
+			as += whole
+		}
+		if _, done := out[as]; !done {
+			out[as] = nil // being made: a definition that refers to itself ends here
+			out[as] = partial(defs[name], inList)
+		}
+		return as
+	}
+	partial = func(v any, inList bool) any {
+		switch t := v.(type) {
+		case []any:
+			list := make([]any, len(t))
+			for i, e := range t {
+				list[i] = partial(e, inList)
+			}
+			return list
+		case map[string]any:
+			m := map[string]any{}
+			for k, e := range t {
+				switch {
+				case k == "$ref":
+					name, ok := strings.CutPrefix(fmt.Sprint(e), "#/$defs/")
+					if _, known := defs[name]; !ok || !known {
+						m[k] = e
+						continue
+					}
+					m[k] = "#/$defs/" + define(name, inList)
+				case !inList && (k == "required" || k == "minProperties"):
+					// Said in axx.yaml, under the overlay.
+				case !inList && (k == "oneOf" || k == "anyOf" || k == "allOf") && onlyRequire(e):
+					// Which of its keys a mapping must have: axx.yaml's has them.
+				case k == "items" || k == "prefixItems":
+					m[k] = partial(e, true)
+				case k == "properties" || k == "patternProperties":
+					// The keys are names, not keywords.
+					props, _ := e.(map[string]any)
+					named := map[string]any{}
+					for name, prop := range props {
+						named[name] = partial(prop, inList)
+					}
+					m[k] = named
+				case k == "examples" || k == "enum" || k == "const" || k == "default":
+					m[k] = e
+				default:
+					m[k] = partial(e, inList)
+				}
+			}
+			return m
+		}
+		return v
+	}
+	delete(root, "$defs")
+	top, _ := partial(root, false).(map[string]any)
+	if len(out) > 0 {
+		top["$defs"] = out
+	}
+	top["$id"] = OverlaySchemaID
+	top["title"] = "axx.<profile>.yaml"
+	top["description"] = "An overlay of axx.yaml: a profile's file (axx.<name>.yaml, chosen with --profile or AXX_PROFILE) or axx.local.yaml. " +
+		"It says only what differs from axx.yaml. axx lays it over axx.yaml, mapping by mapping (a list replaces the list under it), and checks the result, " +
+		"so nothing is required here that axx.yaml says already."
+	b, err := json.Marshal(top)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := indentJSON(&buf, b); err != nil {
+		return nil, err
+	}
+	buf.WriteByte('\n')
+	return buf.Bytes(), nil
+}
+
+// onlyRequire is whether every schema of a list says only which keys are required.
+func onlyRequire(v any) bool {
+	list, ok := v.([]any)
+	if !ok || len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		m, ok := e.(map[string]any)
+		if !ok || len(m) != 1 || m["required"] == nil {
+			return false
+		}
+	}
+	return true
 }
 
 var (

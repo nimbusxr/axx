@@ -95,6 +95,14 @@ For completion in `axx.yaml`, editors that use the YAML language server take the
 
 `axx schema` prints the schema, for an editor that cannot reach it.
 
+A file that Axx merges over `axx.yaml` (a profile's `axx.<name>.yaml`, or `axx.local.yaml`) says only what differs, so it has a schema of its own, which requires nothing that `axx.yaml` says already. Name that one at the top of such a file:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx-overlay.schema.json
+```
+
+`axx schema overlay` prints it. The IntelliJ plugin and the VS Code extension use it for these files without the comment.
+
 ## Run and debug scenarios
 
 Both plugins run scenarios from the editor, with the results in the IDE's test view: features, scenarios and steps, each one linked to its line, with expected and actual values for failed assertions.

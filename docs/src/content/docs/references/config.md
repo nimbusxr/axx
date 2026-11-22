@@ -133,6 +133,17 @@ Rules live under `lint.rules`; `lint.config` sets `baseDir` (patterns are relati
 
 Paths inside the file (`services.*.dir`, `resources`) are relative to the directory of `axx.yaml`.
 
+A file merged over `axx.yaml` (`axx.NAME.yaml`, `axx.local.yaml`) says only what differs. Mappings merge key by key, and a list replaces the list under it. Axx checks the result, not each file on its own. So a profile's file that switches a service off needs nothing but that:
+
+```yaml
+# axx.ci.yaml
+services:
+  kafka:
+    enabled: false
+```
+
+The service's `command` stays as `axx.yaml` has it. These files have a schema of their own, which requires nothing that `axx.yaml` says already: `axx schema overlay` prints it, and the editor plugins use it for them.
+
 ### Interpolation
 
 String values can reference the environment and properties:

@@ -15,8 +15,9 @@ class AxxSchemasTest {
     @CsvSource({
         "axx.yaml, axx.schema.json",
         "axx.yml, axx.schema.json",
-        "axx.local.yaml, axx.schema.json",
-        "axx.ci.yml, axx.schema.json",
+        "axx.local.yaml, axx-overlay.schema.json",
+        "axx.ci.yml, axx-overlay.schema.json",
+        "axx.apollo.yaml, axx-overlay.schema.json",
         "registrations.factory.yaml, axx-factory.schema.json",
         "registrations.factory.yml, axx-factory.schema.json",
         "parcel.fixture.yaml, axx-fixture.schema.json",
