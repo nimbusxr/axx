@@ -69,6 +69,11 @@ func initFormatted(t *testing.T, files map[string]string) {
 	if check < 0 || runs < 0 || check > runs {
 		t.Errorf("the workflow does not check the layout before the run:\n%s", b)
 	}
+	// What axx prepares is kept between runs, restored before the first command that prepares.
+	keeps := strings.Index(string(b), "          key: axx-${{ runner.os }}-${{ hashFiles('axx.yaml', 'axx-packs.yaml', 'axx-packs.lock') }}\n")
+	if keeps < 0 || keeps > check || !strings.Contains(string(b), "            ~/.cache/axx/builds\n            ~/.cache/axx/go\n") {
+		t.Errorf("the workflow does not keep axx's cache before its first command:\n%s", b)
+	}
 	if out, stderr, code := run(t, "fmt", "--check"); code != 0 {
 		t.Errorf("the features init wrote are not formatted: exit %d: %s%s", code, out, stderr)
 	}

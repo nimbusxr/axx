@@ -90,7 +90,10 @@ func Ensure(ctx context.Context, o Options) (*Toolchain, error) {
 // baseEnv is what every build runs with: static binaries, no telemetry, no
 // workspace.
 func baseEnv() []string {
-	return append(os.Environ(), "CGO_ENABLED=0", "GOWORK=off", "GOFLAGS=-mod=mod", "GOTELEMETRY=off")
+	// -modcacherw: the modules go downloads are files their owner can remove. Go's own way,
+	// read-only folders, keeps axx's cache from being deleted (rm -rf fails on it) and a CI
+	// system from cleaning a cache it keeps inside the project's folder.
+	return append(os.Environ(), "CGO_ENABLED=0", "GOWORK=off", "GOFLAGS=-mod=mod -modcacherw", "GOTELEMETRY=off")
 }
 
 // onPath falls back to an installed go, or explains why there is none.

@@ -325,6 +325,10 @@ the skills instead: `axx skills install`.
 - `internal/packbuild`, `internal/gotool`: axx builds itself with the packs a project lists in
   `axx-packs.yaml`, using a Go toolchain it downloads itself, as the go command downloads one (`golang.org/toolchain`
   through GOPROXY, checked against Go's checksum database, which GOSUMDB=off does not skip), so an organization's Go proxy serves it.
+  A build is found by a key made of what it is built from (`buildKey`: the release, the packs and their versions, what a
+  custom pack's Go files hold), and of nothing of the machine: no time of a file, no place of a folder, nothing of the copy of axx
+  that runs. Keep it so: a CI runner installs axx and checks the project out afresh for each run, and must find the build its
+  cache kept (the docs' "Keep Axx's cache", whose step `axx init`'s workflow has).
 - `internal/packref`: what axx knows of every pack it publishes, whether a project uses it or not
   (what it reaches, its settings, parameter types and steps): data `go generate` writes from the
   packs (`packs.json`), built into the core, so `axx pack list|show`, `axx steps` and the MCP
