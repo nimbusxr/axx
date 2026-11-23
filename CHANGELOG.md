@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.8.0](https://github.com/nimbusxr/axx/compare/v0.7.9...v0.8.0) (2026-11-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **rest:** the REST pack verifies TLS certificates by default. A project that sends requests over HTTPS to a service with a certificate of its own (self-signed, or from an authority the machine does not trust) sets packs.rest.tls.verify to false in axx.yaml. Requests over HTTP, and over HTTPS to a host whose certificate verifies, are as before.
+
+### Features
+
+* a pack can be experimental: it may still change, and axx says so where a project meets it ([#427](https://github.com/nimbusxr/axx/issues/427)) ([6a6b092](https://github.com/nimbusxr/axx/commit/6a6b09233cf6c9b6ee00b0d69015c223a61b8920))
+* a pack is handed the finished run with each scenario's outcome, and can add checks of a project's features to lint ([76f4170](https://github.com/nimbusxr/axx/commit/76f417083ec5432e648fdc34f31b9feee13826d3))
+* **controls:** controls-oscal (experimental) writes the controls report as OSCAL assessment results, valid against NIST's schemas ([101fe3b](https://github.com/nimbusxr/axx/commit/101fe3b513829d1e3c36982ba722aa949daf5e54))
+* **controls:** the controls packs (experimental) show which of the controls a project is required to cover its scenarios prove, with a report and a check that fails when one is not covered ([76f4170](https://github.com/nimbusxr/axx/commit/76f417083ec5432e648fdc34f31b9feee13826d3))
+* **install:** the install script takes PREFIX and DESTDIR ([#408](https://github.com/nimbusxr/axx/issues/408)) ([75eea6f](https://github.com/nimbusxr/axx/commit/75eea6f2f4aa8e13ba477ce38a39ccbe2dc7457a))
+* **lint:** axx warns where a feature uses a deprecated step, and the deprecation policy is written ([#391](https://github.com/nimbusxr/axx/issues/391)) ([87e30c5](https://github.com/nimbusxr/axx/commit/87e30c5324fb26a73319b57bcf4d843af0841c4b))
+* **rest:** HTTPS certificates are verified unless tls.verify is false ([77960cf](https://github.com/nimbusxr/axx/commit/77960cf53c499f16af6c6c2b798183784b1d8c60))
+
+
+### Bug Fixes
+
+* a profile's file is held to a schema of its own, which requires nothing that axx.yaml says already ([#426](https://github.com/nimbusxr/axx/issues/426)) ([55a6aec](https://github.com/nimbusxr/axx/commit/55a6aec920bbc6d2013e25b24e47dfa3b270c105))
+* **controls:** the check says a required control is failing when its scenario failed, not that it is not covered ([101fe3b](https://github.com/nimbusxr/axx/commit/101fe3b513829d1e3c36982ba722aa949daf5e54))
+* **deps:** update all non-major dependencies ([#429](https://github.com/nimbusxr/axx/issues/429)) ([8e77a26](https://github.com/nimbusxr/axx/commit/8e77a26900b4b5de9d7db019033075e7289d7c6a))
+* **desktop-linux:** a control scrolled out of a scroll area that has no role of its own is brought back into view before it is clicked ([#422](https://github.com/nimbusxr/axx/issues/422)) ([468b11c](https://github.com/nimbusxr/axx/commit/468b11c0a0684b979f6fa995627e334653ac3ae5))
+* **desktop:** a text cursor an app gives no place for is no difference between a window and its screenshot ([#393](https://github.com/nimbusxr/axx/issues/393)) ([5f353c8](https://github.com/nimbusxr/axx/commit/5f353c83f53bb74203a385073854a06d1313fe64))
+* **mobile-ios:** WebDriverAgent is given a port that no other program listens on, and other ports when it is launched again ([#416](https://github.com/nimbusxr/axx/issues/416)) ([44e742e](https://github.com/nimbusxr/axx/commit/44e742efbd31978f9aa4ddcd5853f6c7a5536e64))
+* **mobile:** a device's server whose connection closes before the request is sent is started again, as one that drops it after ([5230890](https://github.com/nimbusxr/axx/commit/5230890d2795f2dfb437a728c8f1b18bcc148b91))
+* **mobile:** a field that did not take what was typed into it on iOS is typed into again ([#420](https://github.com/nimbusxr/axx/issues/420)) ([d005038](https://github.com/nimbusxr/axx/commit/d005038313cbd9e437c4bbd19618dbf56986c31e))
+* **mobile:** a screen that changes while the scroll step is at work on it is looked at again ([#424](https://github.com/nimbusxr/axx/issues/424)) ([6e4bdcc](https://github.com/nimbusxr/axx/commit/6e4bdcc7afc8e8c16326d2a507746af00e229beb))
+* **mobile:** a tap whose control only lit up for a moment is tapped again, as one that showed nothing ([#419](https://github.com/nimbusxr/axx/issues/419)) ([a9b0bba](https://github.com/nimbusxr/axx/commit/a9b0bba7a4face828435782e9d2579baa8da950a))
+* **mobile:** on Windows a device's server that crashed is started again, as on a Mac and on Linux ([5230890](https://github.com/nimbusxr/axx/commit/5230890d2795f2dfb437a728c8f1b18bcc148b91))
+* **mobile:** the scroll step looks again for a control of a screen still loading, as a tap does ([#421](https://github.com/nimbusxr/axx/issues/421)) ([2801272](https://github.com/nimbusxr/axx/commit/2801272bdc40921259471a7de23ade52dda46eef))
+
 ## [0.7.9](https://github.com/nimbusxr/axx/compare/v0.7.8...v0.7.9) (2026-11-21)
 
 

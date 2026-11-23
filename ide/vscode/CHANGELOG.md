@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.2026112301](https://github.com/nimbusxr/axx/compare/vscode-v0.7.2026112101...vscode-v0.8.2026112301) (2026-11-23)
+
+
+### Bug Fixes
+
+* a profile's file is held to a schema of its own, which requires nothing that axx.yaml says already ([#426](https://github.com/nimbusxr/axx/issues/426)) ([55a6aec](https://github.com/nimbusxr/axx/commit/55a6aec920bbc6d2013e25b24e47dfa3b270c105))
+* **deps:** update all non-major dependencies ([#429](https://github.com/nimbusxr/axx/issues/429)) ([8e77a26](https://github.com/nimbusxr/axx/commit/8e77a26900b4b5de9d7db019033075e7289d7c6a))
+
 ## [0.7.2026112101](https://github.com/nimbusxr/axx/compare/vscode-v0.1.0...vscode-v0.7.2026112101) (2026-11-21)
 
 
