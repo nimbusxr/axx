@@ -122,7 +122,7 @@ jobs:
           # A handed-over pull request's code: only ever one of this repository's branches (see the gate).
           ref: ${{ needs.changes.outputs.sha || github.sha }}
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go aqua:git-lfs/git-lfs"
           cache: false
@@ -217,7 +217,7 @@ jobs:
           # A handed-over pull request's code: only ever one of this repository's branches (see the gate).
           ref: ${{ needs.changes.outputs.sha || github.sha }}
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go"
           cache: false

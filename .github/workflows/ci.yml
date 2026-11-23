@@ -129,7 +129,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "aqua:gitleaks/gitleaks"
           # Tools are cached from main only: pull requests read them.
@@ -148,7 +148,7 @@ jobs:
           persist-credentials: false
       # The examples' model files (Git LFS).
       - uses: ./.github/actions/lfs
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go golangci-lint"
           # Tools are cached from main only: pull requests read them.
@@ -218,7 +218,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -298,7 +298,7 @@ jobs:
           persist-credentials: false
       # Docker Hub's images through Google's mirror: Docker Hub refuses the runners at times.
       - uses: ./.github/actions/docker-hub-mirror
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum uv"
           # Tools are cached from main only: pull requests read them.
@@ -408,7 +408,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -577,7 +577,7 @@ jobs:
         uses: ./.github/actions/android-probe
         with:
           mode: start
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -779,7 +779,7 @@ jobs:
       - uses: ./.github/actions/courier-android
         with:
           mode: start
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -885,7 +885,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -976,7 +976,7 @@ jobs:
       - uses: ./.github/actions/lfs
       - uses: ./.github/actions/simulator-mac
       # gotestsum, which runs the tests that the mac-tests job built.
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -1074,7 +1074,7 @@ jobs:
       - if: matrix.part != 'mac'
         uses: ./.github/actions/simulator-mac
       # gotestsum, which runs the tests that the mac-tests job built.
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -1190,7 +1190,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -1259,7 +1259,7 @@ jobs:
         with:
           persist-credentials: false
       # gotestsum, which runs the test that the mac-tests job built.
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "aqua:gotestyourself/gotestsum"
           # Tools are cached from main only: pull requests read them.
@@ -1347,7 +1347,7 @@ jobs:
           persist-credentials: false
       # The examples' model files (Git LFS): the GTK builds' model stubs.
       - uses: ./.github/actions/lfs
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -1423,7 +1423,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -1458,7 +1458,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go golangci-lint"
           # Tools are cached from main only: pull requests read them.
@@ -1482,7 +1482,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "uv"
           # Tools are cached from main only: pull requests read them.
@@ -1522,7 +1522,7 @@ jobs:
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         name: the example's images (in the background)
         run: (status=0; docker compose -f examples/parcels/infra/compose.yaml pull --ignore-buildable --quiet > "$RUNNER_TEMP/pull.log" 2>&1 || status=$?; echo "$status" > "$RUNNER_TEMP/pull.done") &
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go"
           # Tools are cached from main only: pull requests read them.
@@ -1695,7 +1695,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go goreleaser"
           # Tools are cached from main only: pull requests read them.
@@ -1723,7 +1723,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go goreleaser"
           # Tools are cached from main only: pull requests read them.
@@ -1743,7 +1743,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "aqua:rhysd/actionlint"
           # Tools are cached from main only: pull requests read them.
@@ -1795,7 +1795,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go"
           cache_save: false

@@ -7,7 +7,7 @@
 #   curl localhost:8080/__admin/requests                             # the findings, per request
 services:
   wiremock:
-    image: ghcr.io/nimbusxr/axx-wiremock:0.1
+    image: ghcr.io/nimbusxr/axx-wiremock:0.7
     ports:
       - "8080:8080"
     volumes:

@@ -53,7 +53,7 @@ require (
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
 	github.com/pb33f/go-yaml v0.2.0
 	github.com/pb33f/jsonschema/v6 v6.0.3
-	github.com/pb33f/libopenapi v0.43.2
+	github.com/pb33f/libopenapi v0.44.0
 	github.com/pb33f/libopenapi-validator v0.16.5
 	github.com/qmuntal/gltf v0.29.0
 	github.com/rabbitmq/amqp091-go v1.17.0
@@ -83,7 +83,7 @@ require (
 	google.golang.org/genproto v0.0.0-20261118221215-c8830f628b3f
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 	software.sslmate.com/src/go-pkcs12 v0.7.4
 )
 
