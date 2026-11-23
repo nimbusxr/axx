@@ -182,6 +182,15 @@ Each run also measures how much of the portal's own scripts the scenarios run
 `.axx/web/coverage/lcov.info` has them line by line. The quote page's Lighthouse scenario
 audits it as a phone loads it.
 
+Each run also says which security controls its scenarios proved. The controls the service
+is to cover are in `acceptance/security/controls.yaml`, five requirements of OWASP's ASVS, and
+the scenarios that prove one carry its tag (`@asvs:8.2.2` on the two of the shop API that show
+a shop reads only its own parcels). One is covered by a pen test
+(`security/pen-test-2026-09.yaml`), and one does not apply, with the reason in `axx.yaml`.
+After a run, `axx controls report` shows how each stands, and `axx controls check` fails
+when one is not covered, as CI's acceptance job runs it. The controls packs are
+experimental.
+
 The scenarios register parcels with fixed references and seed fixed rows, and the data
 stays in the database. `axx run` starts the service with empty databases and stops it, so
 every run starts fresh. Against a service kept running with `axx up`, only the stateless quote

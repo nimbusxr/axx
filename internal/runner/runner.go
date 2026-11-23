@@ -62,9 +62,10 @@ type Options struct {
 	// abandoned. Default 5s.
 	TimeoutGrace time.Duration
 	// AfterRun checks the run as a whole once every scenario has finished
-	// (packs implementing core.Finisher). Not called for dry or interrupted
-	// runs.
-	AfterRun  func(ctx context.Context) []RunError
+	// (packs implementing core.Finisher), and is given its scenarios' results
+	// (those implementing core.RunFinisher). Not called for dry or
+	// interrupted runs.
+	AfterRun  func(ctx context.Context, res *RunResult) []RunError
 	Reporters []Reporter
 	// Messages controls Cucumber Messages emission (needed by messages/html
 	// reporters). When false, Envelope is never called.
@@ -230,7 +231,7 @@ func (r *Runner) Run(ctx context.Context, pickles []*feature.Pickle) *RunResult 
 	res.NotRun = notRun
 	res.Interrupted = ctx.Err() != nil
 	if r.opts.AfterRun != nil && !r.opts.DryRun && !res.Interrupted {
-		res.RunErrors = r.opts.AfterRun(ctx)
+		res.RunErrors = r.opts.AfterRun(ctx, res)
 	}
 	res.Duration = r.opts.Now().Sub(res.Started)
 	r.msg.runFinished(res)

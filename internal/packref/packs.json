@@ -6217,6 +6217,89 @@
       "steps": []
     },
     {
+      "name": "controls-core",
+      "doc": "Show which of the controls a project is required to cover its scenarios prove. A scenario claims a control with a tag, `@asvs:6.2.1`; a tag on a Feature or a Rule covers every scenario under it. `require` names the lists of controls the project is to cover: a list a pack carries (`controls-asvs` has OWASP ASVS's levels), or a file of the project's own, for any other framework. Each run writes what it proved to `.axx/controls/run.json` and ends with a summary. A run never fails because of a control.\n\n- **The report.** `axx controls report` lists every required control with what covers it: the scenarios that claim it, what other sources say (`evidence`: a pen test, a scanner, a review) and the exceptions the project recorded (`exceptions`). It writes text, Markdown, CSV and JSON, and the formats other packs add (`controls-oscal`).\n- **The gate.** `axx controls check` fails when a required control is not covered. It judges the evidence of one run or of several together, as the jobs of a CI run each write their own.\n- **Finding a control.** `axx controls list \u003cwords\u003e` finds the controls that mention them, and `axx controls show \u003ccontrol\u003e` shows one with its text and what covers it.\n\n```yaml\npacks:\n  controls-core:\n    require: [asvs-5.0-level-1, security/pci.yaml]\n    evidence: [security/pen-test-2027-03.yaml]\n    exceptions:\n      - control: asvs:5.2.1\n        kind: not-applicable\n        reason: The service takes no files.\n```",
+      "experimental": true,
+      "steps": [],
+      "settings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "require": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The lists of controls the project is to cover: a list a pack carries, by its name (asvs-5.0-level-1), or a file of the project's own that lists controls (security/pci.yaml). 'axx controls list' shows the lists the project's packs carry."
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Files of what covers controls besides the scenarios (a pen test, a scanner, a review), which every report then shows: each names its source and the controls it covers or fails."
+          },
+          "exceptions": {
+            "type": "array",
+            "description": "The required controls the project does not cover, each with its reason: one that does not apply, or a risk accepted until a date. Every report shows them.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "control",
+                "kind",
+                "reason"
+              ],
+              "properties": {
+                "control": {
+                  "type": "string",
+                  "description": "The control, as a tag names it without its @: asvs:6.2.1."
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "not-applicable",
+                    "accepted"
+                  ],
+                  "description": "not-applicable: the control does not apply to this system. accepted: it is not covered, and that is accepted until a date."
+                },
+                "reason": {
+                  "type": "string",
+                  "description": "Why, for whoever reads the report."
+                },
+                "until": {
+                  "type": "string",
+                  "description": "The day an accepted exception ends (2027-06-30): from the day after, it no longer counts. An accepted exception needs one."
+                }
+              }
+            }
+          },
+          "folder": {
+            "type": "string",
+            "description": "The folder a run's evidence goes to, in the project: run.json (default .axx/controls)."
+          }
+        }
+      }
+    },
+    {
+      "name": "controls-asvs",
+      "doc": "OWASP's Application Security Verification Standard (ASVS), version 5.0.0, for `controls-core`: its 345 requirements, which a scenario claims with a tag, `@asvs:6.2.1`, and its three levels as lists a project can require.\n\n| List | What it is |\n|---|---|\n| `asvs-5.0-level-1` | the 70 requirements of level 1 |\n| `asvs-5.0-level-2` | the 253 of levels 1 and 2 |\n| `asvs-5.0-level-3` | all 345 |\n\n`axx controls list \u003cwords\u003e` finds a requirement by a word of it, and `axx controls show asvs:6.2.1` shows what one requires. A requirement that no scenario can prove (one about documentation, say) is recorded as an exception or as covered by other evidence, in `packs.controls-core`.\n\n```yaml\npacks:\n  controls-core:\n    require: [asvs-5.0-level-1]\n```\n\nThe standard is OWASP's, under the Creative Commons Attribution-ShareAlike 4.0 licence; the pack carries it as OWASP publishes it.",
+      "requires": [
+        "controls-core"
+      ],
+      "experimental": true,
+      "steps": []
+    },
+    {
+      "name": "controls-nist",
+      "doc": "The controls of NIST SP 800-53, revision 5 (release 5.2.0), for `controls-core`: a scenario claims a control with a tag, `@nist:IA-5`, and an enhancement of one with a dot, `@nist:IA-5.1` for IA-5(1). The pack has each control's ID, title and family; NIST's catalog has their text.\n\nIt carries no list to require. Most of a baseline of SP 800-53 is about people, premises and process, which no scenario proves, so a project names the controls its scenarios are to prove, in a file of its own:\n\n```yaml\n# security/nist.yaml\nframework: nist\ntitle: The SP 800-53 controls our scenarios prove\ncontrols:\n  IA-5.1:\n  AC-7:\n  AU-2:\n    scenarios: 2\n```\n\n```yaml\npacks:\n  controls-core:\n    require: [security/nist.yaml]\n```\n\n`axx controls list \u003cwords\u003e` finds a control by a word of its title or its family. NIST's catalog is in the public domain.",
+      "requires": [
+        "controls-core"
+      ],
+      "experimental": true,
+      "steps": []
+    },
+    {
       "name": "web-core",
       "doc": "Use web apps in real browsers, the way the people who use them do: open pages, fill in forms, click buttons and links, answer dialogs, download files, and check what the page shows.\n\nEach web app is registered with its address:\n\n```gherkin\nGiven the parcels web app with the following properties:\n  | url | http://localhost:8400 |\n```\n\nThe browsers run on the machine that runs axx. The pack drives Playwright 1.64.1, and downloads its browsers the first time a scenario uses each one. In an agent's sandbox, which can keep a browser from starting, an axx host on the person's machine starts the browsers of a run, and the run drives them; such a run cannot watch them. The web app can use another `engine` (`firefox`, `webkit`, or the Google Chrome or Microsoft Edge installed on the machine), and present the browser as a `device` (like `iPhone 15`), with a `viewport`, a `locale` and a `timezone`.\n\n- **Pages.** `the {string} page is opened` opens a page of the app; the other steps act on it. A link that opens a new browser tab makes it the current tab, until it is closed.\n- **Finding things.** Fields are found by their label (or, without one, their placeholder), buttons, links, tabs and menu items by their name, and text anywhere on the page, in every frame: the names people see. Names must match exactly. Where a name is not enough, a step takes a selector in its place: `css=…`, `xpath=…` or `testid=…`.\n- **Waiting.** Every step waits for what it needs: an action for its element to be ready, a check for the page to show what it expects, 10 seconds unless `within {duration}` says otherwise. There is no step to sleep.\n- **Dialogs.** A dialog the page opens (an alert, a confirmation, a question) waits for `the dialog is accepted`, dismissed or answered; other steps fail while it is open.\n- **Isolation.** Each scenario has its own browser context: its own cookies and storage, so scenarios run in parallel.\n- **Failures.** A failed step attaches a screenshot of the page. A failed scenario keeps a Playwright trace in `.axx/web/traces`, step by step, with the feature file: open it with `npx playwright show-trace` or at trace.playwright.dev.\n- **Watching.** With `packs.web-core.watch: true` in axx.yaml, the browsers open in windows on your screen: watch the scenarios, and open DevTools. `slowdown` slows them down.\n- **Pausing.** `axx run --pause-at \u003cfile\u003e:\u003cline\u003e` pauses before a step, and `packs.web-core.pauseOnFailure: true` where a scenario fails, in Playwright's Inspector: resume, step through the browser's actions, pick an element, which the Inspector names as steps do (`the \"Register\" button`), or record what you do on the page as steps.\n- **Sessions.** A web app can start signed in: `cookie.\u003cname\u003e`, `header.\u003cname\u003e`, `local storage.\u003ckey\u003e`, `session storage.\u003ckey\u003e`, and `username` and `password` for HTTP authentication, for the app's address only.\n- **Secrets.** Take passwords and tokens from the environment, as `${env:…}`: whatever a step takes from the environment is shown as `********` in failures and traces.\n\nValues in the steps and the table expand `${env:..}` and `${sys:..}`.",
       "params": [

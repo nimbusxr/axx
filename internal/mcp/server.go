@@ -53,7 +53,8 @@ const Instructions = `axx runs acceptance criteria, written as Gherkin scenarios
 - Requests, responses and selections are numbered in the order a scenario adds them; a step without an ordinal means the first.
 - A value means what it says in every table: 53111 a number, "53111" the string, null, undefined (no such property); checks are strict, and an empty cell, 01067 or a number where only text fits is an error saying what to write.
 - Scenarios run in parallel and data persists: give every id, key and name a value of the scenario's own.
-- Check what a request did or why it was refused, not only its status code.`
+- Check what a request did or why it was refused, not only its status code.
+- With a controls pack (the controls_status tool is there): a scenario carries the tag of a control it proves (@asvs:6.2.1), and of no other. An exception is a person's to record.`
 
 // Options configures the server.
 type Options struct {

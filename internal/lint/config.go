@@ -38,6 +38,7 @@ const (
 	CodeSeveralRounds       = "AXX-E0837"
 	CodeSecondClause        = "AXX-E0838"
 	CodeDeprecatedStep      = "AXX-E0839"
+	CodePackCheck           = "AXX-E0840"
 )
 
 // Defaults of the lint config block.

@@ -115,6 +115,7 @@
     "AXX-E0837": "undefined",
     "AXX-E0838": "undefined",
     "AXX-E0839": "ok",
+    "AXX-E0840": "ok",
     "AXX-E0900": "usage",
     "AXX-E0901": "usage",
     "AXX-E0902": "failed",
@@ -134,7 +135,12 @@
     "AXX-E1004": "usage",
     "AXX-E1005": "usage",
     "AXX-E1006": "coverage",
-    "AXX-E1007": "usage"
+    "AXX-E1007": "usage",
+    "AXX-E1100": "usage",
+    "AXX-E1101": "usage",
+    "AXX-E1102": "usage",
+    "AXX-E1103": "failed",
+    "AXX-E1104": "usage"
   },
   "retired": []
 }

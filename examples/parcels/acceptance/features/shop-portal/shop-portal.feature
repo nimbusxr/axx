@@ -341,6 +341,7 @@ Feature: Shop portal
     And the page is reloaded
     Then the page shows "A parcel registered now is picked up tomorrow"
 
+  @asvs:7.3.1
   Scenario: The portal ends a session after 30 minutes without activity
     Given the browser's clock is set to "2026-09-25T09:00:00+02:00"
     And the "/quote" page is opened

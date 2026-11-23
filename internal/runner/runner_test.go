@@ -515,7 +515,7 @@ func TestAfterRunErrorsFailTheRun(t *testing.T) {
 	set, pickles := load(t, "Feature: ok\n  Scenario: fine\n    Given a passing step\n")
 	calls := 0
 	r, rec := newRunner(t, f, set, func(o *Options) {
-		o.AfterRun = func(context.Context) []RunError {
+		o.AfterRun = func(context.Context, *RunResult) []RunError {
 			calls++
 			return []RunError{{Source: "mock", Message: "a call broke its contract"}}
 		}
@@ -539,7 +539,7 @@ func TestAfterRunErrorsFailTheRun(t *testing.T) {
 	calls = 0
 	r, _ = newRunner(t, f, set, func(o *Options) {
 		o.DryRun = true
-		o.AfterRun = func(context.Context) []RunError { calls++; return nil }
+		o.AfterRun = func(context.Context, *RunResult) []RunError { calls++; return nil }
 	})
 	r.Run(context.Background(), pickles)
 	if calls != 0 {
@@ -783,5 +783,25 @@ func TestScenariosKnowTheirProgress(t *testing.T) {
 	p := sc.Progress()
 	if len(p) != 4 || !p[0].Background || p[0].Argument != "table" || p[1].Background || p[1].Keyword != "When" || p[1].Line != 8 {
 		t.Errorf("progress of the pickle: %+v", p)
+	}
+}
+
+// What looks at the run once it has finished is given every scenario's final result: a hook
+// cannot have it, as a scenario's outcome is set after its hooks ran.
+func TestAfterRunIsGivenTheScenariosResults(t *testing.T) {
+	f := &fixture{}
+	set, pickles := load(t, "Feature: sorting\n  Scenario: sorted\n    Given a passing step\n\n  Scenario: lost\n    Given a failing step\n\n  Scenario: later\n    Given a pending step\n")
+	var got []string
+	r, _ := newRunner(t, f, set, func(o *Options) {
+		o.AfterRun = func(_ context.Context, res *RunResult) []RunError {
+			for _, s := range res.Scenarios {
+				got = append(got, s.Pickle.Name+" "+s.Status.String())
+			}
+			return nil
+		}
+	})
+	r.Run(context.Background(), pickles)
+	if want := "sorted passed, lost failed, later pending"; strings.Join(got, ", ") != want {
+		t.Errorf("the results: %s, want %s", strings.Join(got, ", "), want)
 	}
 }

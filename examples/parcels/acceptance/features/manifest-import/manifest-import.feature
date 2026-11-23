@@ -38,6 +38,7 @@ Feature: Manifest import
       | lineId | ML-KES-0601-2 |
       | zone   | DE-1          |
 
+  @asvs:2.2.1
   Scenario: Invalid manifest lines are rejected with the reason
     Given a seeds/manifests/xml/rejected-lines.xml db seed
     When within 10s a selection of at least 1 row is retrieved from the parcels.manifest_lines table where:

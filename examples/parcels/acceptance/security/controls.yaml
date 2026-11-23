@@ -1,0 +1,18 @@
+# The controls of OWASP's ASVS that the parcels service is to cover, and how many scenarios each
+# takes: `axx controls show asvs:8.2.2` shows what one requires, `axx controls report` how each
+# stands, and `axx controls check` fails when one is not covered.
+framework: asvs
+title: The ASVS requirements the parcels service covers
+controls:
+  # Input is held to what the business expects of it.
+  "2.2.1":
+    scenarios: 3
+  # A shop reads its own parcels, and no other shop's.
+  "8.2.2":
+    scenarios: 2
+  # A session ends when it is not used.
+  "7.3.1":
+  # A token is checked by its signature before it is believed.
+  "9.1.1":
+  # Passwords are long enough.
+  "6.2.1":

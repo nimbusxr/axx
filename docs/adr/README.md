@@ -27,3 +27,4 @@ CLI JSON output or exit codes, the `axx.yaml` schema, or release/versioning poli
 | [0019](0019-devices-and-apps-start-in-the-axx-host-once-approved.md) | Devices and desktop apps start in the axx host, each app once its person approved it | Accepted |
 | [0020](0020-a-scroll-is-asked-of-the-view-a-swipe-is-a-finger.md) | A scroll is asked of the view; a swipe is a finger | Proposed |
 | [0021](0021-a-pack-can-be-experimental.md) | A pack can be experimental: it may still change, and adding it is the opt-in | Accepted |
+| [0022](0022-scenarios-claim-controls-and-a-report-shows-what-covers-each.md) | Scenarios claim controls with tags, and a report shows what covers each required control | Accepted |

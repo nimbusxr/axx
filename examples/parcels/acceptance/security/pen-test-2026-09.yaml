@@ -1,0 +1,8 @@
+# What the September pen test found of the controls the scenarios do not prove.
+source: Pen test of the shop API, September 2026
+link: https://example.com/parcels/reports/pen-test-2026-09
+date: 2026-09-18
+controls:
+  asvs:9.1.1:
+    state: covered
+    note: Tokens with a wrong, missing or "none" signature were refused (section 4.2).

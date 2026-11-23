@@ -31,6 +31,7 @@ packs:
   - web-lighthouse
   - web-coverage
   - coverage-go
+  - controls-asvs
   - mobile-core
   - mobile-android
   - mobile-ios

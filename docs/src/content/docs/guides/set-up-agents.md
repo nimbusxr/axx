@@ -237,6 +237,8 @@ Rules axx checks, and agents get wrong:
   server over stdio) is run by its step's `command`. `axx schema --outline` lists axx.yaml's keys.
 - Payloads, seeds or mock bodies that repeat: fixture factories generate them (`axx fixtures`; optional, recommended where
   data repeats); `axx fixtures adopt` turns hand-written ones into one.
+- With a controls pack (`axx controls report` says what is not covered): a scenario carries the tag of a control it proves
+  (`@asvs:6.2.1`), and of no other. An exception is a person's to record.
 
 If `.agents/skills` has the axx skills, they add what this leaves out: axx-acceptance-tests (feature shape, payload
 tables), axx-test-data (fixture factories), axx-debugging (failures), axx-setup, axx-custom-steps. `axx skills install`
