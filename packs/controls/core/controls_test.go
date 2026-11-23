@@ -733,6 +733,22 @@ func TestARunOfPartOfTheSuiteSaysWhatItProved(t *testing.T) {
 			!strings.Contains(said[1], "it is not a run of every scenario ("+name+")") || !strings.Contains(said[1], "`axx controls check` judges the runs together") {
 			t.Errorf("%s:\n%s", name, strings.Join(said, "\n"))
 		}
+
+		// A run of scenarios that claim no control is a run of something
+		// else: it says nothing, and still writes what it is, for the check
+		// that judges the runs together.
+		s, dir := suiteOf(t, `{"require": ["security/house.yaml"]}`, map[string]string{"security/house.yaml": houseRules})
+		said = nil
+		run.Scenarios = []core.Outcome{outcome(24, "A parcel is sorted", "failed", "@smoke")}
+		if err := (pack{}).FinishRun(context.Background(), s, run); err != nil {
+			t.Fatal(err)
+		}
+		if len(said) != 0 {
+			t.Errorf("%s, of scenarios that claim no control:\n%s", name, strings.Join(said, "\n"))
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".axx", "controls", "run.json")); err != nil {
+			t.Errorf("%s: its evidence: %v", name, err)
+		}
 	}
 }
 

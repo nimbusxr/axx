@@ -146,7 +146,8 @@ const maxSaid = 8
 // summarize says how the controls stand after a run. A run of every scenario
 // says how the required controls stand, and names those that are not covered.
 // A run of part of the suite says only what it proved: what it leaves not
-// covered may be what its scenarios did not get to.
+// covered may be what its scenarios did not get to. One whose scenarios claim
+// no control says nothing: it is a run of something else.
 func summarize(say func(string), r *Report, run core.Run, file string) {
 	if run.Shard != "" || run.Partial != "" {
 		var proven []string
@@ -159,6 +160,9 @@ func summarize(say func(string), r *Report, run core.Run, file string) {
 			case passing(cr.Scenarios) > 0:
 				proven = append(proven, cr.Control)
 			}
+		}
+		if len(proven) == 0 && failing == 0 && len(r.Unknown) == 0 {
+			return
 		}
 		line := fmt.Sprintf("controls: this run proved %s", plural(len(proven), "control"))
 		if len(proven) > 0 {
