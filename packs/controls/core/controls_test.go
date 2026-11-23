@@ -130,7 +130,7 @@ func TestHowAControlStands(t *testing.T) {
 	}
 	var unmet []string
 	for _, cr := range r.Unmet() {
-		unmet = append(unmet, cr.Control+": "+cr.why())
+		unmet = append(unmet, cr.Control+": "+cr.Why())
 	}
 	if strings.Join(unmet, "; ") != "house:lockout: 1 scenario of the 2 it takes; house:session-end: no scenario is tagged @house:session-end" {
 		t.Errorf("what is not covered: %s", unmet)
@@ -161,8 +161,8 @@ func TestSeveralScenariosForOneControl(t *testing.T) {
 		scenario(21, "A locked account stays locked for a minute", "failed", "house:lockout"),
 	), []*Evidence{pen}, time.Now())
 	lockout := r.Controls[1]
-	if lockout.State != Failing || lockout.why() != "features/sign-in/sign-in.feature:21 failed" {
-		t.Errorf("one of its scenarios failed: %s (%s)", lockout.State, lockout.why())
+	if lockout.State != Failing || lockout.Why() != "features/sign-in/sign-in.feature:21 failed" {
+		t.Errorf("one of its scenarios failed: %s (%s)", lockout.State, lockout.Why())
 	}
 	// A scenario that was skipped proves nothing, and fails nothing.
 	r = p.report(run(scenario(8, "A password under 12 characters is refused", "skipped", "house:password-length")), nil, time.Now())
@@ -187,13 +187,13 @@ func TestExceptionsEndAndSourcesCanFailAControl(t *testing.T) {
 	}
 	r := p.report(at(21), nil, time.Now())
 	ended := r.Controls[2]
-	if ended.State != NotCovered || !ended.Expired || ended.why() != "its exception ended on 2027-03-20" {
-		t.Errorf("the day after: %s, expired %v (%s)", ended.State, ended.Expired, ended.why())
+	if ended.State != NotCovered || !ended.Expired || ended.Why() != "its exception ended on 2027-03-20" {
+		t.Errorf("the day after: %s, expired %v (%s)", ended.State, ended.Expired, ended.Why())
 	}
 	scan := &Evidence{Kind: KindOther, Source: "Scanner", Findings: []Finding{{Control: "house:audit", State: "failing", Note: "finding 12"}}}
 	r = p.report(run(), []*Evidence{scan}, time.Now())
-	if audit := r.Controls[4]; audit.State != Failing || audit.why() != "Scanner: finding 12" {
-		t.Errorf("a source says it fails: %s (%s)", audit.State, audit.why())
+	if audit := r.Controls[4]; audit.State != Failing || audit.Why() != "Scanner: finding 12" {
+		t.Errorf("a source says it fails: %s (%s)", audit.State, audit.Why())
 	}
 }
 
@@ -863,5 +863,40 @@ func TestAPackAddsAListToAnotherPacksFramework(t *testing.T) {
 	// The framework's own pack still has only its own lists.
 	if f := registered()["ports"]; len(f.Lists) != 1 {
 		t.Errorf("the lists of the framework: %+v", f.Lists)
+	}
+}
+
+// A control's ID as a name, for the formats that take only names: as its
+// framework writes it, or the ID made one.
+func TestAControlsIDAsAName(t *testing.T) {
+	plain := &Framework{Key: "plain"}
+	for id, want := range map[string]string{
+		"lockout": "lockout", "8.3.6": "_8.3.6", "IA-5(1)": "IA-5_1_", "A.5.1": "A.5.1", "CC6.1": "CC6.1", "§4": "_4", "_x y": "_x_y",
+	} {
+		if got := plain.token(id); got != want {
+			t.Errorf("%q as a name: %q, want %q", id, got, want)
+		}
+	}
+	own := &Framework{Key: "own", Token: func(id string) string { return strings.TrimPrefix("R"+id, "Rnone") }}
+	if got := own.token("7"); got != "R7" {
+		t.Errorf("the framework's own name: %q", got)
+	}
+	// A framework that has no name for an ID leaves it to the rule.
+	if got := own.token("none"); got != "none" {
+		t.Errorf("an ID its framework names nothing for: %q", got)
+	}
+
+	RegisterFramework(Framework{Key: "quay", Title: "Quay rules", Version: "2", Token: strings.ToLower, Controls: []Control{{ID: "Q-1", Title: "Bollards"}}})
+	dir, decode := newProject(t, `{}`, map[string]string{"security/quay.yaml": "framework: quay\ncontrols:\n  Q-1:\n"})
+	p, err := loadProject(dir, decode, overrides{require: []string{"security/quay.yaml"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := p.report(nil, nil, time.Now())
+	if len(r.Controls) != 1 || r.Controls[0].Token != "q-1" {
+		t.Errorf("the report's control: %+v", r.Controls)
+	}
+	if len(r.Frameworks) != 1 || r.Frameworks[0] != (ReportFramework{Key: "quay", Title: "Quay rules", Version: "2"}) {
+		t.Errorf("the report's frameworks: %+v", r.Frameworks)
 	}
 }

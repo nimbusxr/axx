@@ -229,8 +229,8 @@ the skills instead: `axx skills install`.
   each ended), says how the required controls stand, and has the commands: `axx controls list|show|report|check`. A
   run never fails because of a control: `check` is the gate, and judges one run's evidence or several runs' together
   (`merge`), with the project's lists and exceptions or the ones it is given. It knows no framework: a list in a
-  project is a file, and packs register frameworks (`controls-asvs`, `controls-nist`), report formats and sources of
-  evidence with it (`RegisterFramework`, `RegisterList`, `RegisterFormat`, `RegisterSource`): keep it so, and
+  project is a file, and packs register frameworks (`controls-asvs`, `controls-nist`), report formats (`controls-oscal`:
+  OSCAL assessment results, held to NIST's schemas in its testdata) and sources of evidence with it (`RegisterFramework`, `RegisterList`, `RegisterFormat`, `RegisterSource`): keep it so, and
   controls-core's own formats no different from a pack's. The frameworks' data is embedded, fetched by hand from its
   publishers at pinned commits and hashes (`internal/tools/controlsdata`): go generate downloads nothing. Evidence
   names controls by ID and has none of a framework's text, which has its own terms (ASVS: CC BY-SA 4.0,

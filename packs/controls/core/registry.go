@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"unicode"
 )
 
 // A Framework is a set of controls that a scenario's tags can name: OWASP's
@@ -33,6 +34,38 @@ type Framework struct {
 	// control, where a framework has several (NIST's IA-5(1), IA-5.1 and
 	// ia-5.1). nil: an ID is written one way, in any case of its letters.
 	Same func(a, b string) bool
+	// Token writes a control's ID as a name, for the formats that take only
+	// names (OSCAL's control-id: a letter or an underscore first, then letters,
+	// digits, periods, hyphens and underscores): NIST's is the ID as its OSCAL
+	// catalog has it, ia-5.1, and ASVS's the ID as ASVS writes it, V6.2.1.
+	// nil: the ID, with an underscore before a first character that is neither,
+	// and in place of any character a name may not have.
+	Token func(id string) string
+}
+
+// token is a control's ID as a name.
+func (f *Framework) token(id string) string {
+	if f.Token != nil {
+		if t := f.Token(id); t != "" {
+			return t
+		}
+	}
+	var b strings.Builder
+	for i, r := range id {
+		letter := unicode.IsLetter(r) || r == '_'
+		switch {
+		case i == 0 && !letter:
+			b.WriteByte('_')
+			if unicode.IsDigit(r) {
+				b.WriteRune(r)
+			}
+		case letter || unicode.IsDigit(r) || r == '.' || r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
 }
 
 // Control is one control of a framework.
@@ -133,6 +166,14 @@ func RegisterFormat(f Format) {
 	mu.Lock()
 	defer mu.Unlock()
 	formats[f.Name] = f
+}
+
+// HasFormat reports whether a format of that name is registered.
+func HasFormat(name string) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	_, ok := formats[name]
+	return ok
 }
 
 // RegisterSource adds a kind of file that is read as evidence.

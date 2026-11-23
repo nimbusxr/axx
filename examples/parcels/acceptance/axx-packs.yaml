@@ -32,6 +32,7 @@ packs:
   - web-coverage
   - coverage-go
   - controls-asvs
+  - controls-oscal
   - mobile-core
   - mobile-android
   - mobile-ios

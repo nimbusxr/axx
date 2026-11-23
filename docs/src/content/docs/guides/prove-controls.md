@@ -132,7 +132,24 @@ axx controls report --format json                # as data
 
 The report lists every required control with what covers it: its scenarios by name and file, the other evidence with its link, and the exception with its reason. Controls that are covered and in no required list come after.
 
-Other packs add formats: `controls-oscal` writes OSCAL assessment results.
+Other packs add formats.
+
+### OSCAL
+
+OSCAL is NIST's format for security assessments, which United States government programs and many compliance tools read. Add the `controls-oscal` pack, and the report is written as OSCAL assessment results:
+
+```sh
+axx pack add controls-oscal
+axx controls report --format oscal --out assessment-results.json
+```
+
+- **Each framework is a result,** with the controls it reviewed.
+- **Each scenario is an observation** of a test, with its feature file and line as the evidence. What another source says is an observation too, with its link.
+- **Each control is a finding:** satisfied or not satisfied, with the observations it rests on.
+- **A control that does not apply** is satisfied, and its implementation status says not-applicable, with the reason.
+- **A risk accepted until a day** is a risk whose deviation is approved, with that day as its deadline. Its control stays not satisfied.
+
+The document is valid against NIST's schema (OSCAL 1.1.3), and names controls as OSCAL does: `ia-5.1` for NIST's IA-5(1), `V6.2.1` for an ASVS requirement. It names no assessment plan, as the scenarios have none: a note in the document says so. A program that requires one (FedRAMP's, say) has rules of its own beyond the format, which the document does not claim to meet.
 
 ## Turn on the gate
 

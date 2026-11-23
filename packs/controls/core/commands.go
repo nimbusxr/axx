@@ -274,7 +274,7 @@ func runShow(call *core.CommandCall) error {
 		default:
 			fmt.Fprintln(w, "in no list the project requires")
 		}
-		fmt.Fprintf(w, "%s: %s\n", cr.State, cr.why())
+		fmt.Fprintf(w, "%s: %s\n", cr.State, cr.Why())
 		if !judged {
 			fmt.Fprintln(w, "  (no run has written its evidence yet: `axx run` does)")
 		}
@@ -532,7 +532,7 @@ func runCheck(call *core.CommandCall) error {
 			width = max(width, len(cr.Control))
 		}
 		for _, cr := range unmet {
-			fmt.Fprintf(w, "  %-*s  %-13s  %s\n", width, cr.Control, cr.State, cr.why())
+			fmt.Fprintf(w, "  %-*s  %-13s  %s\n", width, cr.Control, cr.State, cr.Why())
 		}
 		writeUnknown(w, r, "", "  %s  %s\n")
 		if r.Partial != "" {

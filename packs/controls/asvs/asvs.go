@@ -107,7 +107,7 @@ var framework = sync.OnceValue(func() controlscore.Framework {
 	if err := json.Unmarshal(bytes.TrimPrefix(raw, []byte("\xef\xbb\xbf")), &doc); err != nil {
 		panic(fmt.Errorf("the controls-asvs pack's data: %w", err))
 	}
-	f := controlscore.Framework{Key: "asvs", Title: "OWASP ASVS", Version: Version, Notice: Notice, Same: Same}
+	f := controlscore.Framework{Key: "asvs", Title: "OWASP ASVS", Version: Version, Notice: Notice, Same: Same, Token: func(id string) string { return "V" + id }}
 	levels := map[string][]controlscore.Required{}
 	for _, r := range doc.Requirements {
 		id := strings.TrimPrefix(r.ID, "V")

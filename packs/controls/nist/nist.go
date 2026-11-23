@@ -169,7 +169,7 @@ var framework = sync.OnceValue(func() controlscore.Framework {
 	if err := json.Unmarshal(raw, &controls); err != nil {
 		panic(fmt.Errorf("the controls-nist pack's data: %w", err))
 	}
-	f := controlscore.Framework{Key: "nist", Title: "NIST SP 800-53", Version: Version, Same: Same}
+	f := controlscore.Framework{Key: "nist", Title: "NIST SP 800-53", Version: Version, Same: Same, Token: strings.ToLower}
 	for _, c := range controls {
 		group := c.Family
 		if c.Of != "" {

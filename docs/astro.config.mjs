@@ -284,7 +284,7 @@ export default defineConfig({
 								{
 									label: 'Controls',
 									collapsed: true,
-									items: packsOf(['controls-core', 'controls-asvs', 'controls-nist']),
+									items: packsOf(['controls-core', 'controls-asvs', 'controls-nist', 'controls-oscal']),
 								},
 								{
 									label: 'Models',
