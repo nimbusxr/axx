@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "node"
           cache: false # this job also publishes
@@ -187,7 +187,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # No cache: what this job builds goes into the release.
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go node"
           cache: false
@@ -238,7 +238,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # No cache: what this job builds goes into the release.
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go java"
           cache: false
@@ -296,7 +296,7 @@ jobs:
           ref: ${{ needs.release-please.outputs.axx_tag }}
           persist-credentials: false
       # No cache in a job that publishes.
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go"
           cache: false
@@ -360,7 +360,7 @@ jobs:
           repositories: homebrew-tap
           permission-contents: write
       # No cache in a job that publishes: a restored cache could feed the release.
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go goreleaser"
           cache: false
@@ -456,7 +456,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "go goreleaser"
           # Tools are cached from main only: pull requests read them.
@@ -565,7 +565,7 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.vscode_tag }}
           persist-credentials: false
-      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
         with:
           install_args: "node"
           cache: false # this job publishes

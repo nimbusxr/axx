@@ -241,14 +241,14 @@
     "vscode:prepublish": "npm run typecheck && node esbuild.mjs --production"
   },
   "dependencies": {
-    "vscode-languageclient": "11.0.0"
+    "vscode-languageclient": "11.0.1"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
     "@types/vscode": "1.125.0",
     "@vscode/vsce": "4.1.1",
     "esbuild": "0.28.2",
-    "ovsx": "1.3.0",
+    "ovsx": "1.4.0",
     "typescript": "7.0.2",
     "vscode-oniguruma": "2.0.1",
     "vscode-textmate": "9.3.2"
