@@ -1,0 +1,78 @@
+# TEMPORARY: measures what keeping axx's cache gives on a GitHub runner. Removed before this
+# pull request is ready.
+name: tmp-cache-probe
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/tmp-cache-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
+        with:
+          install_args: "go"
+          cache: false
+      - name: an axx as a release installs it, twice
+        run: |
+          mkdir -p "$RUNNER_TEMP/a" "$RUNNER_TEMP/b" "$RUNNER_TEMP/proj"
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/nimbusxr/axx/internal/version.Version=0.8.0" -o "$RUNNER_TEMP/a/axx" ./cmd/axx
+          sleep 2
+          cp "$RUNNER_TEMP/a/axx" "$RUNNER_TEMP/b/axx"
+          nproc; free -g | head -2
+      - name: measure
+        working-directory: ${{ runner.temp }}/proj
+        run: |
+          A="$RUNNER_TEMP/a/axx"; B="$RUNNER_TEMP/b/axx"
+          unset GOROOT GOBIN GOPATH GOFLAGS
+          export PATH="/usr/bin:/bin:/usr/local/bin"
+          t() { local s=$SECONDS; "$@" 2>&1 | grep -E "preparing|ready in|AXX-E|error" || true; echo "   took $((SECONDS - s))s"; }
+          sizes() { du -sm ~/.cache/axx/* ~/.cache/axx/go/* 2>/dev/null | sed 's/^/   MB /'; }
+          "$A" init --no-agents --no-ci > /dev/null
+
+          echo "== 1. rest, empty cache"
+          t "$A" validate; sizes
+          echo "== 2. the same release installed again"
+          out=$("$B" validate 2>&1); echo "$out" | grep -c preparing || true
+          if echo "$out" | grep -q preparing; then echo "::error::axx installed again prepared again"; exit 1; fi
+
+          echo "== 3. rest, sql, web-core, empty cache"
+          rm -rf ~/.cache/axx
+          printf 'packs:\n  - rest\n  - sql\n  - web-core\n' > axx-packs.yaml
+          t "$A" validate; sizes
+
+          echo "== 4. a custom pack added, with Go's folder kept"
+          "$A" pack new steps > /dev/null
+          t "$A" validate
+          echo "== 5. a fresh checkout: every file a new time"
+          find . -type f -exec touch {} +
+          out=$("$B" validate 2>&1)
+          if echo "$out" | grep -q preparing; then echo "::error::a fresh checkout prepared again"; exit 1; fi
+          echo "   no prepare"
+
+          echo "== 6. the pack changes, with Go's folder kept"
+          printf '\n// a change\n' >> steps/pack.go
+          t "$A" validate
+          echo "== 7. Go's folder, as a cache would hold it"
+          s=$SECONDS; tar -C ~/.cache/axx -cf - go | zstd -T0 -q > "$RUNNER_TEMP/go.tar.zst"; echo "   packed in $((SECONDS - s))s: $(du -m "$RUNNER_TEMP/go.tar.zst" | cut -f1) MB"
+          s=$SECONDS; tar -C ~/.cache/axx -cf - go/go1.* go/path | zstd -T0 -q > "$RUNNER_TEMP/go-nobuild.tar.zst"; echo "   without its build cache, packed in $((SECONDS - s))s: $(du -m "$RUNNER_TEMP/go-nobuild.tar.zst" | cut -f1) MB"
+          s=$SECONDS; tar -C ~/.cache/axx -cf - builds | zstd -T0 -q > "$RUNNER_TEMP/builds.tar.zst"; echo "   the builds, packed in $((SECONDS - s))s: $(du -m "$RUNNER_TEMP/builds.tar.zst" | cut -f1) MB"
+          s=$SECONDS; mkdir "$RUNNER_TEMP/unpack"; zstd -dc "$RUNNER_TEMP/go.tar.zst" | tar -C "$RUNNER_TEMP/unpack" -xf -; echo "   unpacked in $((SECONDS - s))s"
+
+          echo "== 8. the pack changes, with only the toolchain and modules kept (no build cache)"
+          chmod -R u+w ~/.cache/axx/go/build 2>/dev/null || true; rm -rf ~/.cache/axx/go/build
+          printf '\n// another change\n' >> steps/pack.go
+          t "$A" validate
+          echo "== 9. the pack changes, with only the builds kept (no Go folder)"
+          chmod -R u+w ~/.cache/axx/go; rm -rf ~/.cache/axx/go
+          printf '\n// a third change\n' >> steps/pack.go
+          t "$A" validate; sizes
