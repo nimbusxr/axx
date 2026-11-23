@@ -187,3 +187,6 @@ The app logs what it does under the subsystem `example.parcels.courier`:
 ```sh
 xcrun simctl spawn booted log stream --predicate 'subsystem == "example.parcels.courier"'
 ```
+
+A debug build also logs each touch the app is given: where it began, in which view, and how it
+ended (`TouchLog.swift`). A tap that did nothing is found there.

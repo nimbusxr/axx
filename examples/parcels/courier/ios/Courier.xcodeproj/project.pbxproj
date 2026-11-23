@@ -27,6 +27,7 @@
 		CA0000000000000000000B17 /* CourierNotesModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F17 /* CourierNotesModel.swift */; };
 		CA0000000000000000000B18 /* CourierNotesModelStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F18 /* CourierNotesModelStub.swift */; };
 		CA0000000000000000000B19 /* MissedCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F19 /* MissedCard.swift */; };
+		CA0000000000000000000B22 /* TouchLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0000000000000000000F22 /* TouchLog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		CA0000000000000000000F17 /* CourierNotesModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourierNotesModel.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F18 /* CourierNotesModelStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/CourierNotesModelStub.swift; sourceTree = "<group>"; };
 		CA0000000000000000000F19 /* MissedCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissedCard.swift; sourceTree = "<group>"; };
+		CA0000000000000000000F22 /* TouchLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchLog.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +104,7 @@
 				CA0000000000000000000F17 /* CourierNotesModel.swift */,
 				CA0000000000000000000F18 /* CourierNotesModelStub.swift */,
 				CA0000000000000000000F19 /* MissedCard.swift */,
+				CA0000000000000000000F22 /* TouchLog.swift */,
 				CA0000000000000000000F07 /* Info.plist */,
 			);
 			path = Courier;
@@ -301,6 +304,7 @@
 				CA0000000000000000000B17 /* CourierNotesModel.swift in Sources */,
 				CA0000000000000000000B18 /* CourierNotesModelStub.swift in Sources */,
 				CA0000000000000000000B19 /* MissedCard.swift in Sources */,
+				CA0000000000000000000B22 /* TouchLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

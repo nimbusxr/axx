@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -181,6 +182,35 @@ func warm(t *testing.T, h *cloudtest.Harness, device string) {
 		t.Cleanup(func() { once.(*sync.Once).Do(func() { report(t, h) }) })
 	}
 }
+
+// taskRequestPriority is the priority the app's last background task made its first request at,
+// as iOS's networking logs it when a request starts ("qos(0x19)"; 0x9 is the background's, the
+// lowest). The task's handler runs on a queue, and what it starts takes the queue's priority.
+func taskRequestPriority(t *testing.T, h *cloudtest.Harness) string {
+	t.Helper()
+	var log string
+	err := mobilecore.OnDevice(h.SC, "courier", func(ctx context.Context, d mobilecore.Device) error {
+		udid, _ := d.Describe()["udid"].(string)
+		out, err := exec.CommandContext(ctx, "xcrun", "simctl", "spawn", udid, "log", "show", "--last", "2m", "--style", "compact", "--predicate", //nolint:gosec // the test's own simulator
+			`process == "Courier" AND (eventMessage BEGINSWITH "Starting simulated task" OR eventMessage CONTAINS "resuming, timeouts")`).CombinedOutput()
+		log = string(out)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("cannot read the simulator's log: %v\n%s", err, log)
+	}
+	i := strings.LastIndex(log, "Starting simulated task")
+	if i < 0 {
+		t.Fatalf("the simulator's log has no background task started:\n%s", log)
+	}
+	m := requestPriority.FindStringSubmatch(log[i:])
+	if m == nil {
+		t.Fatalf("the simulator's log has no request the background task made:\n%s", log[i:])
+	}
+	return m[1]
+}
+
+var requestPriority = regexp.MustCompile(`resuming, timeouts\([^)]*\) qos\((0x[0-9a-f]+)\)`)
 
 // scenarioLimit is how long a scenario may take: on a hosted runner, a
 // simulator is slow for minutes after it boots, and a journey of twenty-odd
@@ -627,6 +657,10 @@ func TestACourierIsRemindedOfTheRoundOnASimulator(t *testing.T) {
 	time.Sleep(15 * time.Second) // iOS suspends the app a few seconds into the background
 	_ = h.Fails(`the "example.parcels.courier.round-reminders" background task is run in the courier app`, `its background tasks are "example.parcels.courier.round-reminder"`)
 	h.OK(`the "example.parcels.courier.round-reminder" background task is run in the courier app`)
+	if got := taskRequestPriority(t, h); got == "0x9" {
+		t.Errorf("the task's request for the deliveries ran at the background's priority (qos %s): a Mac whose processors are busy leaves that waiting, "+
+			"and the task outruns its 30 seconds (the library's onScreenQueue)", got)
+	}
 	// A fresh simulator's first notification: SpringBoard's notifications pipeline (its Do Not
 	// Disturb resolution, its notification intelligence) has delivered it a minute late on CI's
 	// runner.
