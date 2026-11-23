@@ -391,17 +391,18 @@ func TestSettingsThatDoNotHoldAreRefused(t *testing.T) {
 // for, and do not count.
 func TestACommandCanGoByOtherListsAndExceptions(t *testing.T) {
 	dir, decode := newProject(t, `{"require": ["security/short.yaml"], "exceptions": [
-		{"control": "house:session-end", "kind": "not-applicable", "reason": "We would rather not."}
+		{"control": "house:session-end", "kind": "not-applicable", "reason": "We would rather not."},
+		{"control": "house:uploads", "kind": "not-applicable", "reason": "No files here."}
 	]}`, map[string]string{
 		"security/house.yaml":    houseRules,
-		"security/short.yaml":    "framework: house\ncontrols:\n  password-length: Passwords are at least 12 characters long\n  session-end: A session ends\n",
+		"security/short.yaml":    "framework: house\ncontrols:\n  password-length: Passwords are at least 12 characters long\n  session-end: A session ends\n  uploads: Uploaded files are scanned\n",
 		"security/approved.yaml": "exceptions:\n  - control: house:uploads\n    kind: not-applicable\n    reason: The service takes no files.\n",
 	})
 	own, err := loadProject(dir, decode, overrides{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := states(own.report(run(), nil, time.Now()))["house:session-end"]; got != Excepted || len(own.lists[0].Controls) != 2 {
+	if got := states(own.report(run(), nil, time.Now()))["house:session-end"]; got != Excepted || len(own.lists[0].Controls) != 3 {
 		t.Errorf("by the project's own settings: %s", got)
 	}
 	theirs, err := loadProject(dir, decode, overrides{require: []string{"security/house.yaml"}, exceptions: "security/approved.yaml"})
@@ -412,8 +413,15 @@ func TestACommandCanGoByOtherListsAndExceptions(t *testing.T) {
 	if s := states(r); s["house:session-end"] != NotCovered || s["house:uploads"] != Excepted || len(r.Controls) != 5 {
 		t.Errorf("by the security team's: %v", s)
 	}
+	// What the project asks for and the others have too is no request: it
+	// counts, with their reason.
 	if len(r.Requested) != 1 || r.Requested[0].Control != "house:session-end" {
 		t.Errorf("the project's own exception, asked for: %+v", r.Requested)
+	}
+	for _, cr := range r.Controls {
+		if cr.Control == "house:uploads" && cr.Exception.Reason != "The service takes no files." {
+			t.Errorf("the approved exception's reason: %q", cr.Exception.Reason)
+		}
 	}
 }
 

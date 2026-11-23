@@ -180,7 +180,7 @@ A control is proven when the scenarios that claim it passed, across all the runs
 axx controls check --require security-baseline.yaml --exceptions approved-exceptions.yaml
 ```
 
-The project's own exceptions are then shown in the report as asked for, and do not count.
+The project's own exceptions are then shown in the report as asked for, and do not count. [Controls for security teams and auditors](/guides/controls-for-security-teams/) has the whole arrangement: who keeps the list, how an exception is approved, and what an auditor is given.
 
 ### Sign what was checked
 
