@@ -299,9 +299,16 @@ func findModule(dir string) (root, modulePath string, err error) {
 func buildKey(o Options, locals map[string]local) (string, error) {
 	h := sha256.New()
 	fmt.Fprintf(h, "axx=%s\nsource=%s\n%s/%s\ndebug=%t\n", o.AxxVersion, o.AxxSource, runtime.GOOS, runtime.GOARCH, o.Debug)
-	if self, err := os.Executable(); err == nil {
-		if st, err := os.Stat(self); err == nil {
-			fmt.Fprintf(h, "self=%d:%d\n", st.Size(), st.ModTime().UnixNano())
+	// A build from a source directory is of whatever the directory holds, the files its packs
+	// embed included, which hashTree does not read: the axx built from it stands for them, by
+	// its size and time. A release's build is of the release's module, the same for every copy
+	// of that release: the key has nothing of the copy, so that a machine that installs axx
+	// afresh for each run (a CI runner) finds the build it kept from the run before.
+	if o.AxxSource != "" {
+		if self, err := executable(); err == nil {
+			if st, err := os.Stat(self); err == nil {
+				fmt.Fprintf(h, "self=%d:%d\n", st.Size(), st.ModTime().UnixNano())
+			}
 		}
 	}
 	for _, e := range o.Entries {
@@ -333,7 +340,11 @@ func buildKey(o Options, locals map[string]local) (string, error) {
 	return hex.EncodeToString(h.Sum(nil))[:20], nil
 }
 
-// hashTree hashes the names, sizes and times of the Go sources under dir.
+// executable is the running axx; a test names another.
+var executable = os.Executable
+
+// hashTree hashes the Go sources under dir: their names, from dir, and what they hold. Not their
+// times, nor where dir is: a fresh checkout of the same commit, wherever it is, has the same key.
 func hashTree(h io.Writer, dir string) error {
 	return filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -353,11 +364,20 @@ func hashTree(h io.Writer, dir string) error {
 		if !strings.HasSuffix(name, ".go") && name != "go.mod" && name != "go.sum" {
 			return nil
 		}
-		st, err := d.Info()
+		rel, err := filepath.Rel(dir, p)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(h, "%s:%d:%d\n", filepath.ToSlash(p), st.Size(), st.ModTime().UnixNano())
+		f, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		sum := sha256.New()
+		if _, err := io.Copy(sum, f); err != nil {
+			return err
+		}
+		fmt.Fprintf(h, "%s:%x\n", filepath.ToSlash(rel), sum.Sum(nil))
 		return nil
 	})
 }
