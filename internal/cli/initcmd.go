@@ -120,6 +120,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: nimbusxr/setup-axx@v0
+      # What axx prepares for the project's packs, kept between runs (minutes, on a fresh runner).
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/axx/builds
+            ~/.cache/axx/go
+            ~/.cache/axx/versions
+          key: axx-${{"{{"}} runner.os {{"}}"}}-${{"{{"}} hashFiles('axx.yaml', 'axx-packs.yaml', 'axx-packs.lock') {{"}}"}}
+          restore-keys: axx-${{"{{"}} runner.os {{"}}"}}-
       - run: axx fmt --check
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - uses: actions/upload-artifact@v7

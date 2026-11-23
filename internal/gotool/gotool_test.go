@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -360,5 +361,21 @@ func TestAXXGoWins(t *testing.T) {
 	tc, err := Ensure(context.Background(), Options{CacheDir: t.TempDir()})
 	if err != nil || tc.Go != "/opt/go/bin/go" {
 		t.Fatalf("%+v %v", tc, err)
+	}
+}
+
+// What axx has go download can be removed by its owner: go's own module folders are read-only,
+// which keeps axx's cache from being deleted and a CI system from cleaning a cache it keeps
+// in the project's folder.
+func TestTheModulesGoDownloadsCanBeRemoved(t *testing.T) {
+	t.Setenv("GOFLAGS", "-tags=the-users")
+	flags := ""
+	for _, kv := range baseEnv() { // a process takes the last of a variable given twice
+		if v, ok := strings.CutPrefix(kv, "GOFLAGS="); ok {
+			flags = v
+		}
+	}
+	if !slices.Contains(strings.Fields(flags), "-modcacherw") {
+		t.Errorf("GOFLAGS=%s: without -modcacherw", flags)
 	}
 }

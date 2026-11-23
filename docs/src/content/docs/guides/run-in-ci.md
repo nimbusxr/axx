@@ -26,6 +26,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: nimbusxr/setup-axx@v0
+      # What axx prepares for the project's packs, kept between runs (minutes, on a fresh runner).
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/axx/builds
+            ~/.cache/axx/go
+            ~/.cache/axx/versions
+          key: axx-${{ runner.os }}-${{ hashFiles('axx.yaml', 'axx-packs.yaml', 'axx-packs.lock') }}
+          restore-keys: axx-${{ runner.os }}-
       - run: axx fmt --check
       - run: axx run --format junit:build/axx/junit.xml --format html:build/axx/report.html
       - uses: actions/upload-artifact@v7
@@ -34,6 +43,8 @@ jobs:
           name: axx-report
           path: build/axx/
 ```
+
+The `actions/cache` step keeps what Axx prepares for the project's packs, so that only the first run takes the minutes that needs ([Keep Axx's cache](#keep-axxs-cache)).
 
 The first `run` step checks that the feature files are laid out as `axx fmt` lays them out, and fails the job on any that are not, before a service starts. To fix that, run `axx fmt` and commit what it changed ([Format the feature files](/guides/organize-by-feature/#format-the-feature-files)).
 
@@ -83,15 +94,55 @@ docker run --rm -v axx-cache:/home/nonroot -v "$PWD:/work" -w /work ghcr.io/nimb
 
 ## Keep Axx's cache
 
-The first command in a project prepares Axx with the packs in `axx-packs.yaml` ([Choose packs](/guides/use-packs/)). On a fresh runner, that happens on every run. Keep the prepared builds between runs to skip it. In GitHub Actions, add this step before `axx run`:
+The first command in a project prepares Axx with the packs in `axx-packs.yaml` ([Choose packs](/guides/use-packs/)): it downloads a Go toolchain and the packs' modules, and builds itself with them. On your machine that happens once. A CI runner starts empty, so there it happens on every run, unless the job keeps Axx's cache between runs.
+
+Measured on GitHub's Ubuntu runners, with `rest`, `sql`, `web-core` and a pack of the project's own:
+
+| | Time |
+| --- | --- |
+| Preparing, with nothing kept | 2 minutes 44 seconds (1 minute 40 seconds with `rest` alone) |
+| Restoring the cache (about 500 MB) | 11 seconds |
+| Preparing, with the cache restored | none |
+| Preparing again after the project's own pack changed, with the cache restored | 2 seconds |
+
+Axx's cache is the folder `~/.cache/axx` on Linux (`~/Library/Caches/axx` on macOS, `%LocalAppData%\axx` on Windows). Three folders in it are the ones to keep:
+
+| Folder | What it holds | What keeping it saves |
+| --- | --- | --- |
+| `builds` | Axx, built with a project's packs | With it, a run prepares nothing. |
+| `go` | The Go toolchain, the packs' modules and what Go compiled | With it, preparing again takes seconds: after a pack of your own changed, or after a change to the list of packs. |
+| `versions` | The Axx release the project's `axx.yaml` names | Its download, about 12 MB. |
+
+### In GitHub Actions
+
+The workflow `axx init` writes has this step. In a workflow of your own, add it after `setup-axx`, before the first `axx` command:
 
 ```yaml
       - uses: actions/cache@v6
         with:
-          path: ~/.cache/axx/builds
-          key: axx-${{ runner.os }}-${{ hashFiles('**/axx-packs.yaml', '**/axx-packs.lock') }}
+          path: |
+            ~/.cache/axx/builds
+            ~/.cache/axx/go
+            ~/.cache/axx/versions
+          key: axx-${{ runner.os }}-${{ hashFiles('axx.yaml', 'axx-packs.yaml', 'axx-packs.lock') }}
           restore-keys: axx-${{ runner.os }}-
 ```
+
+What it does:
+
+1. The key is made from the three files that say which Axx and which packs the project runs on. While they stay the same, the job restores the same cache, and Axx prepares nothing.
+2. When one of them changes, `restore-keys` restores the newest cache there is. Axx prepares only what changed, and the job saves the result under the new key.
+3. A pack of the project's own that changed is prepared again in each run, in about 2 seconds, until the key next changes. To have the job keep that build too, add the pack's files to the key (`hashFiles('axx.yaml', 'axx-packs.yaml', 'axx-packs.lock', 'steps/**')`).
+
+A restored cache can never give a run the wrong build. Axx finds a build by what it is made from: the Axx release, the packs and their versions, and the code of the project's own packs. When no build fits, it prepares one.
+
+The cache grows a little each time it is saved under a new key, because it then holds the earlier builds too. To start again from an empty cache, change the key's first word (`axx-` to `axx2-`, in `key` and in `restore-keys`).
+
+:::note
+Axx 0.8.0 and earlier find a build by the time the `axx` program was installed, among other things, so a fresh runner prepares again even with the cache restored. Upgrade Axx first.
+:::
+
+### In GitLab CI
 
 GitLab caches only paths inside the project, so move Axx's cache there:
 
@@ -101,11 +152,20 @@ acceptance:
     XDG_CACHE_HOME: "$CI_PROJECT_DIR/.cache"
   cache:
     key:
-      files: [axx-packs.yaml]
-    paths: [.cache/axx/builds]
+      files: [axx.yaml, axx-packs.yaml]
+    paths:
+      - .cache/axx/builds
+      - .cache/axx/go
+      - .cache/axx/versions
 ```
 
-A stale cache is harmless: when the packs or Axx's version change, Axx prepares again. A project's version is a download of about 12 MB on each fresh runner; add `~/.cache/axx/versions` to `path` to keep that too.
+### In a container
+
+The container image keeps its cache under `/home/nonroot`. Mount a volume there, as the command under [Any other CI](#any-other-ci) does.
+
+### With the web packs
+
+The web packs download more, once: Node.js and their tools into `~/.cache/axx`, and the browsers into Playwright's folder, `~/.cache/ms-playwright` ([The browsers](/guides/test-web-apps/#the-browsers)). To keep those too, add `~/.cache/axx/web`, `~/.cache/axx/node-*` and `~/.cache/ms-playwright` to `path`.
 
 ## Catch problems early
 
