@@ -1,6 +1,6 @@
 ---
 title: Prove security controls
-description: Show which of the controls your project is required to cover its scenarios prove - OWASP ASVS, NIST SP 800-53, PCI DSS or your own rules - with one report for security teams and auditors, a check that fails when a required control is not covered, and how a security team keeps the list, the exceptions and the gate.
+description: Show which of the controls your project is required to cover its scenarios prove - OWASP ASVS, NIST SP 800-53, PCI DSS or your own rules - with one report for security teams and auditors, a check that fails when a required control is not covered, and how the list, the exceptions and the gate are kept out of a project's own hands.
 ---
 
 A security standard is a list of controls: "passwords are at least 8 characters long", "a session ends when the user signs out". Many of them are statements about how a running system behaves, which is what a scenario checks.
@@ -174,7 +174,7 @@ axx controls check shard-1/ shard-2/ shard-3/
 
 A control is proven when the scenarios that claim it passed, across all the runs. Runs of different commits are refused.
 
-**For a gate a project cannot lower,** the security team keeps the list and the approved exceptions, and the check goes by them ([Keep the list, the exceptions and the gate](#keep-the-list-the-exceptions-and-the-gate)).
+**For a gate a project cannot lower,** someone outside the project keeps the list and the approved exceptions, and the check goes by them ([Work with the approver](#work-with-the-approver)).
 
 ### Sign what was checked
 
@@ -241,15 +241,17 @@ Scenarios then claim its controls with `@pci:8.3.6`. The same file works for a f
 
 To give one list to many repositories, or to add a report format or a way to read another tool's results, [write a controls pack](/guides/write-a-controls-pack/).
 
-## Work with a security team
+## Work with the approver
 
-The security team decides what must be covered, and the application team shows how its application covers it. The security team writes no tests: a team that knows the application proves each control with a scenario in plain language, and the security team reads that scenario.
+Someone other than the people who write the scenarios approves what must be covered. This guide calls that role the approver. Who it is differs from one organization to the next: a security team, a compliance or risk team, the owner of the system, or a customer or a regulator whose requirements the list comes from.
+
+The approver writes no tests. A team that knows the application proves each control with a scenario in plain language, and the approver reads that scenario.
 
 ### Who does what
 
 | | Decides | Does |
 | --- | --- | --- |
-| Security team | which controls are required, and which exceptions are approved | keeps the list and the exceptions, and owns the gate |
+| Approver | which controls are required, and which exceptions are approved | keeps the list and the exceptions, and owns the gate |
 | Application team | how its application meets each control | writes the scenarios, tags them, and records what is covered elsewhere |
 | Auditor | whether the evidence is enough | reads the report, samples the scenarios, and verifies where the report came from |
 
@@ -268,7 +270,7 @@ A control never leaves the list because it is hard. It stays, and the report sho
 
 A project's settings are files a developer, or a coding agent, can change. Three things must not be theirs alone to change: the list, the exceptions, and the check itself.
 
-**The simple way: files in the project, which need the security team's review.**
+**The simple way: files in the project, which need the approver's review.**
 
 1. Keep the list and the approved exceptions in a folder of the project, and name both in the check:
 
@@ -288,19 +290,19 @@ A project's settings are files a developer, or a coding agent, can change. Three
        until: 2027-06-30
    ```
 
-2. Make that folder, and the CI file that runs the check, need the security team's review. On GitHub, that is a `CODEOWNERS` file and a branch rule that requires the owners' review:
+2. Make that folder, and the CI file that runs the check, need the approver's review. On GitHub, that is a `CODEOWNERS` file and a branch rule that requires the owners' review:
 
    ```text
    /security/                  @your-org/security
    /.github/workflows/ci.yml   @your-org/security
    ```
 
-A team can still write an exception into its own `axx.yaml`. With `--exceptions`, that is a request: the report lists it under "Exceptions the project asks for, which are not counted", and the control stays not covered until the security team adds it to the approved file.
+A team can still write an exception into its own `axx.yaml`. With `--exceptions`, that is a request: the report lists it under "Exceptions the project asks for, which are not counted", and the control stays not covered until the approver adds it to the approved file.
 
 **The stronger way: nothing in the project.**
 
-1. Publish the list as a [controls pack](/guides/write-a-controls-pack/), or keep it in a repository of the security team's. Its version is the baseline's version.
-2. Run the check in a workflow the security team owns and every repository must pass (on GitHub, a ruleset that requires a workflow). That workflow gets the lists and the approved exceptions from that repository, and the evidence from the project's runs.
+1. Publish the list as a [controls pack](/guides/write-a-controls-pack/), or keep it in a repository of the approver's. Its version is the baseline's version.
+2. Run the check in a workflow the approver owns and every repository must pass (on GitHub, a ruleset that requires a workflow). That workflow gets the lists and the approved exceptions from that repository, and the evidence from the project's runs.
 
 Either way, a run never fails because of a control. Only the check does, so a team is not blocked while it works toward the list, and the gate is switched on when both teams agree it is time.
 
@@ -310,7 +312,7 @@ A tag is a claim. `@asvs:8.2.2` on a scenario says "this proves it", and Axx can
 
 - **In a pull request.** `axx controls report --format markdown` lists each control with its scenarios by name. Written to the CI job's summary, it shows a reviewer what stands behind every control, and what a change took away.
 - **By reading the scenario.** A scenario is a few lines of plain language: what the system starts from, what someone does, and what must be true afterwards.
-- **By requiring the security team's review of the features that matter most.** A `CODEOWNERS` line for the folder of the sign-in features, say.
+- **By requiring the approver's review of the features that matter most.** A `CODEOWNERS` line for the folder of the sign-in features, say.
 
 What Axx does check: a tag that names no control is reported, a control whose scenario fails is failing whatever else covers it, and a tag that is removed leaves its control not covered, which the gate refuses.
 

@@ -17,9 +17,11 @@ Two ways to build that link were on the table.
   application, that every project must pass. It needs steps of its own, or a way to learn
   each application's shape, and it puts the tests with the people who know the application
   least.
-- **The application team proves its controls with its own scenarios.** The security team says
-  which controls are required, and reads the evidence. This is how compliance works on paper
-  too: the owner of a system says how it meets each control, and an assessor judges that.
+- **The application team proves its controls with its own scenarios.** Whoever approves the
+  controls says which are required, and reads the evidence: a security team, a compliance team,
+  the system's owner, or a customer or a regulator whose requirements the list comes from. This
+  is how compliance works on paper too: the owner of a system says how it meets each control,
+  and an assessor judges that.
 
 ## Decision
 
@@ -41,7 +43,7 @@ and axx reports, for every control the project is required to cover, what covers
   cannot know what the rest proves, and a run that reported failure with no failed scenario
   would say something axx's exit codes do not (ADR 0003). The gate is a command, `axx controls
   check`, which judges the evidence of one run or of several together, and which a workflow
-  the security team owns can run with its own lists and exceptions.
+  the approver owns can run with its own lists and exceptions.
 - **A control is covered by more than scenarios.** A pen test, a scanner or a review covers
   controls, and some do not apply. Other sources' findings and a project's exceptions are part
   of the report, each with where it is from, so the report is the whole picture and an auditor

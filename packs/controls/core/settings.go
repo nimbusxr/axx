@@ -127,7 +127,7 @@ type requiredList struct {
 }
 
 // overrides are what a command was told to go by, in place of the project's
-// settings: the lists and the exceptions a security team holds.
+// settings: the lists and the exceptions their approver holds.
 type overrides struct {
 	require    []string
 	exceptions string

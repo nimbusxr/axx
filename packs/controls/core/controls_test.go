@@ -411,7 +411,7 @@ func TestACommandCanGoByOtherListsAndExceptions(t *testing.T) {
 	}
 	r := theirs.report(run(), nil, time.Now())
 	if s := states(r); s["house:session-end"] != NotCovered || s["house:uploads"] != Excepted || len(r.Controls) != 5 {
-		t.Errorf("by the security team's: %v", s)
+		t.Errorf("by the approver's: %v", s)
 	}
 	// What the project asks for and the others have too is no request: it
 	// counts, with their reason.

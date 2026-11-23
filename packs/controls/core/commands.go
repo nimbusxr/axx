@@ -462,7 +462,7 @@ different commits, or by different versions of axx, are refused.
 
 --require and --exceptions say which lists and exceptions to go by, in place of
 the project's own settings: a workflow that every repository must pass names the
-security team's, and then nothing in the project can lower the gate.
+ones their approver keeps, and then nothing in the project can lower the gate.
 
 It writes what it judged to a file (--out, default checked.json in
 packs.controls-core.folder) and prints the file's SHA-256, for signing.`,

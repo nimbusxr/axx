@@ -7,7 +7,7 @@ description: Give every repository of an organization the same list of required 
 
 Write a pack when a file in one project is not enough:
 
-- **A list for many repositories.** A security team keeps one list, in one versioned pack.
+- **A list for many repositories.** Whoever approves the controls keeps one list, in one versioned pack.
 - **A framework Axx does not carry,** whose text your organization may hold.
 - **A report format** your auditors or your compliance tool take.
 - **A source:** another tool's results, read as evidence.
