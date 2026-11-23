@@ -46,7 +46,7 @@ jobs:
           if echo "$out" | grep -q preparing; then echo "::error::axx installed again prepared again"; exit 1; fi
 
           echo "== 3. rest, sql, web-core, empty cache"
-          rm -rf ~/.cache/axx
+          chmod -R u+w ~/.cache/axx; rm -rf ~/.cache/axx
           printf 'packs:\n  - rest\n  - sql\n  - web-core\n' > axx-packs.yaml
           t "$A" validate; sizes
 
@@ -69,7 +69,7 @@ jobs:
           s=$SECONDS; mkdir "$RUNNER_TEMP/unpack"; zstd -dc "$RUNNER_TEMP/go.tar.zst" | tar -C "$RUNNER_TEMP/unpack" -xf -; echo "   unpacked in $((SECONDS - s))s"
 
           echo "== 8. the pack changes, with only the toolchain and modules kept (no build cache)"
-          chmod -R u+w ~/.cache/axx/go/build 2>/dev/null || true; rm -rf ~/.cache/axx/go/build
+          chmod -R u+w ~/.cache/axx/go/build; rm -rf ~/.cache/axx/go/build
           printf '\n// another change\n' >> steps/pack.go
           t "$A" validate
           echo "== 9. the pack changes, with only the builds kept (no Go folder)"
