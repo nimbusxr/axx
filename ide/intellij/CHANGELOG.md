@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2026112301](https://github.com/nimbusxr/axx/compare/intellij-v0.7.2026112101...intellij-v0.8.2026112301) (2026-11-23)
+
+
+### Bug Fixes
+
+* a profile's file is held to a schema of its own, which requires nothing that axx.yaml says already ([#426](https://github.com/nimbusxr/axx/issues/426)) ([55a6aec](https://github.com/nimbusxr/axx/commit/55a6aec920bbc6d2013e25b24e47dfa3b270c105))
+
 ## [0.7.2026112101](https://github.com/nimbusxr/axx/compare/intellij-v0.3.12...intellij-v0.7.2026112101) (2026-11-21)
 
 
