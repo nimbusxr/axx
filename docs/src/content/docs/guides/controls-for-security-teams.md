@@ -109,4 +109,4 @@ gh attestation verify checked.json --repo your-org/your-repo
 
 It confirms that the file was made by that repository's workflow, at the commit it names, and has not changed since.
 
-**What the report does not say.** That a control is proven means its scenarios passed, against the running system, in that run. Whether those scenarios are enough for the control is your judgement: the report gives you each of them to read. It is evidence, and no certification.
+**What "proven" means, and what it does not.** "Proven" is the name of a state. It means that every scenario tagged with the control passed, against the running system, in that run. It does not mean that those scenarios test everything the control asks for. Axx cannot judge that. You can: the report names each scenario, so you can read it and decide whether it is enough. The report is evidence for that decision. It is not a certification.

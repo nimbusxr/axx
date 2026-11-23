@@ -249,6 +249,6 @@ To give one list to many repositories, or to add a report format or a way to rea
 
 ## What Axx does not claim
 
-- **A proven control means its scenarios passed.** Whether those scenarios are enough is a person's judgement. The report is built to make that judgement quick: every control shows its scenarios in plain language.
+- **"Proven" means that the control's scenarios passed.** It does not mean that those scenarios test everything the control asks for. Axx cannot judge that, and a person can: the report names each control's scenarios, in plain language, so a reviewer can read them and decide.
 - **Axx checks behaviour.** It does not read code, so "queries are parameterized" is not something a scenario shows; "this injection attempt is refused" is.
 - **A report is not a certification.** It is evidence for the people who decide.
