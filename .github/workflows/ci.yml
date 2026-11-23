@@ -1654,10 +1654,15 @@ jobs:
   # which workflow made the file `axx controls check` wrote, on which commit. On main only, and
   # never for a pull request: the job has the two permissions an attestation takes, and runs
   # nothing of the repository, only the action on the file the acceptance job uploaded.
+  # It says itself that the acceptance job passed: that job runs after a wiremock-image job that
+  # was skipped (a run has kept the image), and a job behind a skipped one is skipped too unless
+  # its condition says otherwise.
   controls-attest:
     name: the example's controls, attested
     needs: [changes, acceptance]
-    if: needs.changes.outputs.tests == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.event_name != 'merge_group'
+    if: >-
+      ${{ !cancelled() && needs.acceptance.result == 'success' && needs.changes.outputs.tests == 'true'
+      && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
