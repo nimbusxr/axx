@@ -75,6 +75,7 @@ final class CourierModel {
 
     func signIn(courier: String, pin: String) {
         if signingIn { return }
+        log.notice("signing in as \(courier, privacy: .public)")
         signingIn = true
         signInError = nil
         Task {

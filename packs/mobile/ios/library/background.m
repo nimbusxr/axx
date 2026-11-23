@@ -206,6 +206,30 @@ static NSString *unsupported(void) {
   return nil;
 }
 
+// onScreenQueue is the registration with a queue for its handler at the priority of an app on
+// screen, when the app registered the task with no queue of its own. iOS then runs the handler on
+// a queue it makes for the run, of the lowest priority there is (background: -[BGTaskScheduler
+// _queueForRegistration:]), and what the handler starts takes that priority from it: a Swift
+// task, its requests, its reads of the keychain. A phone gets through that at once. A Mac whose
+// processors are all busy with anything of a higher priority (three simulators, a CI machine's
+// other jobs) leaves it waiting: a read of the keychain took 22 of a task's 30 seconds, twice.
+// The role SpringBoard gives the app (screenRole) does not lift it: a thread that asks for the
+// background's priority has it whatever the app's role. So the queue is as iOS makes it, but for
+// its priority. A queue the app registered is the app's choice, and stays.
+static id onScreenQueue(id registration, NSString *identifier) {
+  SEL init = NSSelectorFromString(@"initWithIdentifier:queue:launchHandler:");
+  Class c = [registration class];
+  if (![registration respondsToSelector:NSSelectorFromString(@"queue")] || ![registration respondsToSelector:NSSelectorFromString(@"launchHandler")] ||
+      !class_respondsToSelector(c, init) || send(registration, @"queue") != nil) {
+    return registration;
+  }
+  dispatch_queue_attr_t attr = dispatch_queue_attr_make_with_autorelease_frequency(DISPATCH_QUEUE_SERIAL, DISPATCH_AUTORELEASE_FREQUENCY_WORK_ITEM);
+  attr = dispatch_queue_attr_make_with_qos_class(attr, QOS_CLASS_USER_INITIATED, 0);
+  dispatch_queue_t queue = dispatch_queue_create([NSString stringWithFormat:@"com.apple.BGTaskScheduler (%@)", identifier].UTF8String, attr);
+  id held = ((id (*)(id, SEL, id, id, id))objc_msgSend)([c alloc], init, identifier, queue, send(registration, @"launchHandler"));
+  return held ?: registration;
+}
+
 // runTask runs a task the app scheduled, as the debugger command does on an iPhone, and says how
 // it went: "ran", "not scheduled", "not registered" or "running".
 static NSString *runTask(NSString *identifier) {
@@ -233,7 +257,7 @@ static NSString *runTask(NSString *identifier) {
     ran[identifier] = task;
   }
   ((void (*)(id, SEL, id))objc_msgSend)(scheduler, NSSelectorFromString(@"cancelTaskRequestWithIdentifier:"), identifier);
-  ((void (*)(id, SEL, id, id))objc_msgSend)(scheduler, NSSelectorFromString(@"_runTask:registration:"), task, registration);
+  ((void (*)(id, SEL, id, id))objc_msgSend)(scheduler, NSSelectorFromString(@"_runTask:registration:"), task, onScreenQueue(registration, identifier));
   return @"ran";
 }
 
@@ -312,7 +336,8 @@ static void letSleep(void) {
 // UnderlyingDarwinRoleUI). iOS runs a task at background priority, which a phone, never short of
 // a processor for its app, gets through at once; a simulator on a busy Mac (several simulators
 // booting, a small CI machine) starves it: it took the app half a minute only to post a
-// notification. The app stays in the background, and nothing on the screen changes.
+// notification. The app stays in the background, and nothing on the screen changes. (The role is
+// the app's; the priority of the task's own threads is its handler's queue's: onScreenQueue.)
 static id screenRole(int pid) {
   Class target = NSClassFromString(@"RBSTarget"), attribute = NSClassFromString(@"RBSDomainAttribute"), assertion = NSClassFromString(@"RBSAssertion");
   if (target == Nil || attribute == Nil || assertion == Nil) {

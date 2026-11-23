@@ -21,6 +21,7 @@ struct CourierApp: App {
         WindowGroup {
             ContentView(model: model)
                 .onAppear {
+                    TouchLog.watch()
                     // Where a notification the courier opens leads: the delegate hands it on.
                     AppDelegate.open = { model.openDeepLink($0) }
                     if let target = AppDelegate.pending {
