@@ -546,10 +546,25 @@ func runCheck(call *core.CommandCall) error {
 	if res.OK {
 		return nil
 	}
+	// A control whose scenario failed is said as failing: it is covered by a
+	// scenario, which does not pass.
+	failing := 0
+	for _, cr := range unmet {
+		if cr.State == Failing {
+			failing++
+		}
+	}
 	what := plural(len(unmet), "required control") + " not covered"
-	if len(unmet) == 1 {
+	switch {
+	case len(unmet) == 1 && failing == 1:
+		what = "1 required control is failing"
+	case len(unmet) == 1:
 		what = "1 required control is not covered"
-	} else if len(unmet) > 1 {
+	case len(unmet) > 1 && failing == len(unmet):
+		what = fmt.Sprintf("%d required controls are failing", len(unmet))
+	case len(unmet) > 1 && failing > 0:
+		what = fmt.Sprintf("%d required controls are not covered, %d of them failing", len(unmet), failing)
+	case len(unmet) > 1:
 		what = fmt.Sprintf("%d required controls are not covered", len(unmet))
 	}
 	if len(r.Unknown) > 0 {

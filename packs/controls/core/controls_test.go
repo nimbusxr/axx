@@ -514,6 +514,39 @@ func TestTheReportBeforeAnyRun(t *testing.T) {
 	}
 }
 
+// A control whose scenario failed is said as failing, by the check too: it
+// has a scenario, which does not pass.
+func TestTheCheckSaysWhatIsFailing(t *testing.T) {
+	list := "framework: house\nversion: \"2027.1\"\ncontrols:\n  password-length:\n  lockout:\n"
+	message := func(scenarios ...Scenario) string {
+		t.Helper()
+		dir, decode := newProject(t, `{"require": ["security/two.yaml"]}`, map[string]string{"security/two.yaml": list})
+		if err := run(scenarios...).write(filepath.Join(dir, ".axx", "controls", runFile)); err != nil {
+			t.Fatal(err)
+		}
+		_, _, err := call(t, dir, decode, []string{"check"}, nil, nil)
+		var ae *axxerr.Error
+		if !errors.As(err, &ae) || ae.Code != CodeNotCovered || ae.Exit != exitcode.Failed {
+			t.Fatalf("the check: %v", err)
+		}
+		return ae.Message
+	}
+	passed := scenario(8, "A password under 12 characters is refused", "passed", "house:password-length")
+	failed := scenario(13, "An account locks after five wrong passwords", "failed", "house:lockout")
+	if got := message(passed, failed); got != "1 required control is failing" {
+		t.Errorf("one scenario failed: %q", got)
+	}
+	if got := message(failed); got != "2 required controls are not covered, 1 of them failing" {
+		t.Errorf("one failed and one has no scenario: %q", got)
+	}
+	if got := message(failed, scenario(8, "A password under 12 characters is refused", "failed", "house:password-length")); got != "2 required controls are failing" {
+		t.Errorf("both failed: %q", got)
+	}
+	if got := message(passed); got != "1 required control is not covered" {
+		t.Errorf("one has no scenario: %q", got)
+	}
+}
+
 // The gate: it passes when every required control is covered, writes what it
 // judged with its hash, and fails with what is not covered.
 func TestTheCheck(t *testing.T) {
