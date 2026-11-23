@@ -394,16 +394,28 @@ func routeSteps() []core.StepDef {
 			if !ok {
 				return fmt.Errorf("the %s app's phone is on no route: a step like \"the %s app's phone starts traveling ...\" sets it off", app, app)
 			}
-			wait := time.Until(j.due) + cloudstep.DefaultWait
+			ended := func() error {
+				if j.failed != nil && *j.failed != nil {
+					return fmt.Errorf("the %s app's phone stopped short of the end of the scene's %q path: %w", app, j.path, *j.failed)
+				}
+				return nil
+			}
+			// A phone that has arrived has, however late this step begins: a select takes either
+			// of two things that are both so, an arrival and a wait that is over, by chance.
+			select {
+			case <-j.arrived:
+				return ended()
+			default:
+			}
+			// The steps since the phone set off may have taken longer than its route: the 10
+			// seconds are from now then, never from a time that has passed.
+			wait := max(time.Until(j.due), 0) + cloudstep.DefaultWait
 			if a.Present(0) {
 				wait = a.Value(0).(time.Duration)
 			}
 			select {
 			case <-j.arrived:
-				if j.failed != nil && *j.failed != nil {
-					return fmt.Errorf("the %s app's phone stopped short of the end of the scene's %q path: %w", app, j.path, *j.failed)
-				}
-				return nil
+				return ended()
 			case <-time.After(wait):
 				return core.Failf("The %s app's phone did not reach the end of its route within %s", app, wait.Round(time.Second))
 			case <-sc.Context().Done():
