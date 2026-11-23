@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -126,7 +127,7 @@ type requiredList struct {
 }
 
 // overrides are what a command was told to go by, in place of the project's
-// settings: the lists and the exceptions a security team holds.
+// settings: the lists and the exceptions their approver holds.
 type overrides struct {
 	require    []string
 	exceptions string
@@ -171,7 +172,14 @@ func loadProject(dir string, settings func(v any) error, o overrides) (*project,
 		if err != nil {
 			return nil, err
 		}
-		p.requested, p.exceptions = p.cfg.Exceptions, given
+		// What the project asks for and the others do not have: one they have
+		// counts, as theirs.
+		for _, e := range p.cfg.Exceptions {
+			if !slices.ContainsFunc(given, func(g Exception) bool { return g.Control == e.Control }) {
+				p.requested = append(p.requested, e)
+			}
+		}
+		p.exceptions = given
 	}
 	return p, nil
 }

@@ -1595,18 +1595,21 @@ jobs:
           retention-days: 7
       # The controls the example is to cover (its security/controls.yaml): the report is the job's
       # summary, and the check fails the job when a required control is not covered. What the
-      # check judged goes to the controls-attest job.
+      # check judged goes to the controls-attest job, with the report as OSCAL beside it.
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         name: the controls the scenarios prove
         working-directory: examples/parcels/acceptance
         run: |
           axx controls report --format markdown >> "$GITHUB_STEP_SUMMARY"
+          axx controls report --format oscal --out .axx/controls/assessment-results.json
           axx controls check
       - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: controls-parcels
-          path: examples/parcels/acceptance/.axx/controls/checked.json
+          path: |
+            examples/parcels/acceptance/.axx/controls/checked.json
+            examples/parcels/acceptance/.axx/controls/assessment-results.json
           retention-days: 7
       # The run's coverage report.
       - if: ${{ !cancelled() && matrix.example == 'parcels' && needs.changes.outputs.tests == 'true' }}

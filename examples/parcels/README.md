@@ -187,8 +187,9 @@ is to cover are in `acceptance/security/controls.yaml`, five requirements of OWA
 the scenarios that prove one carry its tag (`@asvs:8.2.2` on the two of the shop API that show
 a shop reads only its own parcels). One is covered by a pen test
 (`security/pen-test-2026-09.yaml`), and one does not apply, with the reason in `axx.yaml`.
-After a run, `axx controls report` shows how each stands, and `axx controls check` fails
-when one is not covered, as CI's acceptance job runs it. The controls packs are
+After a run, `axx controls report` shows how each stands (`--format oscal` writes it as OSCAL
+assessment results), and `axx controls check` fails when one is not covered, as CI's
+acceptance job runs it. The controls packs are
 experimental.
 
 The scenarios register parcels with fixed references and seed fixed rows, and the data

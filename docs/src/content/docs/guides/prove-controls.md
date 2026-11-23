@@ -1,6 +1,6 @@
 ---
 title: Prove security controls
-description: Show which of the controls your project is required to cover its scenarios prove - OWASP ASVS, NIST SP 800-53, PCI DSS or your own rules - with one report for security teams and auditors, and a check that fails when a required control is not covered.
+description: Show which of the controls your project is required to cover its scenarios prove - OWASP ASVS, NIST SP 800-53, PCI DSS or your own rules - with one report for security teams and auditors, a check that fails when a required control is not covered, and how the list, the exceptions and the gate are kept out of a project's own hands.
 ---
 
 A security standard is a list of controls: "passwords are at least 8 characters long", "a session ends when the user signs out". Many of them are statements about how a running system behaves, which is what a scenario checks.
@@ -132,7 +132,24 @@ axx controls report --format json                # as data
 
 The report lists every required control with what covers it: its scenarios by name and file, the other evidence with its link, and the exception with its reason. Controls that are covered and in no required list come after.
 
-Other packs add formats: `controls-oscal` writes OSCAL assessment results.
+Other packs add formats.
+
+### OSCAL
+
+OSCAL is NIST's format for security assessments, which United States government programs and many compliance tools read. Add the `controls-oscal` pack, and the report is written as OSCAL assessment results:
+
+```sh
+axx pack add controls-oscal
+axx controls report --format oscal --out assessment-results.json
+```
+
+- **Each framework is a result,** with the controls it reviewed.
+- **Each scenario is an observation** of a test, with its feature file and line as the evidence. What another source says is an observation too, with its link.
+- **Each control is a finding:** satisfied or not satisfied, with the observations it rests on.
+- **A control that does not apply** is satisfied, and its implementation status says not-applicable, with the reason.
+- **A risk accepted until a day** is a risk whose deviation is approved, with that day as its deadline. Its control stays not satisfied.
+
+The document is valid against NIST's schema (OSCAL 1.1.3), and names controls as OSCAL does: `ia-5.1` for NIST's IA-5(1), `V6.2.1` for an ASVS requirement. It names no assessment plan, as the scenarios have none: a note in the document says so. A program that requires one (FedRAMP's, say) has rules of its own beyond the format, which the document does not claim to meet.
 
 ## Turn on the gate
 
@@ -157,13 +174,7 @@ axx controls check shard-1/ shard-2/ shard-3/
 
 A control is proven when the scenarios that claim it passed, across all the runs. Runs of different commits are refused.
 
-**For a gate a project cannot lower,** run the check in a workflow the security team owns, and say where the lists and the exceptions come from:
-
-```sh
-axx controls check --require security-baseline.yaml --exceptions approved-exceptions.yaml
-```
-
-The project's own exceptions are then shown in the report as asked for, and do not count.
+**For a gate a project cannot lower,** someone outside the project keeps the list and the approved exceptions, and the check goes by them ([Work with the approver](#work-with-the-approver)).
 
 ### Sign what was checked
 
@@ -230,8 +241,108 @@ Scenarios then claim its controls with `@pci:8.3.6`. The same file works for a f
 
 To give one list to many repositories, or to add a report format or a way to read another tool's results, [write a controls pack](/guides/write-a-controls-pack/).
 
+## Work with the approver
+
+Someone other than the people who write the scenarios approves what must be covered. This guide calls that role the approver. Who it is differs from one organization to the next: a security team, a compliance or risk team, the owner of the system, or a customer or a regulator whose requirements the list comes from.
+
+The approver writes no tests. A team that knows the application proves each control with a scenario in plain language, and the approver reads that scenario.
+
+### Who does what
+
+| | Decides | Does |
+| --- | --- | --- |
+| Approver | which controls are required, and which exceptions are approved | keeps the list and the exceptions, and owns the gate |
+| Application team | how its application meets each control | writes the scenarios, tags them, and records what is covered elsewhere |
+| Auditor | whether the evidence is enough | reads the report, samples the scenarios, and verifies where the report came from |
+
+### Agree on the list
+
+1. Start from the framework the organization works to. `axx controls list` shows the lists the packs carry, such as the three levels of OWASP ASVS. For NIST SP 800-53, PCI DSS, ISO 27001 or your own rules, write the list as a file ([A framework of your own](#a-framework-of-your-own)).
+2. Go through it with the application team, one control at a time. `axx controls show asvs:8.2.2` prints what a control requires. Each control ends up in one of three places:
+   - **A scenario will prove it.** It stays in the list.
+   - **Something else covers it:** a pen test, a scanner, a review. It stays in the list, and an [evidence file](#what-a-scenario-cannot-prove) names the source.
+   - **It does not apply,** or the risk is accepted for a time. It stays in the list, with an exception that says why.
+3. Say how many scenarios a control takes, where one is not enough: `scenarios: 2` for a control with two sides.
+
+A control never leaves the list because it is hard. It stays, and the report shows it as not covered until something covers it.
+
+### Keep the list, the exceptions and the gate
+
+A project's settings are files a developer, or a coding agent, can change. Three things must not be theirs alone to change: the list, the exceptions, and the check itself.
+
+**The simple way: files in the project, which need the approver's review.**
+
+1. Keep the list and the approved exceptions in a folder of the project, and name both in the check:
+
+   ```sh
+   axx controls check --require security/controls.yaml --exceptions security/exceptions.yaml
+   ```
+
+   ```yaml
+   # security/exceptions.yaml
+   exceptions:
+     - control: asvs:5.2.1
+       kind: not-applicable
+       reason: The service takes no files.
+     - control: asvs:6.3.3
+       kind: accepted
+       reason: Multi-factor sign-in ships in the June release.
+       until: 2027-06-30
+   ```
+
+2. Make that folder, and the CI file that runs the check, need the approver's review. On GitHub, that is a `CODEOWNERS` file and a branch rule that requires the owners' review:
+
+   ```text
+   /security/                  @your-org/security
+   /.github/workflows/ci.yml   @your-org/security
+   ```
+
+A team can still write an exception into its own `axx.yaml`. With `--exceptions`, that is a request: the report lists it under "Exceptions the project asks for, which are not counted", and the control stays not covered until the approver adds it to the approved file.
+
+**The stronger way: nothing in the project.**
+
+1. Publish the list as a [controls pack](/guides/write-a-controls-pack/), or keep it in a repository of the approver's. Its version is the baseline's version.
+2. Run the check in a workflow the approver owns and every repository must pass (on GitHub, a ruleset that requires a workflow). That workflow gets the lists and the approved exceptions from that repository, and the evidence from the project's runs.
+
+Either way, a run never fails because of a control. Only the check does, so a team is not blocked while it works toward the list, and the gate is switched on when both teams agree it is time.
+
+### Review what stands behind a control
+
+A tag is a claim. `@asvs:8.2.2` on a scenario says "this proves it", and Axx cannot tell whether that is true. A person can, quickly:
+
+- **In a pull request.** `axx controls report --format markdown` lists each control with its scenarios by name. Written to the CI job's summary, it shows a reviewer what stands behind every control, and what a change took away.
+- **By reading the scenario.** A scenario is a few lines of plain language: what the system starts from, what someone does, and what must be true afterwards.
+- **By requiring the approver's review of the features that matter most.** A `CODEOWNERS` line for the folder of the sign-in features, say.
+
+What Axx does check: a tag that names no control is reported, a control whose scenario fails is failing whatever else covers it, and a tag that is removed leaves its control not covered, which the gate refuses.
+
+## For auditors
+
+An auditor asks for these, of the commit that was released:
+
+1. **The report,** in the format the auditor works with: Markdown to read, CSV for a spreadsheet, or OSCAL assessment results (`controls-oscal`) for a tool that reads them.
+2. **The file the check wrote,** `checked.json`, and its attestation, where the project signs it ([Sign what was checked](#sign-what-was-checked)).
+3. **The evidence files** of other sources, each with a link to its report.
+
+What each entry of the report means:
+
+| In the report | What it means | What to look at |
+| --- | --- | --- |
+| proven | every scenario tagged with the control passed in that run | the scenarios: each has its file and line at that commit |
+| covered | another source says so | the source's own report, by its link |
+| excepted | the control does not apply, or its risk is accepted until a day | the reason; who approved it is in the history of the exceptions file |
+| partly proven, failing, not covered | the control is not met | |
+
+To verify where a signed file came from, on GitHub:
+
+```sh
+gh attestation verify checked.json --repo your-org/your-repo
+```
+
+It confirms that the file was made by that repository's workflow, at the commit it names, and has not changed since.
+
 ## What Axx does not claim
 
-- **A proven control means its scenarios passed.** Whether those scenarios are enough is a person's judgement. The report is built to make that judgement quick: every control shows its scenarios in plain language.
+- **"Proven" is the name of a state.** It means that every scenario tagged with the control passed, against the running system, in that run. It does not mean that those scenarios test everything the control asks for. Axx cannot judge that, and a person can: the report names each control's scenarios, in plain language, so a reviewer can read them and decide.
 - **Axx checks behaviour.** It does not read code, so "queries are parameterized" is not something a scenario shows; "this injection attempt is refused" is.
 - **A report is not a certification.** It is evidence for the people who decide.

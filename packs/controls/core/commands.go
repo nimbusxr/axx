@@ -274,7 +274,7 @@ func runShow(call *core.CommandCall) error {
 		default:
 			fmt.Fprintln(w, "in no list the project requires")
 		}
-		fmt.Fprintf(w, "%s: %s\n", cr.State, cr.why())
+		fmt.Fprintf(w, "%s: %s\n", cr.State, cr.Why())
 		if !judged {
 			fmt.Fprintln(w, "  (no run has written its evidence yet: `axx run` does)")
 		}
@@ -462,7 +462,7 @@ different commits, or by different versions of axx, are refused.
 
 --require and --exceptions say which lists and exceptions to go by, in place of
 the project's own settings: a workflow that every repository must pass names the
-security team's, and then nothing in the project can lower the gate.
+ones their approver keeps, and then nothing in the project can lower the gate.
 
 It writes what it judged to a file (--out, default checked.json in
 packs.controls-core.folder) and prints the file's SHA-256, for signing.`,
@@ -532,7 +532,7 @@ func runCheck(call *core.CommandCall) error {
 			width = max(width, len(cr.Control))
 		}
 		for _, cr := range unmet {
-			fmt.Fprintf(w, "  %-*s  %-13s  %s\n", width, cr.Control, cr.State, cr.why())
+			fmt.Fprintf(w, "  %-*s  %-13s  %s\n", width, cr.Control, cr.State, cr.Why())
 		}
 		writeUnknown(w, r, "", "  %s  %s\n")
 		if r.Partial != "" {
@@ -546,10 +546,25 @@ func runCheck(call *core.CommandCall) error {
 	if res.OK {
 		return nil
 	}
+	// A control whose scenario failed is said as failing: it is covered by a
+	// scenario, which does not pass.
+	failing := 0
+	for _, cr := range unmet {
+		if cr.State == Failing {
+			failing++
+		}
+	}
 	what := plural(len(unmet), "required control") + " not covered"
-	if len(unmet) == 1 {
+	switch {
+	case len(unmet) == 1 && failing == 1:
+		what = "1 required control is failing"
+	case len(unmet) == 1:
 		what = "1 required control is not covered"
-	} else if len(unmet) > 1 {
+	case len(unmet) > 1 && failing == len(unmet):
+		what = fmt.Sprintf("%d required controls are failing", len(unmet))
+	case len(unmet) > 1 && failing > 0:
+		what = fmt.Sprintf("%d required controls are not covered, %d of them failing", len(unmet), failing)
+	case len(unmet) > 1:
 		what = fmt.Sprintf("%d required controls are not covered", len(unmet))
 	}
 	if len(r.Unknown) > 0 {

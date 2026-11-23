@@ -130,7 +130,7 @@ func TestHowAControlStands(t *testing.T) {
 	}
 	var unmet []string
 	for _, cr := range r.Unmet() {
-		unmet = append(unmet, cr.Control+": "+cr.why())
+		unmet = append(unmet, cr.Control+": "+cr.Why())
 	}
 	if strings.Join(unmet, "; ") != "house:lockout: 1 scenario of the 2 it takes; house:session-end: no scenario is tagged @house:session-end" {
 		t.Errorf("what is not covered: %s", unmet)
@@ -161,8 +161,8 @@ func TestSeveralScenariosForOneControl(t *testing.T) {
 		scenario(21, "A locked account stays locked for a minute", "failed", "house:lockout"),
 	), []*Evidence{pen}, time.Now())
 	lockout := r.Controls[1]
-	if lockout.State != Failing || lockout.why() != "features/sign-in/sign-in.feature:21 failed" {
-		t.Errorf("one of its scenarios failed: %s (%s)", lockout.State, lockout.why())
+	if lockout.State != Failing || lockout.Why() != "features/sign-in/sign-in.feature:21 failed" {
+		t.Errorf("one of its scenarios failed: %s (%s)", lockout.State, lockout.Why())
 	}
 	// A scenario that was skipped proves nothing, and fails nothing.
 	r = p.report(run(scenario(8, "A password under 12 characters is refused", "skipped", "house:password-length")), nil, time.Now())
@@ -187,13 +187,13 @@ func TestExceptionsEndAndSourcesCanFailAControl(t *testing.T) {
 	}
 	r := p.report(at(21), nil, time.Now())
 	ended := r.Controls[2]
-	if ended.State != NotCovered || !ended.Expired || ended.why() != "its exception ended on 2027-03-20" {
-		t.Errorf("the day after: %s, expired %v (%s)", ended.State, ended.Expired, ended.why())
+	if ended.State != NotCovered || !ended.Expired || ended.Why() != "its exception ended on 2027-03-20" {
+		t.Errorf("the day after: %s, expired %v (%s)", ended.State, ended.Expired, ended.Why())
 	}
 	scan := &Evidence{Kind: KindOther, Source: "Scanner", Findings: []Finding{{Control: "house:audit", State: "failing", Note: "finding 12"}}}
 	r = p.report(run(), []*Evidence{scan}, time.Now())
-	if audit := r.Controls[4]; audit.State != Failing || audit.why() != "Scanner: finding 12" {
-		t.Errorf("a source says it fails: %s (%s)", audit.State, audit.why())
+	if audit := r.Controls[4]; audit.State != Failing || audit.Why() != "Scanner: finding 12" {
+		t.Errorf("a source says it fails: %s (%s)", audit.State, audit.Why())
 	}
 }
 
@@ -391,17 +391,18 @@ func TestSettingsThatDoNotHoldAreRefused(t *testing.T) {
 // for, and do not count.
 func TestACommandCanGoByOtherListsAndExceptions(t *testing.T) {
 	dir, decode := newProject(t, `{"require": ["security/short.yaml"], "exceptions": [
-		{"control": "house:session-end", "kind": "not-applicable", "reason": "We would rather not."}
+		{"control": "house:session-end", "kind": "not-applicable", "reason": "We would rather not."},
+		{"control": "house:uploads", "kind": "not-applicable", "reason": "No files here."}
 	]}`, map[string]string{
 		"security/house.yaml":    houseRules,
-		"security/short.yaml":    "framework: house\ncontrols:\n  password-length: Passwords are at least 12 characters long\n  session-end: A session ends\n",
+		"security/short.yaml":    "framework: house\ncontrols:\n  password-length: Passwords are at least 12 characters long\n  session-end: A session ends\n  uploads: Uploaded files are scanned\n",
 		"security/approved.yaml": "exceptions:\n  - control: house:uploads\n    kind: not-applicable\n    reason: The service takes no files.\n",
 	})
 	own, err := loadProject(dir, decode, overrides{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := states(own.report(run(), nil, time.Now()))["house:session-end"]; got != Excepted || len(own.lists[0].Controls) != 2 {
+	if got := states(own.report(run(), nil, time.Now()))["house:session-end"]; got != Excepted || len(own.lists[0].Controls) != 3 {
 		t.Errorf("by the project's own settings: %s", got)
 	}
 	theirs, err := loadProject(dir, decode, overrides{require: []string{"security/house.yaml"}, exceptions: "security/approved.yaml"})
@@ -410,10 +411,17 @@ func TestACommandCanGoByOtherListsAndExceptions(t *testing.T) {
 	}
 	r := theirs.report(run(), nil, time.Now())
 	if s := states(r); s["house:session-end"] != NotCovered || s["house:uploads"] != Excepted || len(r.Controls) != 5 {
-		t.Errorf("by the security team's: %v", s)
+		t.Errorf("by the approver's: %v", s)
 	}
+	// What the project asks for and the others have too is no request: it
+	// counts, with their reason.
 	if len(r.Requested) != 1 || r.Requested[0].Control != "house:session-end" {
 		t.Errorf("the project's own exception, asked for: %+v", r.Requested)
+	}
+	for _, cr := range r.Controls {
+		if cr.Control == "house:uploads" && cr.Exception.Reason != "The service takes no files." {
+			t.Errorf("the approved exception's reason: %q", cr.Exception.Reason)
+		}
 	}
 }
 
@@ -511,6 +519,39 @@ func TestTheReportBeforeAnyRun(t *testing.T) {
 	var ae *axxerr.Error
 	if !errors.As(err, &ae) || ae.Code != CodeEvidence || ae.Exit != exitcode.Usage {
 		t.Errorf("the check with no evidence: %v", err)
+	}
+}
+
+// A control whose scenario failed is said as failing, by the check too: it
+// has a scenario, which does not pass.
+func TestTheCheckSaysWhatIsFailing(t *testing.T) {
+	list := "framework: house\nversion: \"2027.1\"\ncontrols:\n  password-length:\n  lockout:\n"
+	message := func(scenarios ...Scenario) string {
+		t.Helper()
+		dir, decode := newProject(t, `{"require": ["security/two.yaml"]}`, map[string]string{"security/two.yaml": list})
+		if err := run(scenarios...).write(filepath.Join(dir, ".axx", "controls", runFile)); err != nil {
+			t.Fatal(err)
+		}
+		_, _, err := call(t, dir, decode, []string{"check"}, nil, nil)
+		var ae *axxerr.Error
+		if !errors.As(err, &ae) || ae.Code != CodeNotCovered || ae.Exit != exitcode.Failed {
+			t.Fatalf("the check: %v", err)
+		}
+		return ae.Message
+	}
+	passed := scenario(8, "A password under 12 characters is refused", "passed", "house:password-length")
+	failed := scenario(13, "An account locks after five wrong passwords", "failed", "house:lockout")
+	if got := message(passed, failed); got != "1 required control is failing" {
+		t.Errorf("one scenario failed: %q", got)
+	}
+	if got := message(failed); got != "2 required controls are not covered, 1 of them failing" {
+		t.Errorf("one failed and one has no scenario: %q", got)
+	}
+	if got := message(failed, scenario(8, "A password under 12 characters is refused", "failed", "house:password-length")); got != "2 required controls are failing" {
+		t.Errorf("both failed: %q", got)
+	}
+	if got := message(passed); got != "1 required control is not covered" {
+		t.Errorf("one has no scenario: %q", got)
 	}
 }
 
@@ -863,5 +904,40 @@ func TestAPackAddsAListToAnotherPacksFramework(t *testing.T) {
 	// The framework's own pack still has only its own lists.
 	if f := registered()["ports"]; len(f.Lists) != 1 {
 		t.Errorf("the lists of the framework: %+v", f.Lists)
+	}
+}
+
+// A control's ID as a name, for the formats that take only names: as its
+// framework writes it, or the ID made one.
+func TestAControlsIDAsAName(t *testing.T) {
+	plain := &Framework{Key: "plain"}
+	for id, want := range map[string]string{
+		"lockout": "lockout", "8.3.6": "_8.3.6", "IA-5(1)": "IA-5_1_", "A.5.1": "A.5.1", "CC6.1": "CC6.1", "§4": "_4", "_x y": "_x_y",
+	} {
+		if got := plain.token(id); got != want {
+			t.Errorf("%q as a name: %q, want %q", id, got, want)
+		}
+	}
+	own := &Framework{Key: "own", Token: func(id string) string { return strings.TrimPrefix("R"+id, "Rnone") }}
+	if got := own.token("7"); got != "R7" {
+		t.Errorf("the framework's own name: %q", got)
+	}
+	// A framework that has no name for an ID leaves it to the rule.
+	if got := own.token("none"); got != "none" {
+		t.Errorf("an ID its framework names nothing for: %q", got)
+	}
+
+	RegisterFramework(Framework{Key: "quay", Title: "Quay rules", Version: "2", Token: strings.ToLower, Controls: []Control{{ID: "Q-1", Title: "Bollards"}}})
+	dir, decode := newProject(t, `{}`, map[string]string{"security/quay.yaml": "framework: quay\ncontrols:\n  Q-1:\n"})
+	p, err := loadProject(dir, decode, overrides{require: []string{"security/quay.yaml"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := p.report(nil, nil, time.Now())
+	if len(r.Controls) != 1 || r.Controls[0].Token != "q-1" {
+		t.Errorf("the report's control: %+v", r.Controls)
+	}
+	if len(r.Frameworks) != 1 || r.Frameworks[0] != (ReportFramework{Key: "quay", Title: "Quay rules", Version: "2"}) {
+		t.Errorf("the report's frameworks: %+v", r.Frameworks)
 	}
 }

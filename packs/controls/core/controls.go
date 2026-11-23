@@ -193,7 +193,7 @@ func summarize(say func(string), r *Report, run core.Run, file string) {
 			say(fmt.Sprintf("  and %d more: `axx controls report` lists them", len(unmet)-maxSaid))
 			break
 		}
-		say(fmt.Sprintf("  %-*s  %-13s  %s", width, cr.Control, cr.State, cr.why()))
+		say(fmt.Sprintf("  %-*s  %-13s  %s", width, cr.Control, cr.State, cr.Why()))
 	}
 	saidUnknown(say, r)
 }

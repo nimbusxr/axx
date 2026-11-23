@@ -7,7 +7,7 @@ description: Give every repository of an organization the same list of required 
 
 Write a pack when a file in one project is not enough:
 
-- **A list for many repositories.** A security team keeps one list, in one versioned pack.
+- **A list for many repositories.** Whoever approves the controls keeps one list, in one versioned pack.
 - **A framework Axx does not carry,** whose text your organization may hold.
 - **A report format** your auditors or your compliance tool take.
 - **A source:** another tool's results, read as evidence.
@@ -90,6 +90,7 @@ packs:
 - **`Notice`** says where the text is from and under what terms, when that must be said wherever the text is shown.
 - **`Version`** is recorded with every run's evidence. Evidence of another version is refused, as a control's ID may mean another control there.
 - **`Same`** tells two ways of writing an ID apart or together, where your framework has several (`IA-5(1)` and `IA-5.1`).
+- **`Token`** writes an ID as a name, for the formats that take only names: OSCAL's control IDs start with a letter. Without it, an ID that starts with a digit gets an underscore before it.
 
 **A list of a framework another pack carries** needs no framework of your own. Register the list for that framework's key, and require the framework's pack:
 

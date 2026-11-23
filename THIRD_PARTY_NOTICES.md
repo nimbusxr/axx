@@ -219,3 +219,16 @@ In addition, the Cisco-provided binary of this Software is licensed under Cisco'
   - `sp800-53.json.gz`: each control's and enhancement's ID, title and family, taken from the
     catalog by `internal/tools/controlsdata`, gzip-compressed
 
+## NIST OSCAL, the schemas of its assessment results (1.1.3 and 1.2.3)
+
+- Source: https://github.com/usnistgov/OSCAL, the releases `v1.1.3` and `v1.2.3`:
+  `oscal_assessment-results_schema.json` (SHA-256
+  `d9e34757f0c12aff61f52b821f0b8f83ba0ba75b3a149a202b08ba82f82bc4c3` and
+  `4034e2032332dbf597e59e0646ec16c2c31df992962490371e91f47b219ff42c`)
+- License: in the public domain, as a work of the United States government (CC0 1.0 worldwide)
+- Used by: the tests of the `controls-oscal` pack (`packs/controls/oscal`), which hold the
+  documents it writes to them. They are in no build of axx.
+- Unmodified files, gzip-compressed, in `packs/controls/oscal/testdata/`:
+  - `oscal_assessment-results_schema-1.1.3.json.gz`
+  - `oscal_assessment-results_schema-1.2.3.json.gz`
+

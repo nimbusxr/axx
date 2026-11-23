@@ -2,6 +2,7 @@ package controlscore
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -45,6 +46,9 @@ type Report struct {
 	// configuration selects, when they are not: a control they leave not
 	// covered may be one their scenarios did not get to.
 	Partial string `json:"partial,omitempty"`
+	// Frameworks are the frameworks whose controls the report has, in the
+	// order it comes to them.
+	Frameworks []ReportFramework `json:"frameworks,omitempty"`
 	// Lists are the lists the project requires.
 	Lists []ReportList `json:"lists,omitempty"`
 	// Controls are the required controls, in their lists' order, then the
@@ -61,6 +65,13 @@ type Report struct {
 	// Notices are the terms of the frameworks whose text the report may
 	// show.
 	Notices []string `json:"-"`
+}
+
+// ReportFramework is a framework whose controls a report has.
+type ReportFramework struct {
+	Key     string `json:"key"`
+	Title   string `json:"title,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 // ReportList is a list a project requires.
@@ -84,6 +95,9 @@ type ControlResult struct {
 	ID        string `json:"id"`
 	Title     string `json:"title,omitempty"`
 	Group     string `json:"group,omitempty"`
+	// Token is its ID as a name, for the formats that take only names
+	// (Framework.Token): ia-5.1, V6.2.1.
+	Token string `json:"-"`
 	// Text is what the control requires, in its framework's words: for the
 	// reports a person reads, never written into evidence.
 	Text string `json:"-"`
@@ -287,8 +301,11 @@ func (p *project) report(run *Evidence, others []*Evidence, at time.Time) *Repor
 
 	result := func(f *Framework, c *Control, ref string) ControlResult {
 		cr := ControlResult{
-			Control: ref, Framework: f.Key, ID: c.ID, Title: c.Title, Group: c.Group, Text: c.Text,
+			Control: ref, Framework: f.Key, ID: c.ID, Title: c.Title, Group: c.Group, Token: f.token(c.ID), Text: c.Text,
 			Scenarios: claimed[ref], Other: found[ref],
+		}
+		if !slices.ContainsFunc(r.Frameworks, func(have ReportFramework) bool { return have.Key == f.Key }) {
+			r.Frameworks = append(r.Frameworks, ReportFramework{Key: f.Key, Title: f.Title, Version: f.Version})
 		}
 		if e, ok := excepted[ref]; ok {
 			cr.Exception, cr.Expired = &e, !e.in(at)
@@ -393,8 +410,8 @@ func stateOf(cr ControlResult) State {
 	return NotCovered
 }
 
-// why says, in a few words, what a control's state rests on.
-func (cr ControlResult) why() string {
+// Why says, in a few words, what a control's state rests on.
+func (cr ControlResult) Why() string {
 	switch cr.State {
 	case Proven:
 		return plural(passing(cr.Scenarios), "scenario")

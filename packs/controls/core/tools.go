@@ -105,7 +105,7 @@ func status(call *core.ToolCall) (*core.ToolResult, error) {
 			view.More++
 			continue
 		}
-		view.ToCover = append(view.ToCover, statusControl{Control: cr.Control, State: cr.State, Why: cr.why(), Requires: oneLine(cr.Text, cr.Title, 200)})
+		view.ToCover = append(view.ToCover, statusControl{Control: cr.Control, State: cr.State, Why: cr.Why(), Requires: oneLine(cr.Text, cr.Title, 200)})
 	}
 	for _, u := range r.Unknown {
 		tag := u.Tag
@@ -163,7 +163,7 @@ func show(call *core.ToolCall) (*core.ToolResult, error) {
 	view.Why = "no scenario is tagged @" + ref
 	for _, cr := range r.Controls {
 		if cr.Control == ref {
-			view.Required, view.Needs, view.State, view.Why, view.Scenarios = cr.Required, cr.Needs, cr.State, cr.why(), cr.Scenarios
+			view.Required, view.Needs, view.State, view.Why, view.Scenarios = cr.Required, cr.Needs, cr.State, cr.Why(), cr.Scenarios
 		}
 	}
 	return &core.ToolResult{Data: view}, nil

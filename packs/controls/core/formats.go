@@ -104,7 +104,7 @@ func writeText(w io.Writer, r *Report) error {
 		}
 		fmt.Fprintf(w, "\n%s (%d):\n", title, len(list))
 		for _, cr := range list {
-			line := fmt.Sprintf("  %-*s  %s", width, cr.Control, cr.why())
+			line := fmt.Sprintf("  %-*s  %s", width, cr.Control, cr.Why())
 			if cr.Title != "" {
 				line += "  [" + cr.Title + "]"
 			}
@@ -124,7 +124,7 @@ func writeText(w io.Writer, r *Report) error {
 	if len(extra) > 0 {
 		fmt.Fprintf(w, "\nCovered, and in no required list (%d):\n", len(extra))
 		for _, cr := range extra {
-			fmt.Fprintf(w, "  %-*s  %s: %s\n", width, cr.Control, cr.State, cr.why())
+			fmt.Fprintf(w, "  %-*s  %s: %s\n", width, cr.Control, cr.State, cr.Why())
 		}
 	}
 	writeUnknown(w, r, "\nTags that name no control:\n", "  %s  %s\n")

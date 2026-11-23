@@ -1,7 +1,8 @@
 // Command controlsdata fetches the frameworks the controls packs carry from their publishers,
 // each at a pinned commit and checked against a pinned SHA-256, and writes what the packs embed:
 // OWASP's ASVS as OWASP publishes it, and NIST's SP 800-53 cut down to its controls' IDs, titles
-// and families. It is run by hand, from the module's root, when a pack moves to another version
+// and families. It fetches NIST's schemas of OSCAL's assessment results too, which the
+// controls-oscal pack's tests hold its documents to (controlsoscal.Schemas). It is run by hand, from the module's root, when a pack moves to another version
 // of its framework; go generate downloads nothing.
 //
 //	go run ./internal/tools/controlsdata
@@ -27,6 +28,7 @@ import (
 	"github.com/nimbusxr/axx/internal/mirror"
 	controlsasvs "github.com/nimbusxr/axx/packs/controls/asvs"
 	controlsnist "github.com/nimbusxr/axx/packs/controls/nist"
+	controlsoscal "github.com/nimbusxr/axx/packs/controls/oscal"
 )
 
 func main() {
@@ -48,6 +50,15 @@ func main() {
 	}
 	if err := writeGzip(filepath.Join("packs", "controls", "nist", "data", "sp800-53.json.gz"), slim); err != nil {
 		fail(err)
+	}
+	for _, s := range controlsoscal.Schemas {
+		schema, err := fetch(s.Source, s.SHA256)
+		if err != nil {
+			fail(err)
+		}
+		if err := writeGzip(filepath.Join("packs", "controls", "oscal", "testdata", s.File), schema); err != nil {
+			fail(err)
+		}
 	}
 	fmt.Println("wrote the controls packs' data: run their tests, and say in THIRD_PARTY_NOTICES.md what changed")
 }

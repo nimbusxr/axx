@@ -3,6 +3,7 @@ package controlsnist
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -68,5 +69,22 @@ func TestThePack(t *testing.T) {
 	m := Pack().Manifest()
 	if m.Name != "controls-nist" || !m.Experimental || len(m.Requires) != 1 || m.Requires[0] != "controls-core" || len(m.Steps) != 0 {
 		t.Errorf("the manifest: %+v", m)
+	}
+}
+
+// A control's ID as a name, for the formats that take only names (OSCAL): as NIST's OSCAL catalog names it.
+// Every control has one such a format accepts.
+func TestAControlsIDAsAName(t *testing.T) {
+	f := Framework()
+	for id, want := range map[string]string{"IA-5.1": "ia-5.1", "AC-7": "ac-7", "AC-2.13": "ac-2.13"} {
+		if got := f.Token(id); got != want {
+			t.Errorf("%s as a name: %q, want %q", id, got, want)
+		}
+	}
+	name := regexp.MustCompile(`^(\p{L}|_)(\p{L}|\p{N}|[.\-_])*$`)
+	for _, c := range f.Controls {
+		if got := f.Token(c.ID); !name.MatchString(got) {
+			t.Errorf("%s as a name is %q, which is none", c.ID, got)
+		}
 	}
 }

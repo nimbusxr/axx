@@ -47,6 +47,7 @@ var Catalog = []Pack{
 	{Name: "controls-core", Import: packs + "controls/core", Summary: "which of the controls a project is required to cover its scenarios prove: scenarios claim controls with tags, a report shows what covers each, and a check fails when a required one is not covered"},
 	{Name: "controls-asvs", Import: packs + "controls/asvs", Requires: []string{"controls-core"}, Summary: "OWASP's Application Security Verification Standard 5.0 for controls-core: its requirements, claimed with @asvs:6.2.1, and its three levels as lists to require"},
 	{Name: "controls-nist", Import: packs + "controls/nist", Requires: []string{"controls-core"}, Summary: "the controls of NIST SP 800-53, revision 5, for controls-core: claimed with @nist:IA-5, and @nist:IA-5.1 for an enhancement"},
+	{Name: "controls-oscal", Import: packs + "controls/oscal", Requires: []string{"controls-core"}, Summary: "the report of controls-core as OSCAL assessment results, the format government programs and compliance tools read: axx controls report --format oscal"},
 	{Name: "web-core", Import: packs + "web/core", Summary: "web apps in real browsers, driven by Playwright"},
 	{Name: "web-screenshots", Import: packs + "web/screenshots", Requires: []string{"web-core"}, Summary: "pages that look as designed, compared with screenshots per platform"},
 	{Name: "web-a11y", Import: packs + "web/a11y", Requires: []string{"web-core"}, Summary: "pages people can use whatever their abilities: axe-core audits and accessible structure"},
