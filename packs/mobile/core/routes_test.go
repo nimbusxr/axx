@@ -1,6 +1,7 @@
 package mobilecore
 
 import (
+	"errors"
 	"math"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/internal/cloudstep/cloudtest"
 )
 
 func TestSpeeds(t *testing.T) {
@@ -132,4 +134,32 @@ func TestGPXRoutesWaypointsAndTheirFaults(t *testing.T) {
 	if _, err := gpxRoute(filepath.Join(t.TempDir(), "none.gpx"), nil); err == nil {
 		t.Error("a missing file")
 	}
+}
+
+// The step that waits for a phone's route to end begins when the steps before it are done,
+// which can be long after the phone was due: a phone that has arrived has arrived whenever the
+// step begins, one that stopped short says why, and one still on its way has 10 seconds from
+// then, not from a time that has passed.
+func TestARoutesEndIsWaitedForHoweverLateTheStepBegins(t *testing.T) {
+	h := cloudtest.New(t, Pack())
+	late := time.Now().Add(-time.Minute)
+	arrived := make(chan struct{})
+	close(arrived)
+	// Many times: an arrival and a wait that is over are both so, and a select takes either.
+	for range 50 {
+		(*journeys.Of(h.SC))["courier"] = journey{arrived: arrived, due: late}
+		h.OK("the courier app's phone reaches the end of its route")
+		h.OK("within 0s the courier app's phone reaches the end of its route")
+	}
+	failed := errors.New("the app did not answer")
+	for range 50 {
+		(*journeys.Of(h.SC))["courier"] = journey{arrived: arrived, due: late, path: "up the garden path", failed: &failed}
+		_ = h.Fails("the courier app's phone reaches the end of its route",
+			`the courier app's phone stopped short of the end of the scene's "up the garden path" path: the app did not answer`)
+	}
+	onItsWay := make(chan struct{})
+	(*journeys.Of(h.SC))["courier"] = journey{arrived: onItsWay, due: late}
+	time.AfterFunc(300*time.Millisecond, func() { close(onItsWay) })
+	h.OK("the courier app's phone reaches the end of its route")
+	_ = h.Fails("the depot app's phone reaches the end of its route", "the depot app's phone is on no route")
 }
