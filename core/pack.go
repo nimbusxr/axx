@@ -6,6 +6,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -448,7 +449,19 @@ const (
 	// like what it does as an app launches; what its two sides must know of
 	// each other, it notes ([Scenario.Note]).
 	HostScenario
+	// StepFailed runs when a step's own work failed, before its AfterStep
+	// hooks: the scenario's progress has the failure. A hook that returns
+	// [ErrRetryStep] has the step run once more, and the hooks again should
+	// it fail again; any other error, and nil, leave the step failed. It is
+	// for where a person follows the run and decides (a demo before an
+	// audience): a run nobody follows has no such hook, and its steps run
+	// once.
+	StepFailed
 )
+
+// ErrRetryStep is what a [StepFailed] hook returns to have the step that
+// failed run once more.
+var ErrRetryStep = errors.New("run the step once more")
 
 func (p Phase) String() string {
 	switch p {
@@ -462,6 +475,8 @@ func (p Phase) String() string {
 		return "afterStep"
 	case HostScenario:
 		return "hostScenario"
+	case StepFailed:
+		return "stepFailed"
 	}
 	return "unknown"
 }

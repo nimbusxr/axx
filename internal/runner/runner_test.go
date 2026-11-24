@@ -861,3 +861,54 @@ func TestAfterStepHooksKnowHowTheStepEnded(t *testing.T) {
 		t.Errorf("the exchange: %+v", x)
 	}
 }
+
+// Where a person follows the run, a hook may have a step that failed run once more: the step
+// then ends as its last run did.
+func TestAStepThatFailedRunsOnceMoreWhenAHookSaysSo(t *testing.T) {
+	runs, asked := 0, 0
+	m := core.Manifest{
+		Name: "test",
+		Steps: []core.StepDef{
+			{ID: "flaky", Expr: "the service answers the second time", Run: func(*core.Scenario, core.Args) error {
+				if runs++; runs < 2 {
+					return errors.New("no answer")
+				}
+				return nil
+			}},
+			{ID: "fail", Expr: "a button is missing", Run: func(*core.Scenario, core.Args) error { return errors.New("no button") }},
+		},
+		Hooks: []core.Hook{{ID: "failed", Phase: core.StepFailed, Run: func(sc *core.Scenario) error {
+			for _, p := range sc.Progress() {
+				if p.Line == sc.Step().Line && (p.Status != "failed" || p.Error == "") {
+					t.Errorf("the hook finds the step %+v, want it failed", p)
+				}
+			}
+			if asked++; asked == 1 {
+				return core.ErrRetryStep
+			}
+			return nil
+		}}},
+	}
+	reg := match.NewRegistry()
+	if err := reg.AddPack("test", m); err != nil {
+		t.Fatal(err)
+	}
+	set, pickles := load(t, `Feature: steps
+
+  Scenario: a second try
+    When the service answers the second time
+    Then a button is missing
+`)
+	r, err := New(Options{Registry: reg, Hooks: []PackHook{{Pack: "test", Hook: m.Hooks[0]}}, Workers: 1, Docs: set.Docs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := r.Run(context.Background(), pickles)
+	steps := res.Scenarios[0].Steps
+	if runs != 2 || steps[0].Status != Passed || steps[0].Err != nil {
+		t.Errorf("the first step ran %d times and ended %v (%v), want twice and passed", runs, steps[0].Status, steps[0].Err)
+	}
+	if asked != 2 || steps[1].Status != Failed {
+		t.Errorf("the hook was asked %d times and the second step ended %v, want twice and failed", asked, steps[1].Status)
+	}
+}
