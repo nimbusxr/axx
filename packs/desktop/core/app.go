@@ -274,6 +274,9 @@ type scenario struct {
 	// recorder records its desktop for its video, from its first app's
 	// start.
 	recorder *recording.Recorder
+	// shown is whether what watches the scenario's screens was shown the
+	// desktop.
+	shown bool
 }
 
 var scenarios = core.NewStateKey(Name+"/scenario", func(sc *core.Scenario) *scenario {
