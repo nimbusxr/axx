@@ -36,11 +36,28 @@ const RESTValuesRuleID = "rest-payload-values"
 // then the checks the project's packs make (core.FeatureCheck), as warnings.
 func FeatureChecks(reg *match.Registry, pickles []*feature.Pickle, workDir string) []RuleResult {
 	return append([]RuleResult{
-		CheckRounds(pickles, workDir), CheckServices(reg, pickles, workDir),
+		CheckRounds(notDemos(pickles), workDir), CheckServices(reg, pickles, workDir),
 		CheckFeatures(reg, pickles, workDir), CheckSelections(reg, pickles, workDir),
 		CheckRESTRequests(reg, pickles, workDir), CheckRESTPayloadValues(reg, pickles, workDir),
 		CheckDeprecated(reg, pickles, workDir),
 	}, CheckPacks(reg, pickles, workDir)...)
+}
+
+// DemoSuffix ends the name of a demo's feature file: a scenario written to
+// be shown to people, which the demo pack films (`axx demo`). It tells a story
+// from its start to its end, so it does several things in turn, and the rule
+// of one behavior per scenario is not for it.
+const DemoSuffix = ".demo.feature"
+
+// notDemos are the scenarios of the files that are no demos.
+func notDemos(pickles []*feature.Pickle) []*feature.Pickle {
+	var out []*feature.Pickle
+	for _, p := range pickles {
+		if !strings.HasSuffix(p.Doc.Path, DemoSuffix) {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // CheckRESTRequests checks the REST requests steps add and address. Findings

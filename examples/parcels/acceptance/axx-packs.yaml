@@ -40,3 +40,4 @@ packs:
   - models-ios
   - models-android
   - models-web
+  - demo

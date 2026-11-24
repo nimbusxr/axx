@@ -27,6 +27,7 @@ import (
 	coveragejvm "github.com/nimbusxr/axx/packs/coverage/jvm"
 	coveragenode "github.com/nimbusxr/axx/packs/coverage/node"
 	coveragepython "github.com/nimbusxr/axx/packs/coverage/python"
+	"github.com/nimbusxr/axx/packs/demo"
 	desktopcore "github.com/nimbusxr/axx/packs/desktop/core"
 	desktoplinux "github.com/nimbusxr/axx/packs/desktop/linux"
 	desktopmacos "github.com/nimbusxr/axx/packs/desktop/macos"
@@ -107,6 +108,7 @@ func Packs() map[string]core.Pack {
 		"web-coverage":     webcoverage.Pack(),
 		"controls-asvs":    controlsasvs.Pack(),
 		"controls-core":    controlscore.Pack(),
+		"demo":             demo.Pack(),
 		"controls-nist":    controlsnist.Pack(),
 		"controls-oscal":   controlsoscal.Pack(),
 		"coverage-core":    coveragecore.Pack(),

@@ -1,0 +1,262 @@
+package demo
+
+import (
+	"bytes"
+	"context"
+	"embed"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"image"
+	"image/png"
+	"io/fs"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/mxschmitt/playwright-go"
+
+	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/internal/video"
+	webcore "github.com/nimbusxr/axx/packs/web/core"
+)
+
+// The film is the stage, moment after moment. The stage is a page that draws
+// the picture of any moment of a timeline (stage/stage.js: seek); the film
+// asks it for each frame's, takes a picture of the page, and encodes the
+// pictures. Nothing depends on how fast the page or the machine is: the
+// film's clock is the timeline's.
+
+//go:embed stage
+var stageFiles embed.FS
+
+// Staged is what the stage plays: a take, its timeline and the project's look.
+type Staged struct {
+	Take     *Take     `json:"take"`
+	Timeline *Timeline `json:"timeline"`
+	Theme    Theme     `json:"theme"`
+	// Mark is a word the stage shows in a corner: "recorded", where a live
+	// show plays a take.
+	Mark string `json:"mark,omitempty"`
+}
+
+// stageServer serves the stage to a page, on this machine only: the pack's
+// files, what the stage plays, and the project's own scenes and styles.
+type stageServer struct {
+	URL   string
+	close func()
+}
+
+func (s *stageServer) Close() { s.close() }
+
+// serveStage starts the stage's server. What it plays comes from staged each
+// time the page asks, so a show can change it.
+func serveStage(projectDir string, st Settings, staged func() *Staged) (*stageServer, error) {
+	files, _ := fs.Sub(stageFiles, "stage")
+	mux := http.NewServeMux()
+	mux.HandleFunc("/demo.json", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(staged())
+	})
+	// The project's own files, by the paths axx.yaml names them with.
+	mux.HandleFunc("/project/", func(w http.ResponseWriter, r *http.Request) {
+		rel := strings.TrimPrefix(r.URL.Path, "/project/")
+		for _, allowed := range append(append([]string{}, st.Scenes...), st.Styles...) {
+			if filepath.ToSlash(filepath.Clean(allowed)) == rel {
+				http.ServeFile(w, r, filepath.Join(projectDir, filepath.FromSlash(rel)))
+				return
+			}
+		}
+		http.NotFound(w, r)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" && r.URL.Path != "/stage.html" {
+			http.FileServerFS(files).ServeHTTP(w, r)
+			return
+		}
+		page, _ := fs.ReadFile(files, "stage.html")
+		var styles, scenes strings.Builder
+		for _, s := range st.Styles {
+			fmt.Fprintf(&styles, `<link rel="stylesheet" href="project/%s">`+"\n", filepath.ToSlash(filepath.Clean(s)))
+		}
+		for _, s := range st.Scenes {
+			fmt.Fprintf(&scenes, `<script src="project/%s"></script>`+"\n", filepath.ToSlash(filepath.Clean(s)))
+		}
+		out := strings.Replace(string(page), "<!--theme-->", styles.String(), 1)
+		out = strings.Replace(out, "<!--scenes-->", scenes.String(), 1)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(out))
+	})
+	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, fmt.Errorf("cannot serve the demo's stage on this machine: %w", err)
+	}
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	go func() { _ = srv.Serve(l) }()
+	return &stageServer{
+		URL:   "http://" + l.Addr().String() + "/",
+		close: func() { _ = srv.Close() },
+	}, nil
+}
+
+// studio is the stage open in a page of a browser of its own, to take
+// pictures of.
+type studio struct {
+	page          playwright.Page
+	width, height int
+	scale         float64
+	close         func()
+}
+
+// openStudio opens the stage with what it plays.
+func openStudio(ctx context.Context, projectDir string, st Settings, staged *Staged) (*studio, error) {
+	srv, err := serveStage(projectDir, st, func() *Staged { return staged })
+	if err != nil {
+		return nil, err
+	}
+	// A browser of its own, for the stage's page: it ends with the studio.
+	suite := core.NewSuite(core.SuiteOptions{ProjectDir: projectDir})
+	s := &studio{}
+	s.close = func() {
+		if s.page != nil {
+			_ = s.page.Close()
+		}
+		_ = suite.Close(context.WithoutCancel(ctx))
+		srv.Close()
+	}
+	s.width, s.height, s.scale = st.size()
+	if s.page, err = webcore.OwnPage(suite, s.width, s.height, s.scale); err != nil {
+		s.close()
+		return nil, fmt.Errorf("the film is made in a browser, which did not start: %w", err)
+	}
+	if _, err := s.page.Goto(srv.URL); err != nil {
+		s.close()
+		return nil, fmt.Errorf("the demo's stage did not open: %w", err)
+	}
+	if _, err := s.page.WaitForFunction("() => window.axxReady === true", nil); err != nil {
+		err = fmt.Errorf("the demo's stage did not start: %w", stageError(s.page, err))
+		s.close()
+		return nil, err
+	}
+	return s, nil
+}
+
+// seek moves the stage to a moment, and reports whether its picture changed.
+func (s *studio) seek(at time.Duration) (bool, error) {
+	// A frame is a picture only where the stage changed: a still stretch is
+	// one frame that lasts.
+	const seek = `(t) => {
+		axxStage.seek(t);
+		const now = document.getElementById('stage').innerHTML;
+		const changed = now !== window.__axxLast;
+		window.__axxLast = now;
+		return changed;
+	}`
+	changed, err := s.page.Evaluate(seek, at.Seconds())
+	if err != nil {
+		return false, fmt.Errorf("the demo's stage failed at %s: %w", at.Round(time.Millisecond), err)
+	}
+	c, _ := changed.(bool)
+	return c, nil
+}
+
+// shot is the picture of the stage as it stands.
+func (s *studio) shot() (image.Image, error) {
+	shot, err := s.page.Screenshot(playwright.PageScreenshotOptions{Type: playwright.ScreenshotTypePng})
+	if err != nil {
+		return nil, fmt.Errorf("no picture of the stage: %w", err)
+	}
+	return png.Decode(bytes.NewReader(shot))
+}
+
+// Still is the picture of a demo at a moment of its timeline.
+func Still(ctx context.Context, projectDir string, st Settings, staged *Staged, at time.Duration) (image.Image, error) {
+	s, err := openStudio(ctx, projectDir, st, staged)
+	if err != nil {
+		return nil, err
+	}
+	defer s.close()
+	if _, err := s.seek(at); err != nil {
+		return nil, err
+	}
+	return s.shot()
+}
+
+// Film makes the film of a take with its timeline, into the file at out.
+// Progress is told how far it is, from 0 to 1.
+func Film(ctx context.Context, projectDir string, st Settings, staged *Staged, out string, progress func(float64)) error {
+	tl := staged.Timeline
+	if tl.Duration <= 0 {
+		return errors.New("the demo shows nothing: its camera is off for every step ([cut] with no [action] after it)")
+	}
+	s, err := openStudio(ctx, projectDir, st, staged)
+	if err != nil {
+		return err
+	}
+	defer s.close()
+	width, height, scale := s.width, s.height, s.scale
+	fps := st.fps()
+	enc, err := video.NewEncoderOf(int(float64(width)*scale), int(float64(height)*scale), float64(fps), video.ScreenQuality)
+	if err != nil {
+		return err
+	}
+	defer enc.Close()
+	frames := int(tl.Duration*float64(fps)) + 1
+	for n := range frames {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		at := time.Duration(float64(n) / float64(fps) * float64(time.Second))
+		changed, err := s.seek(at)
+		if err != nil {
+			return err
+		}
+		if !changed && n > 0 {
+			continue
+		}
+		img, err := s.shot()
+		if err != nil {
+			return err
+		}
+		if err := enc.Encode(opaque(img), at); err != nil {
+			return err
+		}
+		if progress != nil {
+			progress(float64(n+1) / float64(frames))
+		}
+	}
+	clip := enc.Finish(time.Duration(tl.Duration * float64(time.Second)))
+	var chapters []video.Chapter
+	for _, s := range tl.Subtitles {
+		chapters = append(chapters, video.Chapter{Title: s.Text, At: time.Duration(s.Start * float64(time.Second))})
+	}
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	if err := video.WriteMP4(&buf, []video.Clip{clip}, chapters...); err != nil {
+		return err
+	}
+	return os.WriteFile(out, buf.Bytes(), 0o644)
+}
+
+// opaque is a picture as the encoder takes it quickest.
+func opaque(img image.Image) image.Image {
+	if n, ok := img.(*image.NRGBA); ok {
+		return &image.RGBA{Pix: n.Pix, Stride: n.Stride, Rect: n.Rect}
+	}
+	return img
+}
+
+// stageError adds what the page said to an error of the stage: a mistake in
+// a project's own scene shows there.
+func stageError(page playwright.Page, err error) error {
+	said, eerr := page.Evaluate(`() => window.__axxErrors ? window.__axxErrors.join("; ") : ""`)
+	if s, _ := said.(string); eerr == nil && s != "" {
+		return fmt.Errorf("%w (%s)", err, s)
+	}
+	return err
+}
