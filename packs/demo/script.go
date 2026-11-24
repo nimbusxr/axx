@@ -59,6 +59,14 @@ type Problem struct {
 type Script struct {
 	Cues     []Cue
 	Problems []Problem
+	// FeatureLine is the line of the file's Feature: a cue that belongs to
+	// it is the whole film's, and plays once, whatever rows a Scenario
+	// Outline has.
+	FeatureLine int
+	// Rows are the values of each row of the Scenario Outlines' Examples,
+	// by the row's line and its column's name: a cue's <name> is the row's
+	// value, as a step's is.
+	Rows map[int]map[string]string
 }
 
 const marker = "demo:"
@@ -75,7 +83,11 @@ func ParseScript(uri string, src []byte, custom []string) (*Script, error) {
 }
 
 func scriptOf(ast *messages.GherkinDocument, custom []string) *Script {
-	s := &Script{}
+	s := &Script{Rows: map[int]map[string]string{}}
+	if ast.Feature != nil {
+		s.FeatureLine = int(ast.Feature.Location.Line)
+		rowsOf(ast.Feature.Children, s.Rows)
+	}
 	anchors := anchorLines(ast)
 	// The comments by line, to find the ones that go on below a cue.
 	byLine := map[int]*messages.Comment{}
@@ -115,6 +127,46 @@ func scriptOf(ast *messages.GherkinDocument, custom []string) *Script {
 		s.Cues = append(s.Cues, cue)
 	}
 	return s
+}
+
+// rowsOf collects the rows of the Examples of every Scenario Outline.
+func rowsOf(children []*messages.FeatureChild, rows map[int]map[string]string) {
+	outline := func(sc *messages.Scenario) {
+		for _, ex := range sc.Examples {
+			if ex.TableHeader == nil {
+				continue
+			}
+			for _, row := range ex.TableBody {
+				values := map[string]string{}
+				for i, cell := range row.Cells {
+					if i < len(ex.TableHeader.Cells) {
+						values[ex.TableHeader.Cells[i].Value] = cell.Value
+					}
+				}
+				rows[int(row.Location.Line)] = values
+			}
+		}
+	}
+	for _, c := range children {
+		switch {
+		case c.Scenario != nil:
+			outline(c.Scenario)
+		case c.Rule != nil:
+			for _, rc := range c.Rule.Children {
+				if rc.Scenario != nil {
+					outline(rc.Scenario)
+				}
+			}
+		}
+	}
+}
+
+// fill puts a row's values in the place of a text's <name>s.
+func fill(text string, row map[string]string) string {
+	for name, value := range row {
+		text = strings.ReplaceAll(text, "<"+name+">", value)
+	}
+	return text
 }
 
 // cueBody is what a comment says after "# demo:", and the column its text

@@ -245,3 +245,43 @@ func TestCutOfScreens(t *testing.T) {
 		t.Errorf("a step with no screen shows the diagram: %+v", got)
 	}
 }
+
+// The rows of a Scenario Outline are one film: a cue's <name> is its row's
+// value, and what belongs to the Feature plays once, with the first row.
+func TestCutOfAnOutlinesRows(t *testing.T) {
+	src := `# demo: [card 3s] Prices
+Feature: Prices
+
+  Scenario Outline: A parcel of <grams> grams
+    # demo: A parcel of <grams> grams costs <price> cents.
+    When the price is asked
+
+    Examples:
+      | grams | price |
+      | 500   | 490   |
+      | 7500  | 890   |
+`
+	script, err := ParseScript("prices.demo.feature", []byte(src), nil)
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	for row, want := range []struct {
+		line  int
+		cards int
+		text  string
+	}{{10, 1, "A parcel of 500 grams costs 490 cents."}, {11, 0, "A parcel of 7500 grams costs 890 cents."}} {
+		take := &Take{Version: TakeVersion, Line: want.line, Passed: true, Steps: []TakeStep{{Keyword: "When", Text: "the price is asked", Line: 6, Status: "passed"}}}
+		pace := DefaultPace
+		pace.Row = row
+		tl := Cut(take, script, pace)
+		cards := 0
+		for _, seg := range tl.Segments {
+			if seg.Kind == "card" {
+				cards++
+			}
+		}
+		if cards != want.cards || len(tl.Subtitles) != 1 || tl.Subtitles[0].Text != want.text {
+			t.Errorf("row %d: %d cards, subtitles %+v; want %d and %q", row, cards, tl.Subtitles, want.cards, want.text)
+		}
+	}
+}

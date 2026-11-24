@@ -205,9 +205,15 @@
 					const k = Math.floor(at);
 					active = { x: list[k], phase: at - k, failed: state.step.status !== 'passed' };
 				}
-			} else if (state.step) {
-				const list = acts(state.step);
-				if (list.length) active = { x: list[list.length - 1], phase: 1, failed: state.step.status !== 'passed', over: true };
+			}
+			if (!active) {
+				// A step that sent nothing (a check of what came back) leaves the
+				// last thing that was sent and seen on the stage: it is what the
+				// step is about.
+				for (let i = Math.min(upTo, take.steps.length - 1); i >= 0 && !active; i--) {
+					const list = acts(take.steps[i]);
+					if (list.length) active = { x: list[list.length - 1], phase: 1, failed: take.steps[i].status !== 'passed', over: true };
+				}
 			}
 			drawBox(grid, L.caller, 'key');
 			for (const b of Object.values(L.boxes)) {

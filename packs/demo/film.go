@@ -248,51 +248,77 @@ func Still(ctx context.Context, projectDir string, st Settings, staged *Staged, 
 // Film makes the film of a take with its timeline, into the file at out.
 // Progress is told how far it is, from 0 to 1.
 func Film(ctx context.Context, projectDir string, st Settings, staged *Staged, out string, progress func(float64)) error {
-	tl := staged.Timeline
-	if tl.Duration <= 0 {
+	return FilmOf(ctx, projectDir, st, []*Staged{staged}, nil, out, progress)
+}
+
+// FilmOf makes one film of several takes, one after another: the rows of a
+// Scenario Outline, each a chapter of the film, with its title. A film of
+// one take has a chapter for each of its subtitles.
+func FilmOf(ctx context.Context, projectDir string, st Settings, parts []*Staged, titles []string, out string, progress func(float64)) error {
+	total := 0.0
+	for _, p := range parts {
+		total += p.Timeline.Duration
+	}
+	if total <= 0 {
 		return errors.New("the demo shows nothing: its camera is off for every step ([cut] with no [action] after it)")
 	}
-	s, err := openStudio(ctx, projectDir, st, staged)
-	if err != nil {
-		return err
-	}
-	defer s.close()
-	width, height, scale := s.width, s.height, s.scale
+	width, height, scale := st.size()
 	fps := st.fps()
 	enc, err := video.NewEncoderOf(int(float64(width)*scale), int(float64(height)*scale), float64(fps), video.ScreenQuality)
 	if err != nil {
 		return err
 	}
 	defer enc.Close()
-	frames := int(tl.Duration*float64(fps)) + 1
-	for n := range frames {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		at := time.Duration(float64(n) / float64(fps) * float64(time.Second))
-		changed, err := s.seek(at)
-		if err != nil {
-			return err
-		}
-		if !changed && n > 0 {
+	var chapters []video.Chapter
+	offset := time.Duration(0)
+	for i, part := range parts {
+		tl := part.Timeline
+		if tl.Duration <= 0 {
 			continue
 		}
-		img, err := s.shot()
+		if len(parts) > 1 {
+			chapters = append(chapters, video.Chapter{Title: titles[i], At: offset})
+		} else {
+			for _, s := range tl.Subtitles {
+				chapters = append(chapters, video.Chapter{Title: s.Text, At: time.Duration(s.Start * float64(time.Second))})
+			}
+		}
+		s, err := openStudio(ctx, projectDir, st, part)
 		if err != nil {
 			return err
 		}
-		if err := enc.Encode(opaque(img), at); err != nil {
-			return err
+		frames := int(tl.Duration*float64(fps)) + 1
+		for n := range frames {
+			if err := ctx.Err(); err != nil {
+				s.close()
+				return err
+			}
+			at := time.Duration(float64(n) / float64(fps) * float64(time.Second))
+			changed, err := s.seek(at)
+			if err != nil {
+				s.close()
+				return err
+			}
+			if !changed && n > 0 {
+				continue
+			}
+			img, err := s.shot()
+			if err != nil {
+				s.close()
+				return err
+			}
+			if err := enc.Encode(opaque(img), offset+at); err != nil {
+				s.close()
+				return err
+			}
+			if progress != nil {
+				progress((offset.Seconds() + at.Seconds()) / total)
+			}
 		}
-		if progress != nil {
-			progress(float64(n+1) / float64(frames))
-		}
+		s.close()
+		offset += time.Duration(tl.Duration * float64(time.Second))
 	}
-	clip := enc.Finish(time.Duration(tl.Duration * float64(time.Second)))
-	var chapters []video.Chapter
-	for _, s := range tl.Subtitles {
-		chapters = append(chapters, video.Chapter{Title: s.Text, At: time.Duration(s.Start * float64(time.Second))})
-	}
+	clip := enc.Finish(offset)
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		return err
 	}

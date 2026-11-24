@@ -67,6 +67,9 @@ type MadeFilm struct {
 	Film     string  `json:"film"`
 	Take     string  `json:"take"`
 	Seconds  float64 `json:"seconds"`
+	// Chapters is how many rows of a Scenario Outline the film has, each a
+	// chapter: 1 for a scenario that is no outline.
+	Chapters int `json:"chapters"`
 }
 
 func runDemo(call *core.CommandCall) error {
@@ -144,6 +147,11 @@ func runDemo(call *core.CommandCall) error {
 		}
 	}
 	made := Made{Feature: uri, Films: []MadeFilm{}}
+	st.footage = dir
+	// A film for each scenario: the rows of a Scenario Outline are one
+	// scenario, and each a chapter of its film.
+	var films [][]*Take
+	rows := map[string]int{}
 	for _, path := range takes {
 		take, err := readTake(path)
 		if err != nil {
@@ -152,21 +160,39 @@ func runDemo(call *core.CommandCall) error {
 		if !take.Passed {
 			return fmt.Errorf("the take of %q did not pass, so there is no film of it: run `axx demo %s` again", take.Scenario, file)
 		}
-		tl := Cut(take, script, DefaultPace)
-		st.footage = dir
+		key := outlineOf(take)
+		if i, ok := rows[key]; ok {
+			films[i] = append(films[i], take)
+			continue
+		}
+		rows[key] = len(films)
+		films = append(films, []*Take{take})
+	}
+	for _, of := range films {
 		// A demo of one scenario is named after its file; of several, each
 		// film after its scenario too.
 		out := filepath.Join(dir, filepath.Base(dir)+".mp4")
-		if len(takes) > 1 {
-			out = filepath.Join(dir, fmt.Sprintf("%s-%s.mp4", filepath.Base(dir), slug(take.Scenario)))
+		if len(films) > 1 {
+			out = filepath.Join(dir, fmt.Sprintf("%s-%s.mp4", filepath.Base(dir), slug(of[0].Scenario)))
 		} else if call.Flags["out"] != "" {
 			out = call.Flags["out"]
 		}
-		fmt.Fprintf(call.Stderr, "axx: filming %q (%.0f seconds)\n", take.Scenario, tl.Duration)
-		if err := Film(call.Context, call.ProjectDir, st, &Staged{Take: take, Timeline: tl, Theme: st.Theme}, out, nil); err != nil {
+		var parts []*Staged
+		var titles []string
+		seconds := 0.0
+		for i, take := range of {
+			pace := DefaultPace
+			pace.Row = i
+			tl := Cut(take, script, pace)
+			parts = append(parts, &Staged{Take: take, Timeline: tl, Theme: st.Theme})
+			titles = append(titles, fmt.Sprintf("%s (%d of %d)", take.Scenario, i+1, len(of)))
+			seconds += tl.Duration
+		}
+		fmt.Fprintf(call.Stderr, "axx: filming %q (%.0f seconds)\n", of[0].Scenario, seconds)
+		if err := FilmOf(call.Context, call.ProjectDir, st, parts, titles, out, nil); err != nil {
 			return err
 		}
-		made.Films = append(made.Films, MadeFilm{Scenario: take.Scenario, Film: out, Take: path, Seconds: tl.Duration})
+		made.Films = append(made.Films, MadeFilm{Scenario: of[0].Scenario, Film: out, Take: filepath.Join(dir, fmt.Sprintf("take-%d.json", of[0].Line)), Seconds: seconds, Chapters: len(of)})
 	}
 	return call.Emit(made, func(w io.Writer) error {
 		for _, f := range made.Films {
@@ -272,4 +298,16 @@ func openBrowser(ctx context.Context, url string) {
 		name, args = "rundll32", []string{"url.dll,FileProtocolHandler", url}
 	}
 	_ = exec.CommandContext(ctx, name, args...).Start()
+}
+
+// outlineOf names what a take is a run of: the rows of a Scenario Outline
+// run the same steps, on the same lines of the feature.
+func outlineOf(t *Take) string {
+	var b strings.Builder
+	for _, st := range t.Steps {
+		if !st.Background {
+			fmt.Fprintf(&b, "%d,", st.Line)
+		}
+	}
+	return b.String()
 }

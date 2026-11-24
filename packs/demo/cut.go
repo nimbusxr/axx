@@ -78,6 +78,9 @@ type Pace struct {
 	// timeline made again as the run goes on only grows.
 	Live    bool
 	Entered int
+	// Row is which row of a Scenario Outline the take is, from 0, in a film
+	// of them all.
+	Row int
 }
 
 // DefaultPace is the pace of a film whose project sets none.
@@ -90,7 +93,16 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 	// its anchor, and one below the last step to the end.
 	cues := make([][]Cue, len(take.Steps)+1)
 	if script != nil {
+		row := script.Rows[take.Line]
 		for _, c := range script.Cues {
+			// What belongs to the Feature is the whole film's: of the rows
+			// of a Scenario Outline, the first plays it.
+			if pace.Row > 0 && c.Anchor == script.FeatureLine {
+				continue
+			}
+			if row != nil {
+				c.Text = fill(c.Text, row)
+			}
 			i := len(take.Steps)
 			if c.Anchor != 0 {
 				for j, st := range take.Steps {
