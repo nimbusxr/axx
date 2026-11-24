@@ -39,7 +39,8 @@ while ! $all && ! $none && IFS= read -r f; do
       examples/parcels/acceptance/* | go.mod | go.sum | mise.toml | .golangci.yml | .goreleaser.yaml | *.go)
       go=true
       case "$f" in
-        packs/web/* | packs/models/web/*) web=true ;;
+        # The demo pack films its stage in a browser: its tests run in the web job.
+        packs/web/* | packs/models/web/* | packs/demo/*) web=true ;;
         packs/mobile/* | packs/models/ios/* | packs/models/android/*) mobile=true ;;
         packs/models/internal/apple/*) mobile=true desktop=true ;;
         packs/models/macos/* | packs/models/linux/* | packs/models/windows/*) desktop=true ;;
@@ -47,8 +48,10 @@ while ! $all && ! $none && IFS= read -r f; do
         packs/files/*) integration=true web=true mobile=true models=true ;;
         packs/desktop/*) desktop=true integration=true ;;
         packs/app/*) desktop=true integration=true web=true mobile=true ;;
-        # Desktop videos, and the videos an Android emulator's camera sees.
-        packs/internal/video/*) desktop=true mobile=true integration=true ;;
+        # Desktop videos, the videos an Android emulator's camera sees, and a demo's film.
+        packs/internal/video/*) desktop=true mobile=true integration=true web=true ;;
+        # A scenario's screen as its video and a demo's film see it.
+        packs/internal/recording/*) web=true desktop=true mobile=true ;;
         # What the mobile and desktop packs' sides in a run and in the axx host speak.
         packs/internal/hostwire/* | packs/internal/hostscenario/*) mobile=true desktop=true ;;
         # Coverage: web-coverage's tests run in the web job, the services' in the integration job.

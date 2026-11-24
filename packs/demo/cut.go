@@ -254,9 +254,14 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 	if !over {
 		play(len(take.Steps), cues[len(take.Steps)])
 	}
+	// The last subtitle stays to the end of the film.
+	ending := open
 	closeSubtitle()
 	if t > 0 {
 		hold(pace.End)
+	}
+	if ending >= 0 {
+		tl.Subtitles[ending].End = t
 	}
 	tl.Duration = round(t)
 	for i := range tl.Segments {
