@@ -35,6 +35,19 @@ type Take struct {
 	// Peers are what the scenario talked to, in the order it first did.
 	Peers []Peer     `json:"peers"`
 	Steps []TakeStep `json:"steps"`
+	// Footage are the pictures of the scenario's screens, in the order they
+	// were taken: a screen's picture shows until its next.
+	Footage []Shot `json:"footage,omitempty"`
+}
+
+// Shot is a picture of a screen, at a moment of the run.
+type Shot struct {
+	// Surface is the screen: "browser", "phone", "desktop".
+	Surface string `json:"surface"`
+	// File is the picture, a file beside the take.
+	File string `json:"file"`
+	// At is when it was taken, in seconds from the scenario's start.
+	At float64 `json:"at"`
 }
 
 // Peer is something the scenario talked to: a service, a database, a topic,

@@ -17,6 +17,9 @@ type Settings struct {
 	// Size is the film's, like 1920x1080, and FPS its frames a second.
 	Size string `json:"size,omitempty"`
 	FPS  int    `json:"fps,omitempty"`
+
+	// footage is the folder a take's pictures are in: its own.
+	footage string
 }
 
 // Theme is the look of a project's demos.

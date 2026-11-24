@@ -34,6 +34,11 @@ type Segment struct {
 	// Step is the take's step that plays or is held: -1 on a card before
 	// the first.
 	Step int `json:"step"`
+	// From and To are the stretch of the run the segment shows, in the
+	// take's seconds: a step's own time, less what of it nothing happened
+	// in on a screen; a hold's and a card's are the moment they stay at.
+	From float64 `json:"from"`
+	To   float64 `json:"to"`
 	// Text is a card's.
 	Text string `json:"text,omitempty"`
 	// Show is what the picture shows: one surface, or two side by side.
@@ -63,10 +68,13 @@ type Pace struct {
 	// Read is how long a subtitle of no words stays, and Word what each of
 	// its words adds; End is how long the last picture stays.
 	Read, Word, End float64
+	// Screen is the least a step on a screen lasts: what it did stays that
+	// long to be seen.
+	Screen float64
 }
 
 // DefaultPace is the pace of a film whose project sets none.
-var DefaultPace = Pace{Exchange: 2.2, Most: 5, Meet: 0.6, Check: 1, Failed: 3, Card: 3, Read: 1.2, Word: 0.33, End: 1.5}
+var DefaultPace = Pace{Exchange: 2.2, Most: 5, Meet: 0.6, Check: 1, Failed: 3, Card: 3, Read: 1.2, Word: 0.33, End: 1.5, Screen: 1.1}
 
 // Cut makes the timeline of a take with a script's cues.
 func Cut(take *Take, script *Script, pace Pace) *Timeline {
@@ -96,7 +104,11 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		if d <= 0 {
 			return
 		}
-		tl.Segments = append(tl.Segments, Segment{Kind: "hold", Start: t, End: t + d, Step: last, Show: surfaces(show, take, last)})
+		at := 0.0
+		if last >= 0 {
+			at = take.Steps[last].End
+		}
+		tl.Segments = append(tl.Segments, Segment{Kind: "hold", Start: t, End: t + d, Step: last, From: at, To: at, Show: surfaces(show, take, last)})
 		t += d
 	}
 	// closeSubtitle ends the subtitle that shows, once it had its time.
@@ -159,6 +171,9 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		}
 		for _, c := range cards {
 			c.Start, c.End, c.Step = t, t+c.End, last
+			if last >= 0 {
+				c.From, c.To = take.Steps[last].End, take.Steps[last].End
+			}
 			tl.Beats = append(tl.Beats, t)
 			tl.Segments = append(tl.Segments, c)
 			t = c.End
@@ -172,15 +187,30 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			return
 		}
 		last = i
-		dur := 0.0
+		st := take.Steps[i]
+		shows := surfaces(show, take, i)
+		from, to, dur := st.Start, st.End, 0.0
 		if camera {
-			dur = stepTime(take.Steps[i], pace) / speed
+			dur = stepTime(st, pace)
+			// A step on a screen lasts as long as it took, to where its
+			// screen last changed: the film plays what happened.
+			if on := onScreen(shows); len(on) > 0 && surfaceOf(st.Pack) != "" && st.Status == "passed" {
+				// What the screen showed until the next step began is this
+				// step's doing.
+				until := st.End
+				if i+1 < len(take.Steps) && take.Steps[i+1].Start > until {
+					until = take.Steps[i+1].Start
+				}
+				to = lastChange(take, on, st.Start, until)
+				dur = max(to-from, pace.Screen)
+			}
+			dur /= speed
 			if lasts >= 0 {
 				dur = lasts
 			}
 		}
 		if dur > 0 {
-			tl.Segments = append(tl.Segments, Segment{Kind: "step", Start: t, End: t + dur, Step: i, Show: surfaces(show, take, i), Directions: own})
+			tl.Segments = append(tl.Segments, Segment{Kind: "step", Start: t, End: t + dur, Step: i, From: from, To: to, Show: shows, Directions: own})
 			t += dur
 		}
 		if camera {
@@ -232,6 +262,33 @@ func stepTime(st TakeStep, pace Pace) float64 {
 	return pace.Check
 }
 
+// onScreen are the screens among the surfaces a step shows.
+func onScreen(shows []string) []string {
+	var out []string
+	for _, s := range shows {
+		if s != "diagram" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// lastChange is when the screens a step shows last changed between two
+// moments of the run: where the film leaves the step. With no change it is
+// the first of the two.
+func lastChange(take *Take, on []string, from, until float64) float64 {
+	last := -1.0
+	for _, shot := range take.Footage {
+		if shot.At >= from && shot.At <= until && slices.Contains(on, shot.Surface) {
+			last = shot.At
+		}
+	}
+	if last < 0 {
+		return from
+	}
+	return last
+}
+
 // readingTime is how long a subtitle stays at the least.
 func readingTime(text string, pace Pace) float64 {
 	return pace.Read + float64(len(strings.Fields(text)))*pace.Word
@@ -248,12 +305,20 @@ func surfaces(show []string, take *Take, step int) []string {
 		return slices.Clone(show)
 	}
 	if step >= 0 && step < len(take.Steps) {
-		pack := take.Steps[step].Pack
-		for prefix, surface := range screens {
-			if pack == prefix || strings.HasPrefix(pack, prefix+"-") {
-				return []string{surface}
-			}
+		if s := surfaceOf(take.Steps[step].Pack); s != "" {
+			return []string{s}
 		}
 	}
 	return []string{"diagram"}
+}
+
+// surfaceOf is the screen a pack's steps happen on, or "" for a pack with
+// none.
+func surfaceOf(pack string) string {
+	for prefix, surface := range screens {
+		if pack == prefix || strings.HasPrefix(pack, prefix+"-") {
+			return surface
+		}
+	}
+	return ""
 }

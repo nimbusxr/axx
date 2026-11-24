@@ -15,11 +15,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/nimbusxr/axx/core"
+	"github.com/nimbusxr/axx/packs/internal/recording"
 )
 
 // Name is the pack's name.
@@ -40,10 +42,10 @@ func (pack) Manifest() core.Manifest {
 		ConfigSchema: []byte(configSchema), Steps: []core.StepDef{},
 		Commands:      []core.Command{demoCommand()},
 		FeatureChecks: []core.FeatureCheck{cuesCheck()},
-		Hooks: []core.Hook{{
-			ID: "demo.take", Phase: core.AfterScenario, Order: -1000,
-			Run: keepTake,
-		}},
+		Hooks: []core.Hook{
+			{ID: "demo.take", Phase: core.AfterScenario, Order: -1000, Run: keepTake},
+			{ID: "demo.picture", Phase: core.AfterStep, Order: -1000, Run: pictureOf},
+		},
 	}
 }
 
@@ -76,6 +78,8 @@ type session struct {
 	// feature is the demo's file, relative to the project.
 	feature string
 	takes   []string
+	// cameras film the screens of the scenario that runs.
+	cameras []*camera
 }
 
 var (
@@ -87,14 +91,53 @@ func begin(s *session) {
 	sessionMu.Lock()
 	current = s
 	sessionMu.Unlock()
+	// The screens of the demo's scenarios are filmed as they run.
+	recording.Watch(func(sc *core.Scenario) bool { return of(sc) != nil }, func(sc *core.Scenario, surface string, look recording.Look) {
+		sessionMu.Lock()
+		defer sessionMu.Unlock()
+		if current != nil {
+			current.cameras = append(current.cameras, film(sc, current.dir, surface, look))
+		}
+	})
 }
 
 func end() *session {
+	recording.Watch(nil, nil)
 	sessionMu.Lock()
 	defer sessionMu.Unlock()
 	s := current
 	current = nil
 	return s
+}
+
+// of is the demo a scenario runs for, or nil.
+func of(sc *core.Scenario) *session {
+	sessionMu.Lock()
+	defer sessionMu.Unlock()
+	if current == nil || filepath.ToSlash(sc.URI) != current.feature {
+		return nil
+	}
+	return current
+}
+
+// pictureOf waits, after a step on a screen, for the screen's picture of
+// what the step did.
+func pictureOf(sc *core.Scenario) error {
+	s := of(sc)
+	st := sc.Step()
+	if s == nil || st == nil || surfaceOf(st.Pack) == "" {
+		return nil
+	}
+	sessionMu.Lock()
+	cams := append([]*camera(nil), s.cameras...)
+	sessionMu.Unlock()
+	if len(cams) == 0 {
+		return nil
+	}
+	release := sc.Hold()
+	defer release()
+	settle(cams)
+	return nil
 }
 
 // keepTake keeps the take of a scenario that ran for a demo.
@@ -105,8 +148,14 @@ func keepTake(sc *core.Scenario) error {
 	if s == nil || filepath.ToSlash(sc.URI) != s.feature {
 		return nil
 	}
+	take := takeOf(sc)
+	for _, c := range s.cameras {
+		take.Footage = append(take.Footage, c.stop()...)
+	}
+	s.cameras = nil
+	sort.SliceStable(take.Footage, func(i, j int) bool { return take.Footage[i].At < take.Footage[j].At })
 	path := filepath.Join(s.dir, fmt.Sprintf("take-%d.json", sc.Line))
-	if err := writeTake(path, takeOf(sc)); err != nil {
+	if err := writeTake(path, take); err != nil {
 		return fmt.Errorf("cannot keep the demo's take: %w", err)
 	}
 	s.takes = append(s.takes, path)

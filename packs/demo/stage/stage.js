@@ -35,6 +35,9 @@
 			stepIndex: seg.step,
 			done: playing ? seg.step : seg.step + 1,
 			playing, progress,
+			// runTime is the moment of the run the picture is of, in the take's
+			// seconds: a screen shows its picture of that moment.
+			runTime: (seg.from || 0) + progress * ((seg.to || 0) - (seg.from || 0)),
 			card: seg.kind === 'card' ? seg.text : null,
 			subtitle: subtitle ? subtitle.text : null,
 			show: seg.show && seg.show.length ? seg.show : ['diagram'],
@@ -72,7 +75,13 @@
 		// on listens to what the playhead passes: "segment", "step",
 		// "direction" (a project's own directions), "frame".
 		on(name, fn) { (handlers[name] = handlers[name] || []).push(fn); },
-		load(d) { data = d; mount(); S.seek(0); },
+		// load takes what the stage plays, and is done when its pictures are in.
+		async load(d) {
+			data = d;
+			mount();
+			if (S.preload) await S.preload(d.take);
+			S.seek(0);
+		},
 		seek(t) {
 			if (!data) return;
 			const state = stateAt(t);

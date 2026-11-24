@@ -5,7 +5,7 @@
 // beat.
 (async () => {
 	const data = await (await fetch('demo.json')).json();
-	axxStage.load(data);
+	await axxStage.load(data);
 	if (new URLSearchParams(location.search).has('play')) {
 		let t = 0, last = performance.now(), playing = true;
 		const beats = data.timeline.beats;

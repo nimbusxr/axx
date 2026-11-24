@@ -103,6 +103,10 @@ func runDemo(call *core.CommandCall) error {
 		for _, o := range old {
 			_ = os.Remove(o)
 		}
+		footage, _ := filepath.Glob(filepath.Join(dir, "footage-*"))
+		for _, f := range footage {
+			_ = os.RemoveAll(f)
+		}
 		begin(&session{dir: dir, feature: uri})
 		args := []string{abs, "--workers", "1"}
 		if p := call.Flags["profile"]; p != "" {
@@ -130,6 +134,7 @@ func runDemo(call *core.CommandCall) error {
 			return fmt.Errorf("the take of %q did not pass, so there is no film of it: run `axx demo %s` again", take.Scenario, file)
 		}
 		tl := Cut(take, script, DefaultPace)
+		st.footage = dir
 		// A demo of one scenario is named after its file; of several, each
 		// film after its scenario too.
 		out := filepath.Join(dir, filepath.Base(dir)+".mp4")

@@ -68,3 +68,15 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 
 /* Says that what plays is a recording, where a live show falls back on one. */
 .mark { position: absolute; top: 2.2vh; right: 2.6vh; padding: 0.4vh 1.1vh; border: 1px solid var(--rule); border-radius: 0.6vh; font-size: 1.5vh; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* A screen of the run: a browser, a phone, a desktop. */
+.screen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.screen canvas { max-width: 100%; max-height: 100%; border: 1px solid var(--rule); border-radius: 1vh; box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.45); }
+.surface-phone .screen canvas { border-radius: 3vh; }
+
+/* Two surfaces side by side: the diagram's messages stack, to stay readable. */
+#stage[data-surfaces="2"] .messages { flex-direction: column; height: auto; gap: 1.2vh; margin-top: 2vh; }
+#stage[data-surfaces="2"] .msg { flex: none; }
+#stage[data-surfaces="2"] .msg:not(.on) { display: none; }
+#stage[data-surfaces="2"] .msg pre { font-size: 1.35vh; }
+#stage[data-surfaces="2"] .msg .title { font-size: 1.8vh; }

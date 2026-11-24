@@ -210,3 +210,38 @@ func TestCutWithoutCues(t *testing.T) {
 		t.Errorf("a take with no cues plays every step: %d steps, %d subtitles, %v long", steps, len(tl.Subtitles), tl.Duration)
 	}
 }
+
+// A step on a screen shows the screen, for at least the time a person needs
+// to see what it did, up to where the screen last changed before the next
+// step began; a step with no screen after it shows the diagram.
+func TestCutOfScreens(t *testing.T) {
+	take := &Take{
+		Version: TakeVersion, Passed: true,
+		Steps: []TakeStep{
+			{Keyword: "When", Text: "the field is filled", Line: 3, Pack: "web-core", Status: "passed", Start: 1, End: 1.04},
+			{Keyword: "And", Text: "the page is opened", Line: 4, Pack: "web-core", Status: "passed", Start: 1.5, End: 4},
+			{Keyword: "Then", Text: "the rows are selected", Line: 5, Pack: "sql", Status: "passed", Start: 4.2, End: 4.3},
+		},
+		Footage: []Shot{
+			{Surface: "browser", File: "a.jpg", At: 1.02},
+			{Surface: "browser", File: "b.jpg", At: 1.3},
+			{Surface: "browser", File: "c.jpg", At: 2},
+			{Surface: "browser", File: "d.jpg", At: 3.6},
+		},
+	}
+	pace := DefaultPace
+	tl := Cut(take, nil, pace)
+	seg := tl.Segments
+	if len(seg) != 4 {
+		t.Fatalf("%d segments: %+v", len(seg), seg)
+	}
+	if got := seg[0]; got.Show[0] != "browser" || got.From != 1 || got.To != 1.3 || got.End-got.Start != pace.Screen {
+		t.Errorf("a quick step on a screen lasts %v, to the picture taken before the next step: %+v", pace.Screen, got)
+	}
+	if got := seg[1]; got.From != 1.5 || got.To != 3.6 || got.End-got.Start < 2.099 || got.End-got.Start > 2.101 {
+		t.Errorf("a slow step on a screen lasts as it took, to its screen's last change: %+v", got)
+	}
+	if got := seg[2]; got.Show[0] != "diagram" {
+		t.Errorf("a step with no screen shows the diagram: %+v", got)
+	}
+}

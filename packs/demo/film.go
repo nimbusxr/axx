@@ -61,6 +61,17 @@ func serveStage(projectDir string, st Settings, staged func() *Staged) (*stageSe
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(staged())
 	})
+	// The pictures of the take's screens, from the demo's folder.
+	mux.HandleFunc("/footage/", func(w http.ResponseWriter, r *http.Request) {
+		rel := strings.TrimPrefix(r.URL.Path, "/footage/")
+		for _, shot := range staged().Take.Footage {
+			if shot.File == rel {
+				http.ServeFile(w, r, filepath.Join(st.footage, filepath.FromSlash(rel)))
+				return
+			}
+		}
+		http.NotFound(w, r)
+	})
 	// The project's own files, by the paths axx.yaml names them with.
 	mux.HandleFunc("/project/", func(w http.ResponseWriter, r *http.Request) {
 		rel := strings.TrimPrefix(r.URL.Path, "/project/")
