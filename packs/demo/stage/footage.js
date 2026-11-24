@@ -5,7 +5,7 @@
 // the picture of a moment is there the moment it is asked for.
 (() => {
 	const pictures = {};
-	axxStage.preload = (take) => Promise.all((take.footage || []).map((shot) => new Promise((done) => {
+	axxStage.preload = (take) => Promise.all((take.footage || []).filter((shot) => !pictures[shot.file]).map((shot) => new Promise((done) => {
 		const img = new Image();
 		img.onload = img.onerror = done;
 		img.src = 'footage/' + shot.file;

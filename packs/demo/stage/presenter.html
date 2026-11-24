@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>axx demo: presenter</title>
+<style>
+	:root { color-scheme: dark; --bg: #0b0e14; --surface: #121722; --rule: #2a3242; --text: #e6e9ef; --muted: #8b93a5; --accent: #f2b84b; --ok: #4fd18b; --bad: #ff6b6b; }
+	body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+	h1 { margin: 0 0 4px; font-size: 18px; }
+	.state { color: var(--muted); margin-bottom: 16px; min-height: 1.5em; }
+	.controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+	button { font: inherit; padding: 8px 16px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; }
+	button:hover:not(:disabled) { border-color: var(--muted); }
+	button:disabled { opacity: 0.4; cursor: default; }
+	button.main { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
+	.failure { border: 1px solid var(--bad); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
+	.failure .what { color: var(--bad); font-weight: 600; }
+	.failure pre { margin: 8px 0 12px; white-space: pre-wrap; color: var(--muted); font-size: 13px; max-height: 9em; overflow: auto; }
+	ol { margin: 0; padding: 0; list-style: none; counter-reset: beat; }
+	li { counter-increment: beat; padding: 8px 12px; border-left: 3px solid transparent; color: var(--muted); }
+	li::before { content: counter(beat) ". "; }
+	li.played { color: var(--text); }
+	li.now { border-left-color: var(--accent); background: var(--surface); color: var(--text); }
+	li.next { border-left-color: var(--rule); }
+	kbd { font: 12px ui-monospace, monospace; padding: 1px 5px; border: 1px solid var(--rule); border-radius: 4px; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>The presenter's page</h1>
+<div class="state" id="state"></div>
+<div class="failure" id="failure" hidden>
+	<div class="what" id="failed-step"></div>
+	<pre id="failed-error"></pre>
+	<div class="controls">
+		<button data-say="retry">Try the step once more <kbd>r</kbd></button>
+		<button data-say="take" id="take">Play on from the last take <kbd>t</kbd></button>
+		<button data-say="top">Start again from the top <kbd>0</kbd></button>
+	</div>
+</div>
+<div class="controls">
+	<button data-say="back" id="back">Back <kbd>←</kbd></button>
+	<button data-say="forward" id="forward" class="main">Forward <kbd>→</kbd></button>
+	<button data-say="quit">End the show</button>
+</div>
+<ol id="beats"></ol>
+<script>
+	const say = (word) => fetch('control/' + word, { method: 'POST' });
+	const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	const states = {
+		live: (l) => l.failure ? 'A step failed. The audience sees nothing of it yet.' : l.waiting ? 'Waiting for you.' : 'Running.',
+		recorded: () => 'Playing the last take. The stage says "recorded".',
+		restarting: () => 'Running again from the top. The stage says "One moment".',
+		done: () => 'The scenario passed. Back and forward show it again.',
+	};
+	async function draw() {
+		const d = await (await fetch('demo.json')).json(), l = d.live;
+		document.getElementById('state').textContent = (states[l.mode] || (() => ''))(l);
+		document.getElementById('failure').hidden = !l.failure;
+		if (l.failure) {
+			document.getElementById('failed-step').textContent = l.failure.step;
+			document.getElementById('failed-error').textContent = l.failure.error;
+			document.getElementById('take').disabled = !l.fallback;
+		}
+		document.getElementById('back').disabled = l.cursor <= 0;
+		document.getElementById('forward').disabled = !!l.failure || !(l.cursor < l.entered - 1 || l.waiting);
+		document.getElementById('beats').innerHTML = l.beats.map((b, i) =>
+			'<li class="' + (i === l.cursor ? 'now' : i < l.entered ? 'played' : i === l.entered ? 'next' : '') + '">' + esc(b) + '</li>').join('');
+	}
+	document.querySelectorAll('button[data-say]').forEach((b) => b.addEventListener('click', () => say(b.dataset.say)));
+	addEventListener('keydown', (e) => {
+		if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); say('forward'); }
+		if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); say('back'); }
+		if (e.key === 'r') say('retry');
+		if (e.key === 't') say('take');
+		if (e.key === '0') say('top');
+	});
+	new EventSource('events').onmessage = draw;
+	draw();
+</script>
+</body>
+</html>

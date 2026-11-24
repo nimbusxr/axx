@@ -5,6 +5,13 @@
 // beat.
 (async () => {
 	const data = await (await fetch('demo.json')).json();
+	if (data.live) {
+		// A show before an audience plays as its run goes on (present.js).
+		await axxStage.load(data);
+		axxStage.present(data);
+		window.axxReady = true;
+		return;
+	}
 	await axxStage.load(data);
 	if (new URLSearchParams(location.search).has('play')) {
 		let t = 0, last = performance.now(), playing = true;

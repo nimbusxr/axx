@@ -24,6 +24,7 @@ const footageRate = 20
 type camera struct {
 	sc      *core.Scenario
 	dir     string
+	stamp   string
 	surface string
 	look    recording.Look
 	halt    chan struct{}
@@ -76,8 +77,8 @@ func settle(cams []*camera) {
 
 // film starts a camera on a scenario's screen. Its pictures go into the
 // demo's folder, beside the take.
-func film(sc *core.Scenario, dir, surface string, look recording.Look) *camera {
-	c := &camera{sc: sc, dir: dir, surface: surface, look: look, halt: make(chan struct{}), done: make(chan struct{})}
+func film(sc *core.Scenario, dir, stamp, surface string, look recording.Look) *camera {
+	c := &camera{sc: sc, dir: dir, stamp: stamp, surface: surface, look: look, halt: make(chan struct{}), done: make(chan struct{})}
 	go func() {
 		defer close(c.done)
 		t := time.NewTicker(time.Second / footageRate)
@@ -113,7 +114,7 @@ func (c *camera) shoot() {
 	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 92}); err != nil {
 		return
 	}
-	name := filepath.Join(fmt.Sprintf("footage-%d", c.sc.Line), fmt.Sprintf("%s-%05d.jpg", c.surface, len(c.shots)))
+	name := filepath.Join(fmt.Sprintf("footage-%d-%s", c.sc.Line, c.stamp), fmt.Sprintf("%s-%05d.jpg", c.surface, len(c.sofar())))
 	path := filepath.Join(c.dir, name)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return
@@ -121,12 +122,22 @@ func (c *camera) shoot() {
 	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
 		return
 	}
-	c.shots = append(c.shots, Shot{Surface: c.surface, File: filepath.ToSlash(name), At: time.Since(c.sc.Started()).Seconds()})
+	shot := Shot{Surface: c.surface, File: filepath.ToSlash(name), At: time.Since(c.sc.Started()).Seconds()}
+	c.mu.Lock()
+	c.shots = append(c.shots, shot)
+	c.mu.Unlock()
+}
+
+// sofar are the pictures the camera has taken until now.
+func (c *camera) sofar() []Shot {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]Shot(nil), c.shots...)
 }
 
 // stop ends the filming and returns the pictures.
 func (c *camera) stop() []Shot {
 	close(c.halt)
 	<-c.done
-	return c.shots
+	return c.sofar()
 }

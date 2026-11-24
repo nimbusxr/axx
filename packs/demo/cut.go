@@ -71,6 +71,13 @@ type Pace struct {
 	// Screen is the least a step on a screen lasts: what it did stays that
 	// long to be seen.
 	Screen float64
+	// Live cuts a show before an audience, whose time is the presenter's:
+	// the directions that set a film's time do nothing, nothing is held to
+	// be read, and the timeline goes as far as the run has come. Entered is
+	// how many beats (cards and subtitles) the presenter has gone on to; a
+	// timeline made again as the run goes on only grows.
+	Live    bool
+	Entered int
 }
 
 // DefaultPace is the pace of a film whose project sets none.
@@ -100,8 +107,11 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 	var show []string // what a direction says to show; nil follows the steps
 	open := -1        // the subtitle that shows, in tl.Subtitles
 	last := -1        // the last step that ran so far
+	// over is set where a live show's timeline ends for now: at a beat the
+	// presenter has not gone on to, or a step that has not ended.
+	over := false
 	hold := func(d float64) {
-		if d <= 0 {
+		if d <= 0 || pace.Live {
 			return
 		}
 		at := 0.0
@@ -166,10 +176,15 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 				subtitle = strings.TrimSpace(subtitle + " " + c.Text)
 			}
 		}
-		if len(cards) > 0 || subtitle != "" {
-			closeSubtitle()
-		}
 		for _, c := range cards {
+			if pace.Live && len(tl.Beats) >= pace.Entered {
+				over = true
+				return
+			}
+			closeSubtitle()
+			if pace.Live {
+				c.End = pace.Card
+			}
 			c.Start, c.End, c.Step = t, t+c.End, last
 			if last >= 0 {
 				c.From, c.To = take.Steps[last].End, take.Steps[last].End
@@ -179,6 +194,11 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			t = c.End
 		}
 		if subtitle != "" {
+			if pace.Live && len(tl.Beats) >= pace.Entered {
+				over = true
+				return
+			}
+			closeSubtitle()
 			tl.Subtitles = append(tl.Subtitles, Subtitle{Start: t, End: t, Text: subtitle})
 			tl.Beats = append(tl.Beats, t)
 			open = len(tl.Subtitles) - 1
@@ -186,8 +206,17 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		if i >= len(take.Steps) {
 			return
 		}
-		last = i
 		st := take.Steps[i]
+		// A step that failed before an audience is not shown: the presenter
+		// decides what the show does next.
+		if pace.Live && st.Status != "passed" {
+			over = true
+			return
+		}
+		if pace.Live {
+			lasts, speed, pause = -1, 1, 0
+		}
+		last = i
 		shows := surfaces(show, take, i)
 		from, to, dur := st.Start, st.End, 0.0
 		if camera {
@@ -218,9 +247,13 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		}
 	}
 	for i := range take.Steps {
-		play(i, cues[i])
+		if play(i, cues[i]); over {
+			break
+		}
 	}
-	play(len(take.Steps), cues[len(take.Steps)])
+	if !over {
+		play(len(take.Steps), cues[len(take.Steps)])
+	}
 	closeSubtitle()
 	if t > 0 {
 		hold(pace.End)

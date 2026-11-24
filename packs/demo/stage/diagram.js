@@ -169,13 +169,21 @@
 	axxStage.scene('diagram', {
 		mount(el, state) {
 			el.innerHTML = '<pre class="grid"></pre><div class="messages"><div class="msg sent"></div><div class="msg seen"></div></div>';
-			el._layout = layout(state.take, state.theme);
-			// The grid is as large as fits: a diagram of many boxes is drawn smaller.
-			el.style.setProperty('--rows', el._layout.height);
-			el.style.setProperty('--cols', el._layout.width);
 		},
 		render(el, state) {
-			const L = el._layout, take = state.take;
+			const take = state.take;
+			// The layout is of what the scenario has talked to: in a show, whose
+			// take grows as its run goes on, it is made again when another joins.
+			const spoke = [];
+			for (const st of take.steps) for (const x of acts(st)) if (!spoke.includes(x.peer)) spoke.push(x.peer);
+			if (el._spoke !== spoke.join('|')) {
+				el._spoke = spoke.join('|');
+				el._layout = layout(take, state.theme);
+				// The grid is as large as fits: a diagram of many boxes is drawn smaller.
+				el.style.setProperty('--rows', el._layout.height);
+				el.style.setProperty('--cols', el._layout.width);
+			}
+			const L = el._layout;
 			const grid = newGrid(L.width, L.height);
 			// Which peers the scenario has met by now, and what each last said.
 			const met = {}, lastSaid = {};

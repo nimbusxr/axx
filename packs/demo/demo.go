@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +44,8 @@ func (pack) Manifest() core.Manifest {
 		Hooks: []core.Hook{
 			{ID: "demo.take", Phase: core.AfterScenario, Order: -1000, Run: keepTake},
 			{ID: "demo.picture", Phase: core.AfterStep, Order: -1000, Run: pictureOf},
+			{ID: "demo.gate", Phase: core.BeforeStep, Order: -1000, Run: gate},
+			{ID: "demo.failed", Phase: core.StepFailed, Run: stepFailed},
 		},
 	}
 }
@@ -80,6 +81,11 @@ type session struct {
 	takes   []string
 	// cameras film the screens of the scenario that runs.
 	cameras []*camera
+	// stamp names the run's own folder of pictures, so that a run leaves
+	// those of the take before it alone.
+	stamp string
+	// show is the show the run is for, before an audience; nil for a film.
+	show *show
 }
 
 var (
@@ -96,7 +102,7 @@ func begin(s *session) {
 		sessionMu.Lock()
 		defer sessionMu.Unlock()
 		if current != nil {
-			current.cameras = append(current.cameras, film(sc, current.dir, surface, look))
+			current.cameras = append(current.cameras, film(sc, current.dir, current.stamp, surface, look))
 		}
 	})
 }
@@ -120,23 +126,48 @@ func of(sc *core.Scenario) *session {
 	return current
 }
 
+// camerasOf are the cameras of the demo a scenario runs for.
+func camerasOf(s *session) []*camera {
+	sessionMu.Lock()
+	defer sessionMu.Unlock()
+	return append([]*camera(nil), s.cameras...)
+}
+
 // pictureOf waits, after a step on a screen, for the screen's picture of
-// what the step did.
+// what the step did, and shows an audience the step.
 func pictureOf(sc *core.Scenario) error {
 	s := of(sc)
 	st := sc.Step()
-	if s == nil || st == nil || surfaceOf(st.Pack) == "" {
+	if s == nil || st == nil {
 		return nil
 	}
-	sessionMu.Lock()
-	cams := append([]*camera(nil), s.cameras...)
-	sessionMu.Unlock()
-	if len(cams) == 0 {
-		return nil
+	cams := camerasOf(s)
+	if len(cams) > 0 && surfaceOf(st.Pack) != "" {
+		release := sc.Hold()
+		settle(cams)
+		release()
 	}
-	release := sc.Hold()
-	defer release()
-	settle(cams)
+	if s.show != nil {
+		s.show.update(sc, cams)
+	}
+	return nil
+}
+
+// gate waits, before a step of a show, for the presenter to go on to it.
+func gate(sc *core.Scenario) error {
+	if s := of(sc); s != nil && s.show != nil {
+		s.show.update(sc, camerasOf(s))
+		s.show.gate(sc)
+	}
+	return nil
+}
+
+// stepFailed asks the presenter of a show what to do about a step that
+// failed.
+func stepFailed(sc *core.Scenario) error {
+	if s := of(sc); s != nil && s.show != nil {
+		return s.show.failed(sc)
+	}
 	return nil
 }
 
@@ -153,8 +184,13 @@ func keepTake(sc *core.Scenario) error {
 		take.Footage = append(take.Footage, c.stop()...)
 	}
 	s.cameras = nil
-	sort.SliceStable(take.Footage, func(i, j int) bool { return take.Footage[i].At < take.Footage[j].At })
+	sortFootage(take)
 	path := filepath.Join(s.dir, fmt.Sprintf("take-%d.json", sc.Line))
+	if s.show != nil && !take.Passed {
+		// A show that failed leaves the last good take as it is: the show
+		// may play on from it.
+		path = filepath.Join(s.dir, fmt.Sprintf("failed-%d.json", sc.Line))
+	}
 	if err := writeTake(path, take); err != nil {
 		return fmt.Errorf("cannot keep the demo's take: %w", err)
 	}

@@ -82,6 +82,18 @@
 			if (S.preload) await S.preload(d.take);
 			S.seek(0);
 		},
+		// update takes what the stage plays as it grew: a show's take, as its
+		// run goes on. The surfaces are made again when what the scenario
+		// talks to changed.
+		async update(d) {
+			const key = (x) => JSON.stringify([x.take.peers, (x.live || {}).mode]);
+			const again = !data || key(d) !== key(data);
+			data = d;
+			if (again) mount();
+			if (S.preload) await S.preload(d.take);
+		},
+		// mark puts a word in the stage's corner, or takes it away.
+		mark(word) { if (data) data.mark = word; },
 		seek(t) {
 			if (!data) return;
 			const state = stateAt(t);

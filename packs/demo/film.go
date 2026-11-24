@@ -3,7 +3,9 @@ package demo
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,6 +43,8 @@ type Staged struct {
 	// Mark is a word the stage shows in a corner: "recorded", where a live
 	// show plays a take.
 	Mark string `json:"mark,omitempty"`
+	// Live is the state of a show before an audience; nil for a film.
+	Live *Live `json:"live,omitempty"`
 }
 
 // stageServer serves the stage to a page, on this machine only: the pack's
@@ -54,9 +58,50 @@ func (s *stageServer) Close() { s.close() }
 
 // serveStage starts the stage's server. What it plays comes from staged each
 // time the page asks, so a show can change it.
-func serveStage(projectDir string, st Settings, staged func() *Staged) (*stageServer, error) {
+func serveStage(projectDir string, st Settings, staged func() *Staged, sh *show) (*stageServer, error) {
 	files, _ := fs.Sub(stageFiles, "stage")
 	mux := http.NewServeMux()
+	// A show's pages follow it as it changes, and take the presenter's word.
+	prefix := ""
+	if sh != nil {
+		// The address of a show has a word only its pages know, so that
+		// nothing else on this machine moves it.
+		token := make([]byte, 12)
+		_, _ = rand.Read(token)
+		prefix = "/" + hex.EncodeToString(token)
+		mux.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-store")
+			seen := -1
+			for {
+				version, changed := sh.watch()
+				if version != seen {
+					seen = version
+					fmt.Fprintf(w, "data: %d\n\n", version)
+					if f, ok := w.(http.Flusher); ok {
+						f.Flush()
+					}
+					continue
+				}
+				select {
+				case <-changed:
+				case <-r.Context().Done():
+					return
+				case <-sh.quit:
+					return
+				}
+			}
+		})
+		mux.HandleFunc("POST /control/{word}", func(w http.ResponseWriter, r *http.Request) {
+			sh.say(r.PathValue("word"))
+			w.WriteHeader(http.StatusNoContent)
+		})
+		mux.HandleFunc("/presenter", func(w http.ResponseWriter, _ *http.Request) {
+			page, _ := fs.ReadFile(files, "presenter.html")
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write(page)
+		})
+	}
 	mux.HandleFunc("/demo.json", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(staged())
@@ -105,10 +150,14 @@ func serveStage(projectDir string, st Settings, staged func() *Staged) (*stageSe
 	if err != nil {
 		return nil, fmt.Errorf("cannot serve the demo's stage on this machine: %w", err)
 	}
-	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	var handler http.Handler = mux
+	if prefix != "" {
+		handler = http.StripPrefix(prefix, mux)
+	}
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	go func() { _ = srv.Serve(l) }()
 	return &stageServer{
-		URL:   "http://" + l.Addr().String() + "/",
+		URL:   "http://" + l.Addr().String() + prefix + "/",
 		close: func() { _ = srv.Close() },
 	}, nil
 }
@@ -124,7 +173,7 @@ type studio struct {
 
 // openStudio opens the stage with what it plays.
 func openStudio(ctx context.Context, projectDir string, st Settings, staged *Staged) (*studio, error) {
-	srv, err := serveStage(projectDir, st, func() *Staged { return staged })
+	srv, err := serveStage(projectDir, st, func() *Staged { return staged }, nil)
 	if err != nil {
 		return nil, err
 	}
