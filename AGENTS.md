@@ -235,6 +235,18 @@ the skills instead: `axx skills install`.
   publishers at pinned commits and hashes (`internal/tools/controlsdata`): go generate downloads nothing. Evidence
   names controls by ID and has none of a framework's text, which has its own terms (ASVS: CC BY-SA 4.0,
   `THIRD_PARTY_NOTICES.md`). Its check of control tags is one of lint's (`Manifest.FeatureChecks`).
+- `packs/demo` (`demo`, experimental): a demo of a scenario. A demo is a feature file named `*.demo.feature`, whose comments
+  that start with `demo:` are its cues: subtitles, and directions in square brackets (`script.go`; the directions are a
+  registry, `directions.go`, which a project adds to in `packs.demo.directions`). `axx demo` runs the scenario through
+  `core.CommandCall.Run`, with the pack's hooks keeping what the run did as a take (`take.go`: each step's times and what it
+  sent and saw, `core.Exchange`, which a pack says with `Scenario.Exchanged`; and the pictures of its screens, which the
+  packs with a screen show to what watches them, `packs/internal/recording/screens.go`). The cut (`cut.go`) is the film's
+  timeline, whose time is its own; the stage (`stage/`, a page: `axxStage.seek(t)` draws any moment, so draw from the state
+  and never from a clock) is filmed frame by frame in a browser of web-core's (`film.go`, `webcore.OwnPage`). The diagram of
+  what has no screen (`stage/diagram.js`) draws only what the run sent and saw: keep it so. `--present` is the same stage
+  before an audience (`present.go`): the run waits at each beat for the presenter, back shows again and undoes nothing, and a
+  step that failed is asked about (`core.StepFailed`) before the audience sees anything of it. The pack's scenes are
+  registered as a project's are (`axxStage.scene`): keep them no different. Its browser tests run in CI's web job.
 - `packs/internal/memcheck`: axx's C, C++ and Objective-C under a memory checker, for axx's own
   tests: with `AXX_MEMCHECK` naming a folder, the libraries the packs load into apps (the
   simulators' library, the AR library, the Apple model adapter) are built with AddressSanitizer

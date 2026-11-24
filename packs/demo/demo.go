@@ -69,6 +69,8 @@ Feature: Hold a parcel
 - **The film.** ` + "`axx demo features/hold.demo.feature`" + ` runs the scenario and writes the film beside what the run did (its take) in ` + "`.axx/demo`" + `. ` + "`--recut`" + ` makes the film again from the take, after a change to the subtitles or the directions, without another run.
 - **What it shows.** A step on a screen shows the screen. Any other step shows a diagram: what the scenario talks to as boxes, and what the step sent and what came back, as the run saw it.
 - **The directions.** ` + "`[2s]`" + ` (how long the step below lasts; ` + "`[0s]`" + ` cuts it), ` + "`[speed 4x]`" + `, ` + "`[pause 2s]`" + `, ` + "`[cut]`" + ` and ` + "`[action]`" + ` (the camera stops and starts), ` + "`[card 3s] A title`" + `, ` + "`[show diagram]`" + `. A comment line right below a cue, indented to its text, goes on with it.
+- **Before an audience.** ` + "`axx demo --present`" + ` opens a page for the screen the audience sees, and the scenario runs as you go on, a subtitle at a time: forward shows the next and runs its steps, back shows again what was shown. A step that fails is not shown: you try it once more, play on from the last take, or start again from the top.
+- **Your own look.** The stage is a web page: ` + "`theme`" + ` sets its colors and names, ` + "`styles`" + ` and ` + "`scenes`" + ` load a stylesheet and scripts of the project's own, and ` + "`directions`" + ` names directions of its own, which its scenes act on.
 - **As a test.** ` + "`axx run`" + ` runs a demo's file as any feature. A demo does several things in turn, so the rule of one behavior per scenario is not for it.`
 
 // session is the demo a command is making: the scenarios that run for it

@@ -70,7 +70,7 @@ func init() {
 	})
 	Register(Kind{
 		Name: "pause", Usage: "[pause 2s]",
-		Doc: "The picture holds this long after the step below. Before an audience, [pause] waits for the presenter.",
+		Doc: "The picture holds this long after the step below. Before an audience it does nothing: the presenter decides when to go on.",
 		Check: func(args []string) string {
 			if len(args) > 1 {
 				return "pause takes one time, like [pause 2s]"
