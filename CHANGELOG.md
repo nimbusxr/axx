@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.1](https://github.com/nimbusxr/axx/compare/v0.8.0...v0.8.1) (2026-11-23)
+
+
+### Features
+
+* **init:** the workflow axx init writes keeps what axx prepares between runs ([dba7c86](https://github.com/nimbusxr/axx/commit/dba7c865ce67cd9a4a73c4b143d7fad470240747))
+
+
+### Bug Fixes
+
+* a fresh install of the same release, and a fresh checkout, find the pack build that was kept, so a CI cache of axx's builds works ([dba7c86](https://github.com/nimbusxr/axx/commit/dba7c865ce67cd9a4a73c4b143d7fad470240747))
+* **mobile:** an iOS app's background task no longer waits most of its 30 seconds on a busy Mac ([#436](https://github.com/nimbusxr/axx/issues/436)) ([fc41e4d](https://github.com/nimbusxr/axx/commit/fc41e4d462912ac252b790f99a83b0437e57373f))
+* **mobile:** the step that waits for a phone's route to end no longer fails by chance when it begins late ([#433](https://github.com/nimbusxr/axx/issues/433)) ([fce8bbc](https://github.com/nimbusxr/axx/commit/fce8bbcb4bf9d8739d03f5974594e09ecd2e538e))
+* the modules axx has Go download can be removed, so axx's cache can be deleted ([dba7c86](https://github.com/nimbusxr/axx/commit/dba7c865ce67cd9a4a73c4b143d7fad470240747))
+
 ## [0.8.0](https://github.com/nimbusxr/axx/compare/v0.7.9...v0.8.0) (2026-11-23)
 
 
