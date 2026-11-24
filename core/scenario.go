@@ -66,6 +66,8 @@ type Scenario struct {
 	progress       []StepProgress
 	hold           func() func()
 	notes          map[string]string
+	// exchanges are what the steps said they sent and saw (Exchanged).
+	exchanges []Exchange
 }
 
 type namedCloser struct {
@@ -193,6 +195,11 @@ type StepProgress struct {
 	Error string
 	// Logs are the lines the step logged.
 	Logs []string
+	// Started is when the step began to run, and Ended when its own work was
+	// done: both zero until then. An AfterStep hook finds the step ended,
+	// with its own outcome in Status and Error; a hook that fails after it
+	// changes them.
+	Started, Ended time.Time
 }
 
 // Progress returns the scenario's steps as they stand: a copy, safe to keep.

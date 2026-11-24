@@ -110,6 +110,8 @@ type TopicClient struct {
 	mu     sync.Mutex
 	events []*Event
 	labels []*label
+	// said are the records the scenario's steps already said they consumed (consumed).
+	said map[*record]bool
 }
 
 // Event is a drafted Kafka event.

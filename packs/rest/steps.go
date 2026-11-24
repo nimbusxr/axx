@@ -273,7 +273,11 @@ func addService(sc *core.Scenario, a core.Args) error {
 	if !ok {
 		return errors.New(`Property "url" is required`) //nolint:staticcheck // user-facing message
 	}
-	return Context(sc).AddService(&Service{Name: a.String(0), URL: u, OpenAPI: props["openapi"]})
+	if err := Context(sc).AddService(&Service{Name: a.String(0), URL: u, OpenAPI: props["openapi"]}); err != nil {
+		return err
+	}
+	sc.Exchanged(core.Exchange{Peer: a.String(0), Kind: "service"})
+	return nil
 }
 
 func setLevels(sc *core.Scenario, a core.Args) error {

@@ -559,7 +559,11 @@ func addService(sc *core.Scenario, a core.Args) error {
 			return err
 		}
 	}
-	return Context(sc).AddService(svc)
+	if err := Context(sc).AddService(svc); err != nil {
+		return err
+	}
+	sc.Exchanged(core.Exchange{Peer: svc.Name, Kind: "broker"})
+	return nil
 }
 
 func createEvent(sc *core.Scenario, a core.Args) error {

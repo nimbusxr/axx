@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -105,6 +106,14 @@ func packCommand(app *App, pack string, experimental bool, c core.Command) *cobr
 				return cerr
 			}
 			return packSettings(cfg, pack, v)
+		}
+		call.Run = func(ctx context.Context, args ...string) error {
+			run := newRunCmd(app)
+			run.SetArgs(args)
+			run.SilenceUsage, run.SilenceErrors = true, true
+			run.SetOut(cmd.OutOrStdout())
+			run.SetErr(app.Stderr)
+			return run.ExecuteContext(ctx)
 		}
 		err := c.Run(call)
 		var ae *axxerr.Error

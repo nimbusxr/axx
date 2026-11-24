@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/nimbusxr/axx/core"
 	"github.com/nimbusxr/axx/internal/compat/jvalue"
@@ -216,6 +217,7 @@ func execute(sc *core.Scenario, svc *Service, idx int) error {
 	st.last = &lastExchange{service: svc.Name, ex: ex}
 	st.mu.Unlock()
 	logExchange(sc, ex)
+	exchanged(sc, svc.Name, ex)
 	if specErr != nil {
 		return specErr
 	}
@@ -279,6 +281,37 @@ func logExchange(sc *core.Scenario, ex *Exchange) {
 	if len(ex.Body) > 0 {
 		sc.Attach(attachType(ex.Header.Get("Content-Type")), ex.Body, "response body")
 	}
+}
+
+// exchanged says what the request sent to the service and what came back
+// (core.Exchange), for a pack that shows the run: the method and the path
+// with its query, the status, and the bodies the step attached, cut where the
+// failure description cuts them and with the scenario's secrets masked. It
+// says no headers: they carry credentials.
+func exchanged(sc *core.Scenario, service string, ex *Exchange) {
+	path := ex.URL
+	if u, err := url.Parse(ex.URL); err == nil {
+		path = u.RequestURI()
+	}
+	sc.Exchanged(core.Exchange{
+		Peer: service, Kind: "service",
+		Sent: shown(sc, ex.Method+" "+path, ex.RequestHeader, ex.RequestBody),
+		Seen: shown(sc, strings.TrimSpace(fmt.Sprintf("%d %s", ex.Status, http.StatusText(ex.Status))), ex.Header, ex.Body),
+	})
+}
+
+// shown is one side of an exchange: its title and, when it has a body, the
+// body's media type and its text. A body that is not text is left out.
+func shown(sc *core.Scenario, title string, h http.Header, body []byte) *core.Message {
+	m := &core.Message{Title: secrets.Mask(sc, title)}
+	if len(body) == 0 {
+		return m
+	}
+	m.MediaType = mediaTypeOf(h.Get("Content-Type"))
+	if utf8.Valid(body) {
+		m.Body = truncated([]byte(secrets.Mask(sc, string(body))))
+	}
+	return m
 }
 
 func attachType(ct string) string {

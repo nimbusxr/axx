@@ -214,6 +214,7 @@ func find(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core
 			if within == 0 || len(docs) >= atLeast || time.Now().Add(500*time.Millisecond).After(deadline) {
 				sel := &Selection{Collection: collection, Filter: filter, Docs: docs, dropped: dropped}
 				svc.addSelection(sel)
+				svc.found(sc, collection, t, docs)
 				if within > 0 && len(docs) < atLeast {
 					return core.Fail(fmt.Sprintf("expected at least %d document(s) from %s within %s%s", atLeast, collection, within, sel.hints()), atLeast, len(docs))
 				}
@@ -248,6 +249,7 @@ func none(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core
 	coll := svc.db.Collection(collection)
 	deadline := time.Now().Add(within)
 	matched := -1
+	var last []bson.D
 	var lastErr error
 	for {
 		var docs []bson.D
@@ -257,8 +259,9 @@ func none(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core
 		}
 		if err == nil {
 			docs, _ = keepStrict(docs, conditions)
-			matched = len(docs)
+			matched, last = len(docs), docs
 			if matched == 0 {
+				svc.found(sc, collection, t, nil)
 				return nil
 			}
 		} else {
@@ -276,6 +279,7 @@ func none(sc *core.Scenario, a core.Args, svcArg int, collection string, t *core
 	if matched < 0 {
 		return fmt.Errorf("could not retrieve documents from %s: %w", collection, lastErr)
 	}
+	svc.found(sc, collection, t, last)
 	verb := "do"
 	if matched == 1 {
 		verb = "does"

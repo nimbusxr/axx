@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,6 +166,27 @@ func TestAgainstRealKafka(t *testing.T) {
 	first := tc.Events()[0].Published[0]
 	if first.SchemaID == 0 {
 		t.Errorf("published record: %+v", first)
+	}
+	// What the steps said they sent and saw (core.Exchange): the service, the
+	// topic client, the two events published, and the two records the labels
+	// found, each once for all the steps that expect something of it.
+	said := h.sc.Exchanges()
+	if len(said) != 6 {
+		t.Fatalf("exchanges: %+v", said)
+	}
+	if svc, client := said[0], said[1]; svc.Peer != "space-kafka" || svc.Kind != "broker" || client.Peer != "mission-events" || client.Kind != "topic" {
+		t.Errorf("the service and the topic client: %+v, %+v", svc, client)
+	}
+	if pub := said[2]; pub.Peer != "mission-events" || pub.Kind != "topic" || pub.Seen != nil || pub.Sent == nil || pub.Sent.Title != "key m-1" ||
+		pub.Sent.MediaType != "application/json" || !strings.Contains(pub.Sent.Body, "Kafka Mission") {
+		t.Errorf("the published event: %+v", pub)
+	}
+	if seen := said[4]; seen.Peer != "mission-events" || seen.Sent != nil || seen.Seen == nil ||
+		seen.Seen.Title != fmt.Sprintf("key m-1, partition %d, offset %d", first.Partition, first.Offset) || !strings.Contains(seen.Seen.Body, "Kafka Mission") {
+		t.Errorf("the consumed event: %+v", seen)
+	}
+	if second := said[5].Seen; second == nil || !strings.HasPrefix(second.Title, "key m-2, partition ") {
+		t.Errorf("the second consumed event: %+v", said[5])
 	}
 	cl, _ := sr.NewClient(sr.URLs(registryURL))
 	if got, err := cl.SchemaByVersion(context.Background(), "mission-events-value", -1); err != nil || got.ID != first.SchemaID {

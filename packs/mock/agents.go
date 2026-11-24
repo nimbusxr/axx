@@ -51,6 +51,7 @@ func agentSteps() []core.StepDef {
 				}
 				matched := 0
 				var seen []string
+				var first json.RawMessage
 				for _, c := range calls {
 					args, ok := mcpToolCall(c.request, tool)
 					if !ok {
@@ -61,10 +62,15 @@ func agentSteps() []core.StepDef {
 						return err
 					}
 					if why == "" {
-						matched++
+						if matched++; first == nil {
+							first = args
+						}
 					} else if len(seen) < 3 {
 						seen = append(seen, string(args))
 					}
+				}
+				if matched > 0 {
+					svc.say(sc, "mcp:"+tool+":"+string(first), counted(matched, tool+" tool call", tool+" tool calls"), "application/json", string(first))
 				}
 				return count(sc, a, 2, matched, fmt.Sprintf("the mocked %s mcp server's %s tool was called", svc.Name, tool),
 					"with those arguments", seen, "its calls with other arguments")
@@ -91,16 +97,23 @@ func agentSteps() []core.StepDef {
 				}
 				matched := 0
 				var seen []string
+				first := ""
 				for _, c := range calls {
 					text, ok := agentMessage(c.request)
 					if !ok {
 						continue
 					}
 					if strings.Contains(text, want) {
-						matched++
+						if matched++; matched == 1 {
+							first = text
+						}
 					} else if len(seen) < 3 {
 						seen = append(seen, excerpt(text))
 					}
+				}
+				if matched > 0 {
+					svc.say(sc, "a2a:"+want, counted(matched, fmt.Sprintf("message containing %q", want), fmt.Sprintf("messages containing %q", want)),
+						"text/plain", excerpt(first))
 				}
 				return count(sc, a, 2, matched, fmt.Sprintf("the mocked %s a2a agent was sent a message", svc.Name),
 					fmt.Sprintf("containing %q", want), seen, "the latest messages it was sent")

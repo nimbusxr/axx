@@ -198,6 +198,11 @@ func askedAbout(sc *core.Scenario, svc *Service, about string) ([]*modelRequest,
 			out = append(out, r)
 		}
 	}
+	if n := len(out); n > 0 {
+		// What the latest of them asked, as a failure says what a request was about.
+		svc.say(sc, "model:"+about, counted(n, fmt.Sprintf("model request about %q", about), fmt.Sprintf("model requests about %q", about)),
+			"text/plain", excerpt(out[n-1].lastUser()))
+	}
 	return out, nil
 }
 

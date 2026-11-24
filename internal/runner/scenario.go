@@ -218,7 +218,9 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 	pack, def := m.Def().Pack, m.Def().Step.ID
 	sc.SetStep(&core.StepInfo{Keyword: sr.Keyword, Text: sr.Text, Line: sr.Line, Pack: pack, Definition: def})
 	defer sc.SetStep(nil)
-	sc.UpdateProgress(i, func(sp *core.StepProgress) { sp.Status, sp.Pack, sp.Definition = "running", pack, def })
+	sc.UpdateProgress(i, func(sp *core.StepProgress) {
+		sp.Status, sp.Pack, sp.Definition, sp.Started = "running", pack, def, start
+	})
 
 	err := r.checkArgKind(m.Def().Step.Arg, sr)
 	var args core.Args
@@ -245,6 +247,14 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 			err = r.withTimeout(ctx, sc, "step", timeout, func() error { return run(sc, args) })
 		}
 	}
+	// The step's own outcome, which its AfterStep hooks read.
+	own, ended := err, r.opts.Now()
+	sc.UpdateProgress(i, func(sp *core.StepProgress) {
+		sp.Status, sp.Ended = statusOf(own).String(), ended
+		if own != nil {
+			sp.Error = own.Error()
+		}
+	})
 	for _, h := range r.hooksFor(core.AfterStep, sc.Tags) {
 		if herr := r.callHook(ctx, sc, h); herr != nil && err == nil {
 			err = herr

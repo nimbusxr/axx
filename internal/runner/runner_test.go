@@ -805,3 +805,59 @@ func TestAfterRunIsGivenTheScenariosResults(t *testing.T) {
 		t.Errorf("the results: %s, want %s", strings.Join(got, ", "), want)
 	}
 }
+
+// A hook after a step finds the step ended, with its own outcome, when it began and when it
+// was done, and what it said it exchanged: what a pack that shows a run to people needs.
+func TestAfterStepHooksKnowHowTheStepEnded(t *testing.T) {
+	type seen struct {
+		status, err string
+		timed       bool
+		exchanges   int
+	}
+	var got []seen
+	m := core.Manifest{
+		Name: "test",
+		Steps: []core.StepDef{
+			{ID: "ask", Expr: "the service is asked", Run: func(sc *core.Scenario, _ core.Args) error {
+				sc.Exchanged(core.Exchange{Peer: "parcels", Kind: "service", Sent: &core.Message{Title: "GET /health"}, Seen: &core.Message{Title: "200 OK"}})
+				return nil
+			}},
+			{ID: "fail", Expr: "a button is missing", Run: func(*core.Scenario, core.Args) error { return errors.New("no button") }},
+		},
+		Hooks: []core.Hook{{ID: "after", Phase: core.AfterStep, Run: func(sc *core.Scenario) error {
+			for _, p := range sc.Progress() {
+				if p.Line == sc.Step().Line {
+					got = append(got, seen{p.Status, p.Error, !p.Started.IsZero() && !p.Ended.Before(p.Started), len(sc.Exchanges())})
+				}
+			}
+			return nil
+		}}},
+	}
+	reg := match.NewRegistry()
+	if err := reg.AddPack("test", m); err != nil {
+		t.Fatal(err)
+	}
+	set, pickles := load(t, `Feature: steps
+
+  Scenario: a missing button
+    When the service is asked
+    Then a button is missing
+`)
+	hooks := []PackHook{{Pack: "test", Hook: m.Hooks[0]}}
+	r, err := New(Options{Registry: reg, Hooks: hooks, Workers: 1, Docs: set.Docs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Run(context.Background(), pickles)
+	want := []seen{{"passed", "", true, 1}, {"failed", "no button", true, 1}}
+	if !slices.Equal(got, want) {
+		t.Errorf("after each step: %+v, want %+v", got, want)
+	}
+	// The exchange knows the step it happened in.
+	sc := core.NewScenario(context.Background(), core.ScenarioInfo{}, nil, nil)
+	sc.SetStep(&core.StepInfo{Line: 4, Pack: "rest"})
+	sc.Exchanged(core.Exchange{Peer: "parcels", Kind: "service"})
+	if x := sc.Exchanges(); len(x) != 1 || x[0].Line != 4 || x[0].Pack != "rest" || x[0].At.IsZero() {
+		t.Errorf("the exchange: %+v", x)
+	}
+}

@@ -170,7 +170,11 @@ func addService(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return err
 	}
-	return Context(sc).AddService(svc)
+	if err := Context(sc).AddService(svc); err != nil {
+		return err
+	}
+	sc.Exchanged(core.Exchange{Peer: svc.Name, Kind: "database"})
+	return nil
 }
 
 // Connect connects (or reuses, for the whole run) a client and returns an
@@ -217,6 +221,9 @@ func seed(sc *core.Scenario, svc *Service, file string) error {
 	if err != nil {
 		return err
 	}
+	// What it wrote, also when a later collection fails: a seed is no transaction.
+	var wrote []written
+	defer func() { svc.seeded(sc, wrote) }()
 	for _, coll := range docs {
 		items, ok := coll.Value.(bson.A)
 		if !ok {
@@ -231,6 +238,7 @@ func seed(sc *core.Scenario, svc *Service, file string) error {
 			}
 			return fmt.Errorf("insert into %s: %w", coll.Key, err)
 		}
+		wrote = append(wrote, written{collection: coll.Key, docs: len(items)})
 	}
 	return nil
 }

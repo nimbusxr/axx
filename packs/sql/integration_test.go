@@ -158,6 +158,23 @@ func TestSeedSelectCount(t *testing.T) {
 	}
 	h.ok("the 1st row metadata property for the selection json properties are:", []string{"priority", "high"}, []string{"crew.size", "3"}, []string{"crew.lead", "undefined"})
 	h.ok("the 1st row metadata property for the 4th selection on space-db json properties match:", []string{"priority", "hi.*"}, []string{"$.crew.size", `\d`})
+	// What the steps said they sent and saw (core.Exchange): the registration,
+	// the seed and the four selections, and nothing for the checks.
+	said := h.sc.Exchanges()
+	if len(said) != 6 {
+		t.Fatalf("exchanges: %+v", said)
+	}
+	if reg, seed := said[0], said[1]; reg.Peer != "space-db" || reg.Kind != "database" || reg.Sent != nil ||
+		seed.Sent == nil || seed.Sent.Title != "seed space.missions: 2 rows" {
+		t.Errorf("the registration and the seed: %+v, %+v", reg, seed)
+	}
+	if first := said[2]; first.Sent.Title != "select space.missions where id = "+id+"-1" || first.Seen.Title != "1 row" ||
+		first.Seen.MediaType != "application/json" || !strings.Contains(first.Seen.Body, `"name":"O'Hara"`) {
+		t.Errorf("the first selection: %+v, %+v", first.Sent, first.Seen)
+	}
+	if contains := said[5]; contains.Sent.Title != "select space.missions where metadata contains priority = high" || contains.Seen.Title != "1 row" {
+		t.Errorf("the selection by what a JSONB column contains: %+v, %+v", contains.Sent, contains.Seen)
+	}
 	// The context is public: custom packs see the same service and selections.
 	svc, err := Context(h.sc).Service("space-db")
 	if err != nil || len(svc.Selections()) != 4 {

@@ -30,6 +30,8 @@ type Service struct {
 	levels oaslevel.Levels
 	// checked counts the validated calls this scenario's mock steps checked.
 	checked int
+	// said is what the scenario's steps already said the service received (say).
+	said map[any]bool
 }
 
 type ScenarioContext struct {
@@ -491,6 +493,7 @@ func addService(sc *core.Scenario, a core.Args) error {
 		return err
 	}
 	runContracts(sc.Suite()).use(svc)
+	sc.Exchanged(core.Exchange{Peer: svc.Name, Kind: "mock"})
 	return nil
 }
 
@@ -614,6 +617,7 @@ func noneReceived(sc *core.Scenario, a core.Args, what string, add rowAdder) err
 		return err
 	}
 	stateKey.Of(sc).last = &verification{service: svc.Name, pattern: p, want: "exactly 0", got: got}
+	svc.received(sc, p, got)
 	if got == 0 {
 		return nil
 	}
@@ -815,6 +819,7 @@ func verify(sc *core.Scenario, svc *Service, name string, p *pattern, want strin
 	}
 	st := stateKey.Of(sc)
 	st.last = &verification{service: svc.Name, name: name, pattern: p, want: want, got: got}
+	svc.received(sc, p, got)
 	if ok(got) {
 		if got == 0 {
 			return nil
