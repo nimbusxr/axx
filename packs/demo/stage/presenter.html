@@ -41,7 +41,7 @@
 <div class="controls">
 	<button data-say="back" id="back">Back <kbd>←</kbd></button>
 	<button data-say="forward" id="forward" class="main">Forward <kbd>→</kbd></button>
-	<button data-say="quit">End the show</button>
+	<button data-say="quit">End the show <kbd>q</kbd></button>
 </div>
 <ol id="beats"></ol>
 <script>
@@ -74,8 +74,22 @@
 		if (e.key === 'r') say('retry');
 		if (e.key === 't') say('take');
 		if (e.key === '0') say('top');
+		if (e.key === 'q' || e.key === 'Q' || e.key === 'Escape') say('quit');
 	});
-	new EventSource('events').onmessage = draw;
+	// When the show is over, this page closes: a window the show opened
+	// always can, and a tab says that it is over.
+	let ended = false;
+	const over = () => {
+		if (ended) return;
+		ended = true;
+		events.close();
+		window.close();
+		setTimeout(() => { document.body.innerHTML = '<h1>The show is over</h1><div class="state">You can close this page.</div>'; }, 400);
+	};
+	const events = new EventSource('events');
+	events.onmessage = () => { if (!ended) draw(); };
+	events.addEventListener('over', over);
+	events.onerror = () => fetch('demo.json').catch(over);
 	draw();
 </script>
 </body>

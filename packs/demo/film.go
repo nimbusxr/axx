@@ -91,6 +91,11 @@ func serveStage(projectDir string, st Settings, staged func() *Staged, sh *show)
 				case <-r.Context().Done():
 					return
 				case <-sh.quit:
+					// The show is over: its pages close.
+					fmt.Fprint(w, "event: over\ndata: over\n\n")
+					if f, ok := w.(http.Flusher); ok {
+						f.Flush()
+					}
 					return
 				}
 			}

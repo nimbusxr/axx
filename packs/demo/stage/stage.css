@@ -85,6 +85,8 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 .loading { position: fixed; top: 0; left: 0; right: 0; height: 0.45vh; overflow: hidden; background: color-mix(in srgb, var(--accent) 18%, transparent); z-index: 10; }
 .loading::before { content: ""; position: absolute; top: 0; bottom: 0; width: 28%; background: var(--accent); border-radius: 1vh; animation: loading 1.6s ease-in-out infinite; }
 @keyframes loading { from { left: -28%; } to { left: 100%; } }
+/* The show is over, on a page the browser did not let close itself. */
+.over { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--background); color: var(--muted); font-family: var(--text-font); font-size: 2.6vh; z-index: 20; }
 /* How to get the presenter's page, where the browser did not open it. */
 .presenter-hint { position: fixed; left: 0; right: 0; bottom: 3vh; text-align: center; font-family: var(--text-font); font-size: 1.7vh; color: var(--muted); z-index: 10; }
 

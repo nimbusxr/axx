@@ -223,6 +223,7 @@ axx demo --present features/demos/register-a-parcel.demo.feature
 3. A thin line moves across the top of the audience's page whenever the picture is waiting for the run: while the demo sets up, and while a step takes its time.
 4. Press the right arrow, or the forward button of a clicker. The next subtitle shows and its steps run against the real system, in front of the audience.
 5. Press the left arrow to go back. Back shows again what was shown. It does not undo anything in the system.
+6. To end the show, press `q` or Esc on either page, "End the show" on the presenter's page, or Ctrl+C in the terminal. The show's pages close. A browser that does not let a page close itself shows "The show is over" instead.
 
 A subtitle with the steps under it is one **beat**: forward moves a beat at a time.
 

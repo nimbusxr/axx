@@ -600,7 +600,7 @@ func (sh *show) say(word string) {
 		}
 		return
 	case "quit":
-		sh.once.Do(func() { close(sh.quit) })
+		sh.end()
 	}
 	sh.changed()
 }
@@ -638,6 +638,11 @@ func (sh *show) staged() *Staged {
 		out.Mark = "recorded"
 	}
 	return out
+}
+
+// end ends the show: its pages are told, and close.
+func (sh *show) end() {
+	sh.once.Do(func() { close(sh.quit) })
 }
 
 // wait returns when the presenter ends the show, or ctx is done.

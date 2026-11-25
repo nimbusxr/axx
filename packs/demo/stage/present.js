@@ -30,6 +30,7 @@
 			return !!presenter;
 		};
 		let asked = openPresenter();
+		let ended = false;
 		const apply = async (d) => {
 			await axxStage.update(d);
 			data = d;
@@ -55,21 +56,44 @@
 			// The run works and the stage has played what there is of it.
 			const live = data.live;
 			const working = live.mode === 'restarting' || live.mode === 'live' && (!live.waiting || !!live.failure);
-			loading.hidden = !(working && t >= tl.duration - 0.01);
+			loading.hidden = ended || !(working && t >= tl.duration - 0.01);
 			// Until the show begins, how to get the presenter's page.
-			hint.hidden = asked || !(live.mode === 'live' && live.row === 0 && live.entered <= 1);
+			hint.hidden = ended || asked || !(live.row === 0 && live.cursor === 0 && (live.mode === 'recorded' || live.mode === 'live' && live.entered <= 1));
 			requestAnimationFrame(tick);
 		};
 		addEventListener('keydown', (e) => {
 			if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); say('forward'); }
 			if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); say('back'); }
 			if (e.key === 'p' || e.key === 'P') asked = openPresenter() || asked;
+			// As a slide show ends: the show is over, for every page of it.
+			if (e.key === 'q' || e.key === 'Q' || e.key === 'Escape') say('quit');
 			if (e.key === 'r') say('retry');
 			if (e.key === 't') say('take');
 			if (e.key === '0') say('top');
 		});
+		// When the show is over (the presenter ended it, or Ctrl+C in the
+		// terminal), its pages close: the presenter's window, and this one
+		// where the browser lets a page close itself. Where it does not, the
+		// page says that the show is over.
+		const over = () => {
+			if (ended) return;
+			ended = true;
+			events.close();
+			if (presenter && !presenter.closed) presenter.close();
+			loading.hidden = hint.hidden = true;
+			window.close();
+			setTimeout(() => {
+				const card = document.createElement('div');
+				card.className = 'over';
+				card.textContent = 'The show is over. You can close this page.';
+				document.body.appendChild(card);
+			}, 400);
+		};
 		const events = new EventSource('events');
-		events.onmessage = async () => apply(await (await fetch('demo.json')).json());
+		events.onmessage = async () => { if (!ended) apply(await (await fetch('demo.json')).json()); };
+		events.addEventListener('over', over);
+		// A show that went without a word (its process was stopped) is over too.
+		events.onerror = () => fetch('demo.json').catch(over);
 		apply(first).then(() => requestAnimationFrame(tick));
 	};
 })();

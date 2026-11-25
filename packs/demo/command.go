@@ -305,15 +305,17 @@ func present(call *core.CommandCall, st Settings, script *Script, diagrams []Dia
 	defer srv.Close()
 	fmt.Fprintf(call.Stderr, "axx: the show, for the screen the audience sees: %s\n", srv.URL)
 	fmt.Fprintf(call.Stderr, "axx: the presenter's page, for you:             %spresenter\n", srv.URL)
-	fmt.Fprintln(call.Stderr, "axx: forward is the right arrow, back the left; p on the show's page opens the presenter's page in a window of its own; Ctrl+C ends the show")
+	fmt.Fprintln(call.Stderr, "axx: forward is the right arrow, back the left; p on the show's page opens the presenter's page in a window of its own; q or Esc there, or Ctrl+C here, ends the show and closes its pages")
 	if call.Flags["no-open"] != "true" {
 		openBrowser(call.Context, srv.URL)
 	}
 	ctx, cancel := context.WithCancel(call.Context)
 	defer cancel()
 	go func() {
-		// The presenter ends the show from the page too.
+		// The presenter ends the show from a page too, and the show's pages
+		// close however it ends: Ctrl+C in the terminal as well.
 		sh.wait(ctx)
+		sh.end()
 		cancel()
 	}()
 	for !recorded {
@@ -337,9 +339,13 @@ func present(call *core.CommandCall, st Settings, script *Script, diagrams []Dia
 	if !recorded && ctx.Err() == nil {
 		// The run is over and its summary is the last thing on the terminal:
 		// say that the show is still there, and how it closes.
-		fmt.Fprintln(call.Stderr, "axx: the run is over. The show stays open, so that back still shows what was played: Ctrl+C, or \"End the show\" on the presenter's page, closes it")
+		fmt.Fprintln(call.Stderr, "axx: the run is over. The show stays open, so that back still shows what was played: Ctrl+C, q on the show's page or \"End the show\" on the presenter's page closes it")
 	}
 	sh.wait(ctx)
+	sh.end()
+	// The pages are told over the connections they hold: a moment for that,
+	// before the server goes.
+	time.Sleep(300 * time.Millisecond)
 	return nil
 }
 
