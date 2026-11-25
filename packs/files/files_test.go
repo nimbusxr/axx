@@ -289,3 +289,38 @@ func pngOf(t *testing.T, c color.Color) string {
 	}
 	return b.String()
 }
+
+// A step that finds a text in a file says which file it read and what was in
+// it, for what shows a run to people (a demo's editor): a text's own words,
+// and a file that is no text by its name only.
+func TestAReadFileIsSaid(t *testing.T) {
+	h := cloudtest.New(t, Pack())
+	h.NewScenario()
+	h.OK("the exports folder with the following properties:", [][]string{{"path", "exports"}})
+	const report = "line,reference,status\nML-KES-0412-1,PX-KES-1001,IMPORTED\n"
+	h.File("exports/manifests/report.csv", report)
+	pdf, err := os.ReadFile("../../internal/filecontent/testdata/manifest.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.File("exports/manifests/handover.pdf", string(pdf))
+	h.OK(`the manifests/report.csv file in the exports folder contains "PX-KES-1001"`)
+	h.OK(`the manifests/handover.pdf file in the exports folder contains "M-KESTREL-0412"`)
+	var read []core.Exchange
+	for _, x := range h.SC.Exchanges() {
+		if x.Sent != nil {
+			read = append(read, x)
+		}
+	}
+	if len(read) != 2 {
+		t.Fatalf("what was read: %+v, want the two files", read)
+	}
+	csv := read[0]
+	if csv.Peer != "exports" || csv.Kind != "folder" || csv.Sent.Title != "read report.csv" || csv.Seen == nil ||
+		csv.Seen.Title != "manifests/report.csv" || csv.Seen.Body != strings.TrimRight(report, "\n") {
+		t.Errorf("a text file: %+v, %+v", csv, csv.Seen)
+	}
+	if doc := read[1]; doc.Seen == nil || doc.Seen.Title != "manifests/handover.pdf" || doc.Seen.Body != "" {
+		t.Errorf("a file that is no text is named only: %+v", doc.Seen)
+	}
+}
