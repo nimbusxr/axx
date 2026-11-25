@@ -109,6 +109,7 @@ packs:
       stored: demo/stored.mmd
       announced: demo/announced.mmd
       quote: demo/quote.mmd
+      delivered: demo/delivered.mmd
   # The controls the service is to cover (security/controls.yaml), and what covers the ones no
   # scenario proves: `axx controls report` shows how each stands, and CI runs `axx controls
   # check`, which fails when one is not covered.
