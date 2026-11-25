@@ -5,6 +5,12 @@ description: Turn a scenario into a demo - a video with subtitles of what the sc
 
 A demo of software is a promise that it works. A demo made from a scenario keeps the promise: every step in it ran against the real system, and passed.
 
+<video controls preload="metadata" playsinline src="../../demos/make-a-demo.mp4" style="width: 100%; border-radius: 0.5rem;">
+A demo of Axx making a demo: a terminal runs `axx demo` on a scenario, and the video it made plays.
+</video>
+
+That video is itself a demo: a scenario ran Axx's command line, and `axx demo` made the video of it (`examples/parcels/showcase`). Its voice was added by a text-to-speech model, as [below](#add-a-soundtrack).
+
 With the demo pack, a feature file becomes a demo. You write what the audience reads as comments in the file, and Axx makes a video of the scenario, or lets you present it live.
 
 :::caution[Experimental]

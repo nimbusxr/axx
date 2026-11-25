@@ -199,6 +199,10 @@ jobs:
           tag=${TAG:-$(scripts/cli-tag.sh)}
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "name=axx_${tag#v}_docs.tar.gz" >> "$GITHUB_OUTPUT"
+      # The demo video the guides show is the showcase example's, which keeps it in Git LFS: of the
+      # examples' LFS files, the docs take this one.
+      - working-directory: .
+        run: git lfs install --local && git lfs pull --include "examples/parcels/showcase/demo/*"
       - run: npm ci
       # prebuild runs scripts/gen.mjs: go build, axx docs export, skills, schemas.
       - run: npm run build

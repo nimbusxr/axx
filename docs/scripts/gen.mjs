@@ -393,6 +393,19 @@ for (const name of ['install.sh', 'install.ps1']) {
 	fs.copyFileSync(src, path.join(publicDir, name));
 }
 
+// The demo videos the guides show are the examples' own, which keep them in Git LFS (a video in
+// this folder would be in the module every project's axx downloads). The site serves a copy.
+const demoVideos = [['examples/parcels/showcase/demo/make-a-demo.mp4', 'demos/make-a-demo.mp4']];
+for (const [from, to] of demoVideos) {
+	const src = path.join(repoDir, from);
+	if (!fs.existsSync(src)) fail(`${from} is missing`);
+	// A checkout without Git LFS has a few lines of text where the video is.
+	if (fs.statSync(src).size < 100_000) fail(`${from} is not the video but its Git LFS pointer: run \`git lfs pull\``);
+	fs.mkdirSync(path.dirname(path.join(publicDir, to)), { recursive: true });
+	fs.copyFileSync(src, path.join(publicDir, to));
+}
+log(`demo videos (${demoVideos.length})`);
+
 // ------------------------------------------------- 7. publish generated pages at their natural URLs
 
 // references/_gen/packs/mock.md is served as /references/packs/mock/. The page's
@@ -420,6 +433,7 @@ const checks = [
 	['CLI pages (references/_gen/cli/*.md)', listFiles(cliDir, (n) => n.startsWith('axx-') && n.endsWith('.md'))],
 	['error codes', sortedCodes],
 	['install scripts', listFiles(publicDir, (n) => n === 'install.sh' || n === 'install.ps1')],
+	['demo videos (public/demos/*.mp4)', listFiles(path.join(publicDir, 'demos'), (n) => n.endsWith('.mp4'))],
 	['skills (public/skills/*/SKILL.md)', listFiles(skillsDir, (n) => n === 'SKILL.md')],
 	['agent-skills index entries', skills],
 	['schemas (public/schemas/v0)', listFiles(path.dirname(schemaV0), (n) => n.endsWith('.json'))],

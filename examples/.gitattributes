@@ -1,6 +1,9 @@
 # The examples' model files and tokenizers, the repository's big files, are in Git LFS. Only the
 # examples' files are: a file of axx's module would be an LFS pointer in the module a project's
 # axx downloads to build its packs.
+# The demo video the docs show (parcels/showcase/demo) is there too, by its path: the examples'
+# other videos are small ones a scenario's camera sees, and stay in Git.
+parcels/showcase/demo/*.mp4 filter=lfs diff=lfs merge=lfs -text
 *.bin filter=lfs diff=lfs merge=lfs -text
 *.gguf filter=lfs diff=lfs merge=lfs -text
 *.h5 filter=lfs diff=lfs merge=lfs -text
