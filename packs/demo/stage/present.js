@@ -8,6 +8,28 @@
 	axxStage.present = (first) => {
 		let data = first, cursor = -1, row = -1, t = 0, last = performance.now();
 		const say = (word) => fetch('control/' + word, { method: 'POST' });
+		// A line at the top of the picture while the audience waits for the
+		// run: what the demo sets up, a step that takes its time, a run that
+		// starts again. It shows when the stage has nothing left to play.
+		const loading = document.createElement('div');
+		loading.className = 'loading';
+		loading.hidden = true;
+		document.body.appendChild(loading);
+		// The presenter's page, in a small window of its own. A browser lets a
+		// page open a window only when the person asked for it, so where it
+		// refuses, the page says which key does: p.
+		const hint = document.createElement('div');
+		hint.className = 'presenter-hint';
+		hint.textContent = 'Press P for the presenter\u2019s page';
+		hint.hidden = true;
+		document.body.appendChild(hint);
+		let presenter = null;
+		const openPresenter = () => {
+			if (presenter && !presenter.closed) { presenter.focus(); return true; }
+			try { presenter = window.open('presenter', 'axx-presenter', 'popup=yes,width=520,height=760'); } catch (e) { presenter = null; }
+			return !!presenter;
+		};
+		let asked = openPresenter();
 		const apply = async (d) => {
 			await axxStage.update(d);
 			data = d;
@@ -30,11 +52,18 @@
 			const until = cursor + 1 < beats.length ? beats[cursor + 1] - 0.001 : tl.duration;
 			t = Math.min(until, t + dt);
 			axxStage.seek(t);
+			// The run works and the stage has played what there is of it.
+			const live = data.live;
+			const working = live.mode === 'restarting' || live.mode === 'live' && (!live.waiting || !!live.failure);
+			loading.hidden = !(working && t >= tl.duration - 0.01);
+			// Until the show begins, how to get the presenter's page.
+			hint.hidden = asked || !(live.mode === 'live' && live.row === 0 && live.entered <= 1);
 			requestAnimationFrame(tick);
 		};
 		addEventListener('keydown', (e) => {
 			if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); say('forward'); }
 			if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); say('back'); }
+			if (e.key === 'p' || e.key === 'P') asked = openPresenter() || asked;
 			if (e.key === 'r') say('retry');
 			if (e.key === 't') say('take');
 			if (e.key === '0') say('top');

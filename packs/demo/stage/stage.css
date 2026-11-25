@@ -81,6 +81,13 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 /* Says that what plays is a recording, where a live show falls back on one. */
 .mark { position: absolute; top: 2.2vh; right: 2.6vh; padding: 0.4vh 1.1vh; border: 1px solid var(--rule); border-radius: 0.6vh; font-size: 1.5vh; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 
+/* Before an audience: a line at the top while the picture waits for the run. */
+.loading { position: fixed; top: 0; left: 0; right: 0; height: 0.45vh; overflow: hidden; background: color-mix(in srgb, var(--accent) 18%, transparent); z-index: 10; }
+.loading::before { content: ""; position: absolute; top: 0; bottom: 0; width: 28%; background: var(--accent); border-radius: 1vh; animation: loading 1.6s ease-in-out infinite; }
+@keyframes loading { from { left: -28%; } to { left: 100%; } }
+/* How to get the presenter's page, where the browser did not open it. */
+.presenter-hint { position: fixed; left: 0; right: 0; bottom: 3vh; text-align: center; font-family: var(--text-font); font-size: 1.7vh; color: var(--muted); z-index: 10; }
+
 /* A screen of the run: a browser, a phone, a desktop. */
 .screen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
 .screen canvas { max-width: 100%; max-height: 100%; border: 1px solid var(--rule); border-radius: 1vh; box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.45); }

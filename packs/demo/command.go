@@ -305,7 +305,7 @@ func present(call *core.CommandCall, st Settings, script *Script, diagrams []Dia
 	defer srv.Close()
 	fmt.Fprintf(call.Stderr, "axx: the show, for the screen the audience sees: %s\n", srv.URL)
 	fmt.Fprintf(call.Stderr, "axx: the presenter's page, for you:             %spresenter\n", srv.URL)
-	fmt.Fprintln(call.Stderr, "axx: forward is the right arrow, back the left; Ctrl+C ends the show")
+	fmt.Fprintln(call.Stderr, "axx: forward is the right arrow, back the left; p on the show's page opens the presenter's page in a window of its own; Ctrl+C ends the show")
 	if call.Flags["no-open"] != "true" {
 		openBrowser(call.Context, srv.URL)
 	}
