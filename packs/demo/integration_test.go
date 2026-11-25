@@ -558,3 +558,31 @@ axxStage.on('direction', (d) => window.saidDirections.push(d.name + ' ' + d.args
 		t.Errorf("the module's stylesheet: %v, %v", color, err)
 	}
 }
+
+// Before an audience the step after a held response has not run yet: what
+// came back stays held until the presenter goes on to it.
+func TestAResponseIsHeldBeforeAnAudience(t *testing.T) {
+	src := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: [hold response] The depot's", 1)
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), Known{})
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	// The run as it stands after the selection: the check has not run.
+	take := holdTake()
+	take.Steps[4].Status = ""
+	pace := DefaultPace
+	pace.Live, pace.Card, pace.Entered = true, 0.6, 3
+	tl := Cut(take, script, pace)
+	if last := tl.Segments[len(tl.Segments)-1]; last.Step != 3 || !last.HoldResponse {
+		t.Fatalf("the show is at the selection: %+v", tl.Segments)
+	}
+	live := &Live{Mode: "live", Cursor: 2, Entered: 3, Waiting: true, Beats: []string{}}
+	s, err := openStudio(context.Background(), t.TempDir(), Settings{}, &Staged{Take: take, Timeline: tl, Live: live})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	if got := shown(t, s, tl.Duration); !strings.Contains(got["sent"], "select parcels.holds") || got["seen"] != "" || strings.Contains(got["diagram"], "1 row") {
+		t.Errorf("at the selection's end, before the presenter goes on: %v", got)
+	}
+}

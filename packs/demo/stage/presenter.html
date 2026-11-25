@@ -62,8 +62,8 @@
 			document.getElementById('failed-error').textContent = l.failure.error;
 			document.getElementById('take').disabled = !l.fallback;
 		}
-		document.getElementById('back').disabled = l.cursor <= 0;
-		document.getElementById('forward').disabled = !!l.failure || !(l.cursor < l.entered - 1 || l.waiting);
+		document.getElementById('back').disabled = l.cursor <= 0 && !l.earlier;
+		document.getElementById('forward').disabled = !!l.failure || !(l.cursor < l.entered - 1 || l.waiting || l.more);
 		document.getElementById('beats').innerHTML = l.beats.map((b, i) =>
 			'<li class="' + (i === l.cursor ? 'now' : i < l.entered ? 'played' : i === l.entered ? 'next' : '') + '">' + esc(b) + '</li>').join('');
 	}

@@ -269,6 +269,17 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			tl.Subtitles = append(tl.Subtitles, Subtitle{Start: t, End: t, Text: subtitle})
 			tl.Beats = append(tl.Beats, t)
 			open = len(tl.Subtitles) - 1
+			if n := len(tl.Segments); pace.Live && (n == 0 || tl.Segments[n-1].Kind == "card") {
+				// Before an audience a subtitle shows before its steps ran, over
+				// the picture as it stands. Where that is a card, or nothing yet
+				// (a demo's introduction), it is the picture its step begins on.
+				at := 0.0
+				if last >= 0 {
+					at = take.Steps[last].End
+				}
+				tl.Segments = append(tl.Segments, Segment{Kind: "hold", Start: t, End: t + 0.1, Step: last, From: at, To: at, Show: surfaces(show, take, last), Diagrams: slices.Clone(diagram), As: as})
+				t += 0.1
+			}
 		}
 		if i >= len(take.Steps) {
 			return

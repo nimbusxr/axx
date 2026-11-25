@@ -217,6 +217,8 @@ axx demo --present features/demos/register-a-parcel.demo.feature
 
 A subtitle with the steps under it is one **beat**: forward moves a beat at a time.
 
+A Scenario Outline plays a row at a time. When a row's last beat has played, forward goes to the next row, which begins on a card with its name. Back moves within the row that shows.
+
 ### When a step fails
 
 A step that fails is not shown to the audience. The presenter's page shows the step and its error, and you choose:

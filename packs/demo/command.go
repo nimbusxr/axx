@@ -254,40 +254,44 @@ func runDemo(call *core.CommandCall) error {
 // stamp names a run's folder of pictures.
 func stamp() string { return time.Now().Format("20060102-150405") }
 
-// lastTake is the last good take of a demo, or nil: of its first scenario,
-// which is the one a show presents.
-func lastTake(dir string) *Take {
-	takes, _ := filepath.Glob(filepath.Join(dir, "take-*.json"))
-	sort.Strings(takes)
-	for _, path := range takes {
+// lastTakes are the last good takes of a demo's scenarios, in the file's
+// order: one for a scenario, one for each row of a Scenario Outline.
+func lastTakes(dir string) []*Take {
+	paths, _ := filepath.Glob(filepath.Join(dir, "take-*.json"))
+	var out []*Take
+	for _, path := range paths {
 		if t, err := readTake(path); err == nil && t.Passed {
-			return t
+			out = append(out, t)
 		}
 	}
-	return nil
+	sort.Slice(out, func(i, j int) bool { return out[i].Line < out[j].Line })
+	return out
 }
 
 // present shows a demo to an audience.
 func present(call *core.CommandCall, st Settings, script *Script, diagrams []Diagram, dir, uri, abs string) error {
 	st.footage = dir
-	fallback := lastTake(dir)
+	fallbacks := lastTakes(dir)
 	recorded := call.Flags["recorded"] == "true"
-	if recorded && fallback == nil {
+	if recorded && len(fallbacks) == 0 {
 		return fmt.Errorf("there is no take of %s to show: run `axx demo %s` once", uri, call.Args[0])
 	}
-	// The pictures of runs before this one go, but for the last good take's.
-	keep := ""
-	if fallback != nil && len(fallback.Footage) > 0 {
-		keep, _, _ = strings.Cut(fallback.Footage[0].File, "/")
+	// The pictures of runs before this one go, but for the last good takes'.
+	keep := map[string]bool{}
+	for _, t := range fallbacks {
+		if len(t.Footage) > 0 {
+			folder, _, _ := strings.Cut(t.Footage[0].File, "/")
+			keep[folder] = true
+		}
 	}
 	footage, _ := filepath.Glob(filepath.Join(dir, "footage-*"))
 	for _, f := range footage {
-		if filepath.Base(f) != keep {
+		if !keep[filepath.Base(f)] {
 			_ = os.RemoveAll(f)
 		}
 	}
 	title := strings.TrimSuffix(filepath.Base(uri), Suffix)
-	sh := newShow(script, st, fallback, title)
+	sh := newShow(script, st, fallbacks, title)
 	sh.diagrams = diagrams
 	if recorded {
 		sh.mu.Lock()

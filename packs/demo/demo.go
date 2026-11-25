@@ -161,6 +161,9 @@ func pictureOf(sc *core.Scenario) error {
 // gate waits, before a step of a show, for the presenter to go on to it.
 func gate(sc *core.Scenario) error {
 	if s := of(sc); s != nil && s.show != nil {
+		if !s.show.arrive(sc) {
+			return nil
+		}
 		s.show.update(sc, camerasOf(s))
 		s.show.gate(sc)
 	}

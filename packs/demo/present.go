@@ -2,6 +2,7 @@ package demo
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"sync"
 
@@ -18,13 +19,23 @@ type show struct {
 	script *Script
 	st     Settings
 	pace   Pace
-	// fallback is the last good take of the demo, which the show plays on
-	// from when a step fails and the presenter says so.
-	fallback *Take
+	// fallbacks are the last good takes of the demo's scenarios (the rows of
+	// a Scenario Outline), in the file's order: what the show plays on from
+	// when a step fails and the presenter says so, and what a recorded show
+	// plays. rec is the one that plays.
+	fallbacks []*Take
+	rec       int
 	// diagrams are the project's diagrams.
 	diagrams []Diagram
 
 	mu sync.Mutex
+	// row is which of the run's scenarios the show is in, from 0: the rows
+	// of a Scenario Outline play one after another, each with its own beats,
+	// and the presenter goes on from one to the next. line is its line.
+	row, line int
+	// skip is how many scenarios a run from the top passes without a stop,
+	// to come back to the one the show was in.
+	skip int
 	// take is the run so far, and timeline its cut; nil before the first
 	// step.
 	take     *Take
@@ -75,21 +86,27 @@ type Live struct {
 	Entered int    `json:"entered"`
 	Waiting bool   `json:"waiting"`
 	// Beats are the demo's beats, in order: what the presenter's page lists.
-	Beats   []string `json:"beats"`
+	Beats []string `json:"beats"`
+	// Row is which of the demo's scenarios shows, from 0: the rows of a
+	// Scenario Outline play one after another. More and Earlier are whether
+	// forward and back have another row of a recorded show to go to.
+	Row     int      `json:"row"`
+	More    bool     `json:"more,omitempty"`
+	Earlier bool     `json:"earlier,omitempty"`
 	Failure *Failure `json:"failure,omitempty"`
 	// Fallback is whether there is a take to play on from.
 	Fallback bool `json:"fallback"`
 	Version  int  `json:"version"`
 }
 
-func newShow(script *Script, st Settings, fallback *Take, title string) *show {
+func newShow(script *Script, st Settings, fallbacks []*Take, title string) *show {
 	pace := DefaultPace
 	pace.Live, pace.Card = true, 0.6
 	sh := &show{
-		script: script, st: st, pace: pace, fallback: fallback, mode: "live", opening: title,
+		script: script, st: st, pace: pace, fallbacks: fallbacks, mode: "live", opening: title,
 		wake: make(chan struct{}), word: make(chan string, 1), quit: make(chan struct{}),
 	}
-	if beats := beatsOf(script); len(beats) > 0 && beats[0].card {
+	if beats := sh.beats(); len(beats) > 0 && beats[0].card {
 		sh.firstCard, sh.opening, sh.entered = true, beats[0].text, 1
 	}
 	return sh
@@ -145,6 +162,63 @@ func beatsOf(script *Script) []beat {
 	return out
 }
 
+// beats are the beats of the scenario the show is in: its own cues, with the
+// values of its row, and the Feature's, which play once, with the first. The
+// caller holds mu, or nobody else has the show yet.
+func (sh *show) beats() []beat {
+	if sh.script == nil {
+		return nil
+	}
+	row, line := sh.row, sh.line
+	if sh.mode == "recorded" && sh.take != nil {
+		row, line = sh.rec, sh.take.Line
+	}
+	// The scenario of that line, or of that place among the file's.
+	var of *ScriptScenario
+	n := 0
+	for i := range sh.script.Scenarios {
+		sc := &sh.script.Scenarios[i]
+		rows := max(1, len(sc.Rows))
+		if sc.Line == line || slices.Contains(sc.Rows, line) || of == nil && line == 0 && row < n+rows {
+			of = sc
+			if line == 0 && len(sc.Rows) > 0 {
+				line = sc.Rows[row-n]
+			}
+			break
+		}
+		n += rows
+	}
+	var out []beat
+	for _, b := range beatsOf(sh.script) {
+		switch {
+		case b.anchor != 0 && b.anchor <= sh.script.FeatureLine:
+			if row > 0 {
+				continue
+			}
+		case of != nil && b.anchor != 0 && b.anchor != of.Line && !slices.Contains(of.Steps, b.anchor):
+			continue // another scenario's
+		}
+		b.text = fill(b.text, sh.script.Rows[line])
+		out = append(out, b)
+	}
+	return out
+}
+
+// fallbackOf is the last good take of the scenario the show is in, or nil.
+// The caller holds mu.
+func (sh *show) fallbackOf() (*Take, int) {
+	for i, t := range sh.fallbacks {
+		if t.Line == sh.line {
+			return t, i
+		}
+	}
+	// Before the first step, and where the file's lines moved since.
+	if sh.row < len(sh.fallbacks) {
+		return sh.fallbacks[sh.row], sh.row
+	}
+	return nil, 0
+}
+
 // changed tells whoever follows the show that it changed. The caller holds mu.
 func (sh *show) changed() {
 	sh.version++
@@ -164,10 +238,65 @@ func (sh *show) start() {
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
 	sh.reached, sh.gates, sh.failure, sh.decision, sh.waiting = 0, nil, nil, "", false
+	sh.row, sh.line = 0, 0
 	if sh.auto > 0 {
 		sh.mode, sh.entered, sh.take, sh.timeline = "restarting", sh.auto, nil, nil
 	}
 	sh.changed()
+}
+
+// arrive is told, before each step, which scenario runs. At the first step
+// of the one after another (the next row of a Scenario Outline) it waits for
+// the presenter to leave the row before, whose last picture the audience is
+// still reading, and begins the row. It reports false when the show ended
+// instead.
+func (sh *show) arrive(sc *core.Scenario) bool {
+	sh.mu.Lock()
+	if sh.mode == "recorded" || sh.line == sc.Line {
+		sh.mu.Unlock()
+		return true
+	}
+	if sh.line == 0 {
+		sh.line = sc.Line
+		sh.mu.Unlock()
+		return true
+	}
+	if passing := sh.mode == "restarting" && sh.row < sh.skip; !passing {
+		// What cues the row has below its last step play now.
+		sh.entered = 1 << 30
+		sh.recut()
+		if sh.timeline != nil {
+			sh.entered = len(sh.timeline.Beats)
+		}
+		sh.waiting = true
+		sh.changed()
+		sh.mu.Unlock()
+		release := sc.Hold()
+		select {
+		case <-sh.word:
+		case <-sh.quit:
+			release()
+			return false
+		case <-sc.Context().Done():
+			release()
+			return false
+		}
+		release()
+		sh.mu.Lock()
+		sh.waiting = false
+		if sh.mode == "recorded" {
+			sh.mu.Unlock()
+			return true
+		}
+		sh.cursor = 0
+	}
+	sh.row++
+	sh.line = sc.Line
+	sh.reached, sh.gates, sh.entered = 0, nil, 0
+	sh.take, sh.timeline, sh.opening = nil, nil, sc.Name
+	sh.changed()
+	sh.mu.Unlock()
+	return true
 }
 
 // gate waits, before a step, for the presenter to go on to each beat the
@@ -178,11 +307,15 @@ func (sh *show) gate(sc *core.Scenario) {
 		return
 	}
 	sh.mu.Lock()
+	if sh.mode == "recorded" {
+		sh.mu.Unlock()
+		return // the show plays takes: the run goes on unseen
+	}
 	if sh.gates == nil {
 		// Each beat belongs to the first step at or below its anchor.
 		sh.gates = map[int]int{}
 		steps := sc.Progress()
-		for _, b := range beatsOf(sh.script) {
+		for _, b := range sh.beats() {
 			if b.anchor == 0 {
 				continue
 			}
@@ -210,11 +343,12 @@ func (sh *show) enter(sc *core.Scenario) bool {
 	sh.mu.Lock()
 	index := sh.reached
 	sh.reached++
-	if index < sh.auto || index == 0 && sh.firstCard && sh.entered <= 1 {
+	again := sh.mode == "restarting" && (sh.row < sh.skip || index < sh.auto)
+	if again || sh.row == 0 && index == 0 && sh.firstCard && sh.entered <= 1 {
 		if sh.entered < index+1 {
 			sh.entered = index + 1
 		}
-		if sh.reached >= sh.auto && sh.mode == "restarting" {
+		if sh.mode == "restarting" && sh.row >= sh.skip && sh.reached >= sh.auto {
 			sh.mode = "live"
 		}
 		sh.changed()
@@ -271,7 +405,7 @@ func (sh *show) recut() {
 		return
 	}
 	pace := sh.pace
-	pace.Entered = sh.entered
+	pace.Entered, pace.Row = sh.entered, sh.row
 	sh.timeline = Cut(sh.take, sh.script, pace)
 }
 
@@ -289,6 +423,10 @@ func (sh *show) failed(sc *core.Scenario) error {
 		}
 	}
 	sh.mu.Lock()
+	if sh.mode == "recorded" {
+		sh.mu.Unlock()
+		return nil // the show plays takes: the run goes on unseen
+	}
 	sh.failure = f
 	sh.changed()
 	sh.mu.Unlock()
@@ -310,7 +448,7 @@ func (sh *show) failed(sc *core.Scenario) error {
 	case "take":
 		sh.playFallback()
 	case "top":
-		sh.decision, sh.auto = "top", sh.cursor+1
+		sh.decision, sh.auto, sh.skip = "top", sh.cursor+1, sh.row
 	}
 	sh.changed()
 	return nil
@@ -319,13 +457,21 @@ func (sh *show) failed(sc *core.Scenario) error {
 // playFallback has the show play on from the last good take. The caller
 // holds mu.
 func (sh *show) playFallback() {
-	if sh.fallback == nil {
+	take, at := sh.fallbackOf()
+	if take == nil {
 		return
 	}
+	sh.rec = at
+	sh.playRecorded()
+}
+
+// playRecorded plays the take the recorded show is at. The caller holds mu.
+func (sh *show) playRecorded() {
+	take := sh.fallbacks[sh.rec]
 	pace := sh.pace
-	pace.Entered = 1 << 30
-	sh.mode, sh.take = "recorded", sh.fallback
-	sh.timeline = Cut(sh.fallback, sh.script, pace)
+	pace.Entered, pace.Row = 1<<30, sh.rec
+	sh.mode, sh.take = "recorded", take
+	sh.timeline = Cut(take, sh.script, pace)
 	sh.entered = len(sh.timeline.Beats)
 }
 
@@ -340,7 +486,7 @@ func (sh *show) ended(passed bool) {
 			sh.entered = 1 << 30
 			sh.recut()
 			sh.entered = len(sh.timeline.Beats)
-		} else if sh.fallback != nil {
+		} else {
 			// A run that ended otherwise than by a step the presenter decided on.
 			sh.playFallback()
 		}
@@ -358,6 +504,11 @@ func (sh *show) say(word string) {
 		switch {
 		case sh.cursor < sh.entered-1:
 			sh.cursor++
+		case sh.mode == "recorded" && sh.rec+1 < len(sh.fallbacks):
+			// The next row's take.
+			sh.rec++
+			sh.playRecorded()
+			sh.cursor = 0
 		case sh.waiting && sh.failure == nil:
 			select {
 			case sh.word <- "forward":
@@ -366,11 +517,17 @@ func (sh *show) say(word string) {
 			return
 		}
 	case "back":
-		if sh.cursor > 0 {
+		switch {
+		case sh.cursor > 0:
 			sh.cursor--
+		case sh.mode == "recorded" && sh.rec > 0:
+			// The row before's take, at its end.
+			sh.rec--
+			sh.playRecorded()
+			sh.cursor = max(0, sh.entered-1)
 		}
 	case "retry", "take", "top":
-		if sh.failure == nil || word == "take" && sh.fallback == nil {
+		if take, _ := sh.fallbackOf(); sh.failure == nil || word == "take" && take == nil {
 			return
 		}
 		select {
@@ -388,11 +545,15 @@ func (sh *show) say(word string) {
 func (sh *show) staged() *Staged {
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
+	fallback, _ := sh.fallbackOf()
 	live := &Live{
-		Mode: sh.mode, Cursor: sh.cursor, Entered: sh.entered, Waiting: sh.waiting,
-		Beats: []string{}, Failure: sh.failure, Fallback: sh.fallback != nil, Version: sh.version,
+		Mode: sh.mode, Cursor: sh.cursor, Entered: sh.entered, Waiting: sh.waiting, Row: sh.row,
+		Beats: []string{}, Failure: sh.failure, Fallback: fallback != nil, Version: sh.version,
 	}
-	for _, b := range beatsOf(sh.script) {
+	if sh.mode == "recorded" {
+		live.Row, live.More, live.Earlier = sh.rec, sh.rec+1 < len(sh.fallbacks), sh.rec > 0
+	}
+	for _, b := range sh.beats() {
 		live.Beats = append(live.Beats, b.text)
 	}
 	out := &Staged{Take: sh.take, Timeline: sh.timeline, Theme: sh.st.Theme, Live: live, Diagrams: sh.diagrams}

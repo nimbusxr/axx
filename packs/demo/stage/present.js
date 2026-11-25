@@ -6,13 +6,15 @@
 // take, 0 starts again from the top.
 (() => {
 	axxStage.present = (first) => {
-		let data = first, cursor = -1, t = 0, last = performance.now();
+		let data = first, cursor = -1, row = -1, t = 0, last = performance.now();
 		const say = (word) => fetch('control/' + word, { method: 'POST' });
 		const apply = async (d) => {
 			await axxStage.update(d);
 			data = d;
-			if (d.live.cursor !== cursor) {
+			// Another beat, or the same one of another row.
+			if (d.live.cursor !== cursor || d.live.row !== row) {
 				cursor = d.live.cursor;
+				row = d.live.row;
 				const beats = d.timeline.beats;
 				t = beats.length ? beats[Math.min(cursor, beats.length - 1)] : 0;
 			}

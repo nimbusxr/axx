@@ -33,7 +33,9 @@
 			if (segs[i].kind !== 'step') continue;
 			const here = i === state.segmentIndex;
 			const after = segs.findIndex((s, j) => j > i && s.kind === 'step');
-			if (segs[i].holdResponse && after >= 0) {
+			// Before an audience the step after it has not run yet.
+			const open = !!data.live && (data.live.mode === 'live' || data.live.mode === 'restarting');
+			if (segs[i].holdResponse && (after >= 0 || open)) {
 				hold = { step: segs[i].step, stage: here ? 'out' : 'waiting' };
 			} else if (here) {
 				// The step after a held one, when it sends nothing of its own.
