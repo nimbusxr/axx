@@ -24,8 +24,9 @@ type Settings struct {
 
 // Theme is the look of a project's demos.
 type Theme struct {
-	// Caller names the box that stands for whoever uses the system: the
-	// scenario's side of every exchange.
+	// Caller names whoever uses the system, and gives them a box in the
+	// diagram: the scenario's side of every exchange. Without it there is
+	// no such box.
 	Caller string `json:"caller,omitempty"`
 	// Steps is whether the film says, in a line, which step it shows.
 	Steps *bool `json:"steps,omitempty"`
@@ -73,7 +74,7 @@ const configSchema = `{
       "additionalProperties": false,
       "description": "The look of the project's demos.",
       "properties": {
-        "caller": {"type": "string", "description": "The name of the box that stands for whoever uses the system, like shop. Default: axx."},
+        "caller": {"type": "string", "description": "A name for whoever uses the system, like shop: the diagram then has a box of that name, which what the scenario sends comes from. Without it there is no such box, and what is sent comes in from the edge of the picture."},
         "steps": {"type": "boolean", "description": "Whether the film says, in a line, which step it shows. Default: true."},
         "colors": {
           "type": "object",

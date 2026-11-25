@@ -1,5 +1,5 @@
-// The diagram: what a scenario with no screen looks like. The scenario's
-// caller on the left, what it talks to as boxes, and for each step the
+// The diagram: what a scenario with no screen looks like. What the scenario
+// talks to as boxes, what it sends coming in from the left, and for each step the
 // message that went out along a line and what came back. It shows only what
 // the run sent and saw: axx looks at the system from outside.
 //
@@ -116,7 +116,11 @@
 		const mocks = peers.filter((p) => p.kind === 'mock');
 		const rows = Math.max(mid.length, mocks.length, 1);
 		const height = rows * (BH + GAP) - GAP + 2;
-		const midX = CALLER_W + 18, mockX = midX + BW + 16;
+		// Who uses the system has a box only where the project names them
+		// (theme.caller): the scenario stands outside the system, and without
+		// a name what it sends comes in from the edge of the picture.
+		const cw = theme.caller ? CALLER_W : 0;
+		const midX = cw + (cw ? 18 : 14), mockX = midX + BW + 16;
 		const width = (mocks.length ? mockX + BW : midX + BW) + 1;
 		const boxes = {}, edges = {};
 		const column = (list, x) => {
@@ -128,11 +132,11 @@
 		column(mid, midX);
 		column(mocks, mockX);
 		const cy = Math.floor(height / 2);
-		const caller = { id: '@caller', x: 0, y: cy - 2, w: CALLER_W, h: 4, title: clip(theme.caller || 'axx', CALLER_W - 6), style: 'heavy' };
-		const trunk = CALLER_W + 8;
+		const caller = cw ? { id: '@caller', x: 0, y: cy - 2, w: cw, h: 4, title: clip(theme.caller, cw - 6), style: 'heavy' } : null;
+		const trunk = cw + (cw ? 8 : 6);
 		for (const p of mid) {
 			const b = boxes[p.name], py = b.y + 1;
-			edges['c>' + p.name] = { cells: cells(dedupe([[CALLER_W, cy - 1], [trunk, cy - 1], [trunk, py], [b.x - 1, py]])) };
+			edges['c>' + p.name] = { cells: cells(dedupe([[cw, cy - 1], [trunk, cy - 1], [trunk, py], [b.x - 1, py]])) };
 		}
 		const service = mid.find((p) => p.kind === 'service');
 		for (const p of mocks) {
@@ -215,7 +219,7 @@
 					if (list.length) active = { x: list[list.length - 1], phase: 1, failed: take.steps[i].status !== 'passed', over: true };
 				}
 			}
-			drawBox(grid, L.caller, 'key');
+			if (L.caller) drawBox(grid, L.caller, 'key');
 			for (const b of Object.values(L.boxes)) {
 				if (!met[b.id]) continue;
 				const said = lastSaid[b.id];
