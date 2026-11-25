@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The film</title>
+<title>The demo video</title>
 <style>
 	:root { color-scheme: dark; }
 	body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0b0e14; color: #e6e9ef; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -16,17 +16,17 @@
 <body>
 <main>
 	<h1>prices-by-weight.mp4</h1>
-	<video src="/film.mp4" muted autoplay playsinline></video>
-	<p id="status" role="status">Loading the film</p>
+	<video src="/video.mp4" muted autoplay playsinline></video>
+	<p id="status" role="status">Loading the video</p>
 </main>
 <script>
-	// The page says how far the film has played, so that who watches it (a
+	// The page says how far the video has played, so that who watches it (a
 	// person, or a scenario) knows that it plays.
 	const video = document.querySelector('video'), status = document.getElementById('status');
 	const clock = (t) => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
 	video.addEventListener('timeupdate', () => { status.textContent = 'Playing ' + clock(video.currentTime) + ' of ' + clock(video.duration); });
 	video.addEventListener('ended', () => { status.textContent = 'Played to the end, ' + clock(video.duration); });
-	video.addEventListener('error', () => { status.textContent = 'The film cannot be played'; });
+	video.addEventListener('error', () => { status.textContent = 'The video cannot be played'; });
 </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 Feature: A courier delivers a parcel, as a demo on an Android phone
 
   A demo on a phone: a courier hands a parcel over with the couriers' Android app, and the
-  service and the recipient know of it. `axx demo` films the phone while the scenario is in the
+  service and the recipient know of it. `axx demo` records the phone while the scenario is in the
   app, beside a diagram of what the scenario saw of the system behind it.
 
   # demo: This is the couriers' app, on an Android phone. A courier is at the door with a parcel.

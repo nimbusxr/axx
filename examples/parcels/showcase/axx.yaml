@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
 #
 # axx, shown with axx: a demo of making a demo. Its scenario runs axx's own command line in the
-# parcels example's acceptance project (../acceptance), and `axx demo` films it. From this
-# directory, with axx on the PATH:
-#   axx demo features/demos/make-a-demo.demo.feature             # the film, in .axx/demo
-#   axx demo --present features/demos/make-a-demo.demo.feature   # the same, before an audience
+# parcels example's acceptance project (../acceptance), and `axx demo` makes a demo of it. From
+# this directory, with axx on the PATH:
+#   axx demo features/demos/make-a-demo.demo.feature             # the demo video, in .axx/demo
+#   axx demo --present features/demos/make-a-demo.demo.feature   # the same demo, presented live
 version: 1
 
 run:
@@ -12,3 +12,26 @@ run:
 
 # Paths in steps (pages/watch.html) resolve against this directory.
 resources: ["."]
+
+packs:
+  demo:
+    # axx's own look: the site's colors, and behind the picture a field of dots and two soft
+    # lights that drift slowly (demo/look.js, demo/look.css).
+    theme:
+      colors:
+        background: "#080808"
+        surface: "#111113"
+        rule: "#2c2c30"
+        text: "#e9e9ec"
+        muted: "#8e8e94"
+        line: "#5c5c62"
+        accent: "#d1a878"
+        sent: "#78b7ed"
+        seen: "#7bc792"
+        failed: "#e48a8a"
+    scenes: [demo/look.js]
+    styles: [demo/look.css]
+    # The demo has a voice: a line is heard faster than it is read, so the subtitles move on sooner.
+    pace:
+      read: 1.5
+      word: 0.33

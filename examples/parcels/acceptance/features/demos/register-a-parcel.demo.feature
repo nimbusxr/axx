@@ -2,8 +2,8 @@
 Feature: Register a parcel, as a demo
 
   A demo of what happens when a shop registers a parcel: `axx demo` runs the scenario and
-  films what it did. `axx run` runs it as any other feature. The comments that start with
-  "demo:" are what the people who watch the film read.
+  makes a video of what it did. `axx run` runs it as any other feature. The comments that start with
+  "demo:" are what the people who watch the video read.
 
   # demo: This is our parcels system. Watch what happens across it
   #       when a shop registers a single parcel.

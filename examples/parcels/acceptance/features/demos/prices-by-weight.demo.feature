@@ -1,7 +1,7 @@
 # demo: [card 3s] What a parcel costs, by its weight
 Feature: Prices by weight, as a demo
 
-  A demo of a Scenario Outline: `axx demo` makes one film of it, with a chapter for each
+  A demo of a Scenario Outline: `axx demo` makes one video of it, with a chapter for each
   row. A cue's <grams> is the row's value, as a step's is.
 
   Scenario Outline: A shop asks what a parcel of <grams> grams costs

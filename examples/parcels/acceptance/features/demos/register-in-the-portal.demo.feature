@@ -2,7 +2,7 @@
 Feature: Register a parcel in the portal, as a demo
 
   A demo that goes from a browser to what has no screen: a shop registers a parcel in the
-  portal's form, and the depots' database and billing know of it. `axx demo` films the
+  portal's form, and the depots' database and billing know of it. `axx demo` records the
   browser while the scenario is in it, and a diagram of what the scenario saw afterwards.
 
   # demo: Not every shop has a system of its own. This is the portal,

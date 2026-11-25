@@ -2,6 +2,7 @@
 # axx's packs by name (`axx pack list`), others by path (./steps) or Go module (host/path@version).
 packs:
   - cli
+  - files
   - web-core
   - web-network
   - demo

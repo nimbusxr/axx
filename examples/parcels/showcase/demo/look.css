@@ -1,0 +1,21 @@
+/* The look of axx's own demo: the site's black, its walnut and oxblood, and
+   behind the picture a field of dots and two soft lights (look.js moves
+   them). */
+.backdrop { position: absolute; inset: 0; overflow: hidden; background: #080808; }
+.glow { position: absolute; width: 90vh; height: 90vh; border-radius: 50%; filter: blur(9vh); }
+.glow-a { left: -18vh; bottom: -34vh; background: radial-gradient(circle, rgba(168, 68, 58, 0.34), rgba(168, 68, 58, 0) 68%); }
+.glow-b { right: -22vh; top: -38vh; background: radial-gradient(circle, rgba(184, 148, 112, 0.24), rgba(184, 148, 112, 0) 68%); }
+/* The dots: brightest in the middle of the picture, gone at its edges. */
+.dots { position: absolute; inset: 0; background-image: radial-gradient(rgba(255, 255, 255, 0.11) 0.11vh, transparent 0.13vh); background-size: 3.4vh 3.4vh; background-position: center; mask-image: radial-gradient(ellipse 75% 70% at 50% 50%, #000 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%); -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 50%, #000 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%); }
+
+/* A card: large, with an oxblood rule under it, on the lights. */
+.card { background: transparent; }
+.card p { font-size: 7.6vh; font-weight: 750; letter-spacing: -0.015em; color: #f4f4f6; }
+.card p::after { content: ""; display: block; width: 9vh; height: 0.5vh; margin: 2.8vh auto 0; background: #a8443a; }
+
+/* The windows: the site's surfaces, with a deep shadow and an oxblood mark. */
+.term, .ed { background: rgba(17, 17, 19, 0.96); border-color: #2c2c30; box-shadow: 0 3vh 9vh rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(184, 148, 112, 0.08); }
+.ed-tab { border-top-color: #a8443a; }
+.t-prompt { color: #a8443a; }
+.screen canvas { border-color: #2c2c30; box-shadow: 0 3vh 9vh rgba(0, 0, 0, 0.7); }
+.loading::before { background: #a8443a; }
