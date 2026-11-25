@@ -253,7 +253,13 @@ the skills instead: `axx skills install`.
   its subtitles with their times (the `.srt` beside it), by a command of the project's (`soundtrack.go`): the pack makes no
   sound and ships no voice, keep it so. The sound is one FLAC track, which `packs/internal/video` encodes itself
   (`sound.go`). The pack's scenes are
-  registered as a project's are (`axxStage.scene`): keep them no different. Its browser tests run in CI's web job.
+  registered as a project's are (`axxStage.scene`): keep them no different. What is happening at a moment (which exchange
+  plays, what of it shows, a held response) is worked out once, in the stage (`happening`, `state.now`), for every scene:
+  a rule of the film goes there, never into one scene. A surface is a scene a cue shows (`[show ...]`): the pack's, a
+  project's (`packs.demo.surfaces`) or a module's, which is how another pack adds scenes, styles and directions
+  (`modules.go`, `demo.RegisterModule`). The terminal (`modules/terminal`) is a module registered as another pack's is,
+  and the docs' example of one: keep it built on what the guide "Build a demo's scenes" lists and nothing else. Its
+  browser tests run in CI's web job.
 - `packs/internal/memcheck`: axx's C, C++ and Objective-C under a memory checker, for axx's own
   tests: with `AXX_MEMCHECK` naming a folder, the libraries the packs load into apps (the
   simulators' library, the AR library, the Apple model adapter) are built with AddressSanitizer

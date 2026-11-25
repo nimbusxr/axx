@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/nimbusxr/axx/packs/internal/video"
@@ -27,6 +28,7 @@ func shown(t *testing.T, s *studio, at float64) map[string]string {
 			card: text('#stage .card'), subtitle: text('#stage .subtitle'), ticker: text('#stage .ticker'),
 			diagram: [...document.querySelectorAll('.surface-diagram .grid')].filter((e) => !e.hidden && !e.closest('[hidden]')).map((e) => e.innerText).join('\n'), sent: text('.msg.sent.on'), seen: text('.msg.seen.on'),
 			own: text('.own-scene'), said: (window.saidDirections || []).join(','),
+			terminal: text('.surface-terminal .term-lines'), ledger: text('.surface-ledger'), probe: text('.surface-probe'),
 		};
 	}`)
 	if err != nil {
@@ -411,5 +413,148 @@ func TestACueWritesInABox(t *testing.T) {
 	script, _ = ParseScript("features/hold.demo.feature", []byte(bad), st.known())
 	if _, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: Cut(take, script, DefaultPace), Diagrams: diagrams}); err == nil || !strings.Contains(err.Error(), "the diagram system has no box warehouse") {
 		t.Errorf("a mark in a box there is not: %v", err)
+	}
+}
+
+// The terminal, a module of the pack's: a request is the curl command that
+// makes it, typed as the step plays, and what came back is printed when the
+// film shows it, so a held response stays out of it too.
+func TestTheTerminalTypesTheSteps(t *testing.T) {
+	src := strings.Replace(holdFeature, "# demo: [action] Ms Okafor", "# demo: [action] [show terminal + diagram] [hold response] Ms Okafor", 1)
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), Settings{}.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	take := holdTake()
+	tl := Cut(take, script, DefaultPace)
+	var put, sel Segment
+	for _, seg := range tl.Segments {
+		if seg.Kind == "step" && seg.Step == 2 {
+			put = seg
+		}
+		if seg.Kind == "step" && seg.Step == 3 {
+			sel = seg
+		}
+	}
+	s, err := openStudio(context.Background(), t.TempDir(), Settings{}, &Staged{Take: take, Timeline: tl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	command := "$ curl -X PUT 'http://localhost:8080/api/parcels/PX-1/hold' \\\n    -H 'Content-Type: application/json' \\\n    -d '{\"until\":\"2026-11-27T18:00:00Z\",\"reason\":\"Recipient is away\"}'"
+	// As the step begins, the command is being typed.
+	if got := shown(t, s, put.Start+0.02*(put.End-put.Start)); !strings.HasPrefix(got["terminal"], "$ curl") || strings.Contains(got["terminal"], "hold'") || got["diagram"] == "" {
+		t.Errorf("the command, as it is typed, beside the diagram: %v", got)
+	}
+	// Typed, and what came back held.
+	if got := shown(t, s, put.Start+0.45*(put.End-put.Start)); !strings.Contains(got["terminal"], command) || strings.Contains(got["terminal"], "HTTP/1.1") {
+		t.Errorf("the command, and no answer yet:\n%s", got["terminal"])
+	}
+	// The call the system made to a mock is a remark.
+	if got := shown(t, s, put.Start+0.95*(put.End-put.Start)); !strings.Contains(got["terminal"], "# address: GET /v1/postcodes/DE/10115") || strings.Contains(got["terminal"], "HTTP/1.1") {
+		t.Errorf("what the system called, and still no answer:\n%s", got["terminal"])
+	}
+	// With the step after it, what came back is printed, and what the
+	// scenario looked at is a remark with what was there.
+	got := shown(t, s, sel.Start+0.34*(sel.End-sel.Start))
+	for _, want := range []string{command + "\nHTTP/1.1 200 OK\n{\n  \"reference\": \"PX-1\",", "# parcels-db: select parcels.holds where parcel_ref = PX-1"} {
+		if !strings.Contains(got["terminal"], want) {
+			t.Errorf("with the step after it, the terminal has no %q:\n%s", want, got["terminal"])
+		}
+	}
+	if strings.Contains(got["terminal"], "1 row") {
+		t.Errorf("what the selection found, before the film shows it:\n%s", got["terminal"])
+	}
+	// A terminal scrolls: its last lines are the ones it shows.
+	got = shown(t, s, sel.Start+0.9*(sel.End-sel.Start))
+	if !strings.Contains(got["terminal"], "1 row\n[\n  {\n    \"parcel_ref\": \"PX-1\",") || strings.HasPrefix(got["terminal"], "$ curl") {
+		t.Errorf("what the selection found, at the terminal's end:\n%s", got["terminal"])
+	}
+}
+
+// A project's own surface: a name in packs.demo.surfaces, and a scene one of
+// its scripts registers under it, which [show ...] puts on the stage, alone or
+// beside another. A surface no scene draws makes no film.
+func TestAProjectsOwnSurface(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scene := `axxStage.scene('ledger', {
+	mount(el) { el.innerHTML = '<p class="rows"></p>'; },
+	render(el, state) { el.querySelector('.rows').textContent = 'ledger: ' + (state.now.sent ? state.now.sent.title : '') + ' / ' + (state.now.seen ? state.now.seen.title : ''); },
+});`
+	if err := os.WriteFile(filepath.Join(dir, "demo", "ledger.js"), []byte(scene), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: [show ledger + diagram] [2s] The depot's", 1)
+	st := Settings{Surfaces: []string{"ledger"}, Scenes: []string{"demo/ledger.js"}}
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), st.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	take := holdTake()
+	tl := Cut(take, script, DefaultPace)
+	s, err := openStudio(context.Background(), dir, st, &Staged{Take: take, Timeline: tl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	sel := tl.Segments[3]
+	if got := shown(t, s, tl.Segments[1].Start+0.5); got["ledger"] != "" || got["diagram"] == "" {
+		t.Errorf("before the cue, the diagram alone: %v", got)
+	}
+	if got := shown(t, s, sel.Start+0.1*(sel.End-sel.Start)); got["ledger"] != "ledger: select parcels.holds where parcel_ref = PX-1 /" || got["diagram"] == "" {
+		t.Errorf("the project's surface beside the diagram, as the step asks: %v", got)
+	}
+	if got := shown(t, s, sel.Start+0.9*(sel.End-sel.Start)); got["ledger"] != "ledger: select parcels.holds where parcel_ref = PX-1 / 1 row" {
+		t.Errorf("and with what the step found: %v", got)
+	}
+	// Named in axx.yaml, and drawn by no scene.
+	st.Scenes = nil
+	if _, err := openStudio(context.Background(), dir, st, &Staged{Take: take, Timeline: tl}); err == nil || !strings.Contains(err.Error(), "[show ledger]: no scene draws ledger") {
+		t.Errorf("a surface no scene draws: %v", err)
+	}
+}
+
+// A pack that builds on this one adds a module: its files, served to the
+// stage, with the surfaces and the directions cues can then name.
+func TestAPacksModule(t *testing.T) {
+	RegisterModule(Module{
+		Name: "probe", Surfaces: []string{"probe"}, Directions: []string{"flash"},
+		Files: fstest.MapFS{
+			"probe.js": {Data: []byte(`axxStage.scene('probe', {
+	mount(el) { el.innerHTML = '<p class="probe"></p>'; },
+	render(el, state) { el.querySelector('.probe').textContent = 'probe: ' + (state.step ? state.step.text : ''); },
+});
+window.saidDirections = [];
+axxStage.on('direction', (d) => window.saidDirections.push(d.name + ' ' + d.args.join(' ')));`)},
+			"probe.css": {Data: []byte(`.probe { color: rgb(4, 5, 6); }`)},
+		},
+		Scripts: []string{"probe.js"}, Styles: []string{"probe.css"},
+	})
+	t.Cleanup(func() {
+		modulesMu.Lock()
+		delete(modules, "probe")
+		modulesMu.Unlock()
+	})
+	src := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: [show probe] [flash red] [2s] The depot's", 1)
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), Settings{}.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	take := holdTake()
+	tl := Cut(take, script, DefaultPace)
+	s, err := openStudio(context.Background(), t.TempDir(), Settings{}, &Staged{Take: take, Timeline: tl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	if got := shown(t, s, tl.Segments[3].Start+0.5); !strings.HasPrefix(got["probe"], "probe: a selection of rows") || got["diagram"] != "" || got["said"] != "flash red" {
+		t.Errorf("the module's surface and direction: %v", got)
+	}
+	color, err := s.page.Evaluate(`() => getComputedStyle(document.querySelector('.probe')).color`)
+	if err != nil || color != "rgb(4, 5, 6)" {
+		t.Errorf("the module's stylesheet: %v, %v", color, err)
 	}
 }

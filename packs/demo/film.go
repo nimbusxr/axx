@@ -109,6 +109,17 @@ func serveStage(projectDir string, st Settings, staged func() *Staged, sh *show)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(staged())
 	})
+	// The modules' files: the pack's own (the terminal) and other packs'.
+	mux.HandleFunc("/modules/", func(w http.ResponseWriter, r *http.Request) {
+		name, file, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/modules/"), "/")
+		for _, m := range Modules() {
+			if m.Name == name && m.Files != nil {
+				http.ServeFileFS(w, r, m.Files, file)
+				return
+			}
+		}
+		http.NotFound(w, r)
+	})
 	// Mermaid's library, which reads the project's diagrams.
 	mux.HandleFunc("/mermaid.min.js", func(w http.ResponseWriter, r *http.Request) {
 		if st.mermaid == "" {
@@ -146,6 +157,15 @@ func serveStage(projectDir string, st Settings, staged func() *Staged, sh *show)
 		}
 		page, _ := fs.ReadFile(files, "stage.html")
 		var styles, scenes strings.Builder
+		// The modules' first, then the project's own, which can replace theirs.
+		for _, m := range Modules() {
+			for _, s := range m.Styles {
+				fmt.Fprintf(&styles, `<link rel="stylesheet" href="modules/%s/%s">`+"\n", m.Name, s)
+			}
+			for _, s := range m.Scripts {
+				fmt.Fprintf(&scenes, `<script src="modules/%s/%s"></script>`+"\n", m.Name, s)
+			}
+		}
 		for _, s := range st.Styles {
 			fmt.Fprintf(&styles, `<link rel="stylesheet" href="project/%s">`+"\n", filepath.ToSlash(filepath.Clean(s)))
 		}

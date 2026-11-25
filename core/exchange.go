@@ -18,6 +18,10 @@ type Exchange struct {
 	// "service", "database", "topic", "mock", or a pack's own.
 	Peer string `json:"peer"`
 	Kind string `json:"kind"`
+	// Address is where the peer was reached, when the step knows it and it
+	// is no secret: a service's "http://localhost:8400", say. What shows the
+	// exchange as a command someone could type (a terminal) uses it.
+	Address string `json:"address,omitempty"`
 	// From names who sent, when that was not the scenario: a mock's exchange
 	// is a call a service made to it. Empty is the scenario itself.
 	From string `json:"from,omitempty"`

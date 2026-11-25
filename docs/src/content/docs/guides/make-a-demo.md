@@ -86,7 +86,7 @@ What a cue has in square brackets directs the film. The film's time is its own: 
 | `[card 3s] A title` | A card with the cue's text fills the picture for 3 seconds. | The card stays until the presenter goes on. |
 | `[mark billing ✓]` | Writes what follows the box's name in that box of the diagram, once the step is over, and it stays: a check mark, an emoji, a few words. For a box the scenario does not talk to. It is drawn in the color of what a cue tells, not of what the run saw. | The same. |
 | `[hold response]` | The step below shows what it sent, and what came back shows with the step after it. Use it where a step sends a request and gets its answer, and the next cue is the one that says what the answer is. | The same. |
-| `[show diagram]` | Says what the picture shows from the step below on: `diagram`, `browser`, `phone` or `desktop`, two of them side by side like `[show browser + diagram]`, or `auto`. | The same. |
+| `[show diagram]` | Says what the picture shows from the step below on: `diagram`, `terminal`, `browser`, `phone`, `desktop` or a surface of your own, two of them side by side like `[show browser + diagram]`, or `auto`. | The same. |
 | `[diagram checkout]` | Goes to another of the project's diagrams, by its name, from the step below on. Two names show two diagrams side by side: `[diagram stored + announced]`. | The same. |
 | `[as courier]` | Says who the scenario is, from the step below on: a box of the diagram, which what the scenario sends then comes from. | The same. |
 | `[parcels --> addresses]` | Lights that line of the diagram while the step plays. | The same. |
@@ -233,6 +233,16 @@ The last take is what `axx demo` kept the last time it made the film, so make th
 axx demo --present --recorded features/demos/register-a-parcel.demo.feature
 ```
 
+## Show the steps in a terminal
+
+`[show terminal]` shows the steps as someone would type them. A request to a service is the curl command that makes it, typed out as the step plays, and what came back is printed under it. What the scenario found in a database or on a topic is a line that says where, with what was there.
+
+```text
+# demo: [show terminal + diagram] A shop asks what a parcel costs.
+```
+
+The command is what the step sent: its method, its address and its body. It has no headers but the body's type, as headers carry credentials.
+
 ## Give it your own look
 
 The stage is a web page, and its look is yours to change in `axx.yaml`.
@@ -247,6 +257,7 @@ packs:
         sent: "#ffb000"
     styles: [demo/stage.css]  # your own stylesheet, loaded after the pack's
     scenes: [demo/scenes.js]  # your own scripts, loaded after the pack's
+    surfaces: [ledger]        # your own surfaces, for [show ledger]
     directions: [confetti]    # your own directions, like [confetti]
     size: 1920x1080
 ```
@@ -269,6 +280,8 @@ axxStage.on('direction', (d) => { if (d.name === 'confetti') throwConfetti(); })
 ```
 
 Draw from the state you are given, not from a clock of your own: the film asks the stage for the picture of each moment, in any order.
+
+A project can add pictures of its own too, shown with `[show ...]` beside the pack's, and a pack can share them. [Build a demo's scenes](/guides/build-demo-scenes/) has the steps and the reference of what a scene is given.
 
 ## For agents
 

@@ -289,12 +289,16 @@ func logExchange(sc *core.Scenario, ex *Exchange) {
 // failure description cuts them and with the scenario's secrets masked. It
 // says no headers: they carry credentials.
 func exchanged(sc *core.Scenario, service string, ex *Exchange) {
-	path := ex.URL
+	path, address := ex.URL, ""
 	if u, err := url.Parse(ex.URL); err == nil {
 		path = u.RequestURI()
+		// Where the service is, without a user and a password a URL may carry.
+		if u.Host != "" {
+			address = u.Scheme + "://" + u.Host
+		}
 	}
 	sc.Exchanged(core.Exchange{
-		Peer: service, Kind: "service",
+		Peer: service, Kind: "service", Address: secrets.Mask(sc, address),
 		Sent: shown(sc, ex.Method+" "+path, ex.RequestHeader, ex.RequestBody),
 		Seen: shown(sc, strings.TrimSpace(fmt.Sprintf("%d %s", ex.Status, http.StatusText(ex.Status))), ex.Header, ex.Body),
 	})

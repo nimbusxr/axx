@@ -140,11 +140,19 @@ const marker = "demo:"
 type Known struct {
 	Directions []string
 	Diagrams   []string
+	// Surfaces are what [show ...] can name beside the pack's own: the
+	// modules', and the project's.
+	Surfaces []string
 }
 
-// known is what the project's settings say a cue can name.
+// known is what the project's settings, and the modules, say a cue can name.
 func (s Settings) known() Known {
-	return Known{Directions: s.Directions, Diagrams: s.Diagrams.Names}
+	k := Known{Directions: slices.Clone(s.Directions), Diagrams: s.Diagrams.Names, Surfaces: slices.Clone(s.Surfaces)}
+	for _, m := range Modules() {
+		k.Surfaces = append(k.Surfaces, m.Surfaces...)
+		k.Directions = append(k.Directions, m.Directions...)
+	}
+	return k
 }
 
 // ParseScript reads the cues of a feature file. A file with none has an

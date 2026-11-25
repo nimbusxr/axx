@@ -379,8 +379,10 @@ func stepTime(st TakeStep, pace Pace) float64 {
 func onScreen(shows []string) []string {
 	var out []string
 	for _, s := range shows {
-		if s != "diagram" {
-			out = append(out, s)
+		for _, screen := range screens {
+			if s == screen {
+				out = append(out, s)
+			}
 		}
 	}
 	return out

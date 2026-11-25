@@ -124,7 +124,7 @@ func holdTake() *Take {
 				Keyword: "When", Text: "a PUT request to /api/parcels/PX-1/hold", Line: 17, Pack: "rest", Status: "passed", Start: 0.01, End: 0.05,
 				Exchanges: []core.Exchange{
 					{
-						Peer: "parcels", Kind: "service",
+						Peer: "parcels", Kind: "service", Address: "http://localhost:8080",
 						Sent: sent("PUT /api/parcels/PX-1/hold", `{"until":"2026-11-27T18:00:00Z","reason":"Recipient is away"}`),
 						Seen: sent("200 OK", `{"reference":"PX-1","status":"AT_DEPOT","hold":{"until":"2026-11-27T18:00:00Z","reason":"Recipient is away","placedAt":"2026-11-24T10:15:00Z"}}`),
 					},
@@ -421,5 +421,31 @@ func TestCutAfterTheFilesLinesMoved(t *testing.T) {
 	other, _ := ParseScript("f.demo.feature", []byte("Feature: F\n\n  Scenario: S\n    Given the service\n"), Known{})
 	if _, _, ok := other.Placed(take, 0); ok {
 		t.Error("a scenario of one step was taken for the take's, of three")
+	}
+}
+
+// What a cue shows is a surface the pack has, one of a module's (the pack's
+// terminal is one) or one of the project's own.
+func TestShowNamesASurface(t *testing.T) {
+	for src, want := range map[string]string{
+		"[show terminal]":           "",
+		"[show terminal + diagram]": "",
+		"[show ledger]":             "",
+		"[show ledger + browser]":   "",
+		"[show nothing]":            `show does not know "nothing": it shows diagram, browser, phone, desktop, ledger, terminal, or auto; a project adds its own in packs.demo.surfaces`,
+		"[show a + b + c]":          "show takes what to show",
+	} {
+		feature := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: "+src+" The depot's", 1)
+		s, err := ParseScript("features/hold.demo.feature", []byte(feature), Settings{Surfaces: []string{"ledger"}}.known())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got string
+		if len(s.Problems) > 0 {
+			got = s.Problems[0].Message
+		}
+		if want == "" && got != "" || want != "" && !strings.Contains(got, want) {
+			t.Errorf("%s: %q, want %q", src, got, want)
+		}
 	}
 }

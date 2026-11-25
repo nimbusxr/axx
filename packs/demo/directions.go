@@ -23,8 +23,9 @@ type Kind struct {
 	Check func(args []string) string
 }
 
-// Surfaces are what a film can show: the diagram of what the scenario talks
-// to, and the screens the scenario drives.
+// Surfaces are what a film can show, of the pack's own: the diagram of what
+// the scenario talks to, and the screens the scenario drives. Modules add
+// theirs (RegisterModule), and a project its own (packs.demo.surfaces).
 var Surfaces = []string{"diagram", "browser", "phone", "desktop"}
 
 // kinds are the directions, by name.
@@ -112,17 +113,8 @@ func init() {
 		Name: "show", Usage: "[show browser + diagram]",
 		Doc: "What the picture shows from the step below on: " + strings.Join(Surfaces, ", ") + ", two of them side by side with a + between, or auto, which follows the steps again.",
 		Check: func(args []string) string {
-			names := showSurfaces(args)
-			if len(names) == 0 || len(names) > 2 {
+			if n := len(showSurfaces(args)); n == 0 || n > 2 {
 				return "show takes what to show: " + strings.Join(Surfaces, ", ") + ", two of them like [show browser + diagram], or auto"
-			}
-			for _, n := range names {
-				if n == "auto" && len(names) == 1 {
-					continue
-				}
-				if !slices.Contains(Surfaces, n) {
-					return fmt.Sprintf("show does not know %q: it shows %s, or auto", n, strings.Join(Surfaces, ", "))
-				}
 			}
 			return ""
 		},
@@ -216,6 +208,18 @@ func checkDirection(d Direction, known Known) string {
 	if k.Check != nil {
 		if msg := k.Check(d.Args); msg != "" {
 			return msg
+		}
+	}
+	// What a cue shows is a surface the pack, one of its modules or the
+	// project has.
+	if d.Name == "show" {
+		names := showSurfaces(d.Args)
+		all := append(slices.Clone(Surfaces), known.Surfaces...)
+		for _, n := range names {
+			if n == "auto" && len(names) == 1 || slices.Contains(all, n) {
+				continue
+			}
+			return fmt.Sprintf("show does not know %q: it shows %s, or auto; a project adds its own in packs.demo.surfaces", n, strings.Join(all, ", "))
 		}
 	}
 	// A diagram a cue goes to is one the project has.

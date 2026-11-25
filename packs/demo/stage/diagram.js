@@ -146,10 +146,10 @@
 	const STYLES = { stadium: 'round', round: 'round', circle: 'round', cylinder: 'round', subroutine: 'heavy' };
 
 	// What a step did, as the stretches of its time: each thing it sent or saw.
-	const acts = (step) => (step.exchanges || []).filter((x) => x.sent || x.seen);
+	const acts = axxStage.acts;
 	// What the scenario looks at, rather than calls: what it finds there got
 	// there by a line of the system's own.
-	const looked = (kind) => ['database', 'topic', 'broker', 'mock'].includes(kind);
+	const looked = axxStage.looked;
 
 	// The map of a take with no diagram: what the scenario talked to, with
 	// what it sent coming from who uses the system, or from outside.
@@ -449,17 +449,7 @@
 		return into.length === 1 ? { edge: into[0], found: true } : null;
 	}
 
-	function pretty(m) {
-		if (!m || !m.body) return '';
-		let body = m.body;
-		if ((m.mediaType || '').includes('json') || /^\s*[[{]/.test(body)) {
-			try { body = JSON.stringify(JSON.parse(body), null, 2); } catch (e) { /* as it is */ }
-		}
-		const lines = body.split('\n');
-		const shown = lines.slice(0, 9).map((l) => clip(l, 56));
-		if (lines.length > 9) shown.push('…');
-		return shown.join('\n');
-	}
+	const pretty = (m) => axxStage.pretty(m);
 
 	// The project's diagrams, read and laid out before the first picture.
 	let layouts = {}, first = '';
@@ -530,46 +520,9 @@
 				el.style.setProperty('--rows', Math.max(...maps.map((L) => L.height)));
 				el.style.setProperty('--cols', maps.reduce((n, L) => n + L.width, 0) + (maps.length - 1) * 8);
 			}
-			// A step whose response is held ([hold response]) shows what it
-			// sent; what came back is kept for the step after it, which shows it.
-			// So the answer comes with the cue that says what it is.
-			const segs = state.timeline.segments;
-			let hold = null;
-			for (let i = state.segmentIndex; i >= 0; i--) {
-				if (segs[i].kind !== 'step') continue;
-				const here = i === state.segmentIndex;
-				const after = segs.findIndex((s, j) => j > i && s.kind === 'step');
-				if (segs[i].holdResponse && after >= 0) {
-					hold = { step: segs[i].step, stage: here ? 'out' : 'waiting' };
-				} else if (here) {
-					// The step after a held one, when it sends nothing of its own.
-					let before = -1;
-					for (let j = i - 1; j >= 0 && before < 0; j--) if (segs[j].kind === 'step') before = j;
-					if (before >= 0 && segs[before].holdResponse && !acts(state.step).length) hold = { step: segs[before].step, stage: 'reveal' };
-				}
-				break;
-			}
-			const held = hold ? acts(take.steps[hold.step]) : [];
-			// The exchange whose answer is held: the step's last that was sent and answered.
-			const kept = [...held].reverse().find((x) => x.sent && x.seen) || null;
-			// The step that plays: which of its exchanges, and how far along.
-			let active = null;
-			if (state.playing && state.step) {
-				const list = acts(state.step);
-				if (list.length) {
-					const at = Math.min(list.length - 1e-9, state.progress * list.length);
-					const k = Math.floor(at);
-					active = { x: list[k], phase: at - k, failed: state.step.status !== 'passed', list };
-					// Out along its line, and no further for now.
-					if (hold && hold.stage === 'out' && list[k] === kept) active.phase *= 0.34;
-				}
-			}
-			if (kept && hold.stage !== 'out') {
-				// Waiting for the step after it, or, in that step, coming back.
-				const phase = hold.stage === 'waiting' ? 0.34 : 0.36 + 0.64 * state.progress;
-				active = { x: kept, phase, failed: take.steps[hold.step].status !== 'passed', list: held, held: hold.step };
-			}
-			const answered = !kept || (hold.stage === 'reveal' && active.phase >= 0.62);
+			// What is happening now, as the stage has it for every scene.
+			const now = state.now, kept = now.kept, answered = now.answered;
+			const active = now.exchange ? { x: now.exchange, phase: now.phase, failed: now.failed, over: now.over, list: now.list, held: now.held } : null;
 			// What the scenario has talked to by now, and what each last said.
 			const met = {}, lastSaid = {}, kinds = {};
 			for (const p of take.peers) kinds[p.name] = p.kind;
@@ -580,15 +533,6 @@
 					met[x.peer] = true;
 					if (!current && x.seen && (x !== kept || answered)) lastSaid[x.peer] = { text: x.seen.title, kind: 'ok' };
 					else if (!current && x.sent && !x.from) lastSaid[x.peer] = { text: x.sent.title, kind: 'coord' };
-				}
-			}
-			if (!active) {
-				// A step that sent nothing (a check of what came back) leaves the
-				// last thing that was sent and seen on the stage: it is what the
-				// step is about.
-				for (let i = Math.min(upTo, take.steps.length - 1); i >= 0 && !active; i--) {
-					const list = acts(take.steps[i]);
-					if (list.length) active = { x: list[list.length - 1], phase: 1, failed: take.steps[i].status !== 'passed', over: true };
 				}
 			}
 			// What cues wrote in the boxes by now.

@@ -13,7 +13,10 @@ import (
 type Settings struct {
 	// Directions are the project's own directions, which its stage acts on.
 	Directions []string `json:"directions,omitempty"`
-	Theme      Theme    `json:"theme,omitzero"`
+	// Surfaces are the project's own surfaces, which its scenes draw:
+	// [show terminal] shows the scene its script registers under that name.
+	Surfaces []string `json:"surfaces,omitempty"`
+	Theme    Theme    `json:"theme,omitzero"`
 	// Scenes and Styles are the project's own scripts and stylesheets for
 	// the stage, loaded after the pack's.
 	Scenes []string `json:"scenes,omitempty"`
@@ -137,6 +140,10 @@ const configSchema = `{
     "directions": {
       "type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
       "description": "The project's own directions, like confetti for [confetti]: the demo pack takes them as they are, and the project's scenes act on them."
+    },
+    "surfaces": {
+      "type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+      "description": "The project's own surfaces, like ledger for [show ledger]: each is a scene one of the project's scripts registers under that name (axxStage.scene)."
     },
     "theme": {
       "type": "object",

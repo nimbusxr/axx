@@ -14,6 +14,76 @@
 
 	const emit = (name, detail) => (handlers[name] || []).forEach((fn) => fn(detail));
 
+	// What a step did: each thing it sent or saw.
+	const acts = (step) => (step.exchanges || []).filter((x) => x.sent || x.seen);
+	// What the scenario looks at, rather than calls: what it finds there got
+	// there by a line of the system's own.
+	const looked = (kind) => ['database', 'topic', 'broker', 'mock'].includes(kind);
+
+	// What is happening at a moment: the exchange that plays, how far along it
+	// is, and what of it shows. Every scene draws from this, so that the film's
+	// rules are the same on a diagram, in a terminal and in a project's own
+	// scene: an exchange goes out, comes back, and stays to be read; a step
+	// whose response is held ([hold response]) shows what it sent, and what
+	// came back shows with the step after it.
+	function happening(state) {
+		const take = state.take, segs = state.timeline.segments;
+		let hold = null;
+		for (let i = state.segmentIndex; i >= 0; i--) {
+			if (segs[i].kind !== 'step') continue;
+			const here = i === state.segmentIndex;
+			const after = segs.findIndex((s, j) => j > i && s.kind === 'step');
+			if (segs[i].holdResponse && after >= 0) {
+				hold = { step: segs[i].step, stage: here ? 'out' : 'waiting' };
+			} else if (here) {
+				// The step after a held one, when it sends nothing of its own.
+				let before = -1;
+				for (let j = i - 1; j >= 0 && before < 0; j--) if (segs[j].kind === 'step') before = j;
+				if (before >= 0 && segs[before].holdResponse && !acts(state.step).length) hold = { step: segs[before].step, stage: 'reveal' };
+			}
+			break;
+		}
+		const held = hold ? acts(take.steps[hold.step]) : [];
+		// The exchange whose answer is held: the step's last that was sent and answered.
+		const kept = [...held].reverse().find((x) => x.sent && x.seen) || null;
+		let now = null;
+		if (state.playing && state.step) {
+			const list = acts(state.step);
+			if (list.length) {
+				const at = Math.min(list.length - 1e-9, state.progress * list.length);
+				const k = Math.floor(at);
+				now = { exchange: list[k], phase: at - k, failed: state.step.status !== 'passed', list, step: state.stepIndex };
+				// Out, and no further for now.
+				if (hold && hold.stage === 'out' && list[k] === kept) now.phase *= 0.34;
+			}
+		}
+		if (kept && hold.stage !== 'out') {
+			// Waiting for the step after it, or, in that step, coming back.
+			const phase = hold.stage === 'waiting' ? 0.34 : 0.36 + 0.64 * state.progress;
+			now = { exchange: kept, phase, failed: take.steps[hold.step].status !== 'passed', list: held, step: hold.step, held: hold.step };
+		}
+		if (!now) {
+			// A step that sent nothing (a check of what came back) leaves the
+			// last thing that was sent and seen on the stage: it is what the
+			// step is about.
+			const upTo = state.playing ? state.stepIndex : state.done - 1;
+			for (let i = Math.min(upTo, take.steps.length - 1); i >= 0 && !now; i--) {
+				const list = acts(take.steps[i]);
+				if (list.length) now = { exchange: list[list.length - 1], phase: 1, failed: take.steps[i].status !== 'passed', over: true, list, step: i };
+			}
+		}
+		now = now || { exchange: null, phase: 0, list: [] };
+		const x = now.exchange;
+		now.kept = kept;
+		now.answered = !kept || (hold.stage === 'reveal' && now.phase >= 0.62);
+		// What the scenario found there, rather than asked for.
+		now.found = !!x && (!!x.from || looked(x.kind));
+		// What of the exchange shows by now.
+		now.sent = x && x.sent && (now.over || now.phase > 0.05) ? x.sent : null;
+		now.seen = x && x.seen && (now.over || now.phase >= (now.found ? 0.38 : x.sent ? 0.62 : 0.36)) ? x.seen : null;
+		return now;
+	}
+
 	// The state of a moment: everything a scene draws from.
 	function stateAt(t) {
 		const tl = data.timeline;
@@ -27,7 +97,7 @@
 		const span = seg.end - seg.start;
 		const progress = playing && span > 0 ? Math.min(1, (t - seg.start) / span) : 1;
 		const subtitle = tl.subtitles.find((s) => s.start <= t && (t < s.end || s.end >= tl.duration));
-		return {
+		const state = {
 			t, duration: tl.duration, segment: seg, segmentIndex: index,
 			// step is the take's step that plays or was last played; done is how
 			// many of the take's steps are over.
@@ -43,6 +113,8 @@
 			show: seg.show && seg.show.length ? seg.show : ['diagram'],
 			take: data.take, timeline: tl, theme: data.theme || {},
 		};
+		state.now = happening(state);
+		return state;
 	}
 
 	function mount() {
@@ -73,6 +145,15 @@
 	async function prepare(d) {
 		if (S.preload) await S.preload(d.take);
 		for (const scene of Object.values(scenes)) if (scene.prepare) await scene.prepare(d);
+		// What a cue shows is a surface some scene draws.
+		const said = new Set();
+		for (const seg of d.timeline.segments) {
+			for (const name of seg.show || []) {
+				if (scenes[name] || said.has(name)) continue;
+				said.add(name);
+				S.problems.push('[show ' + name + ']: no scene draws ' + name + ' (a script registers one with axxStage.scene("' + name + '", ...))');
+			}
+		}
 	}
 
 	const S = {
@@ -143,6 +224,21 @@
 
 	const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	S.escape = esc;
+	S.acts = acts;
+	S.looked = looked;
+	// A message's body as a few lines to read: JSON laid out, long lines and
+	// long bodies cut.
+	S.pretty = (m, lines = 9, width = 56) => {
+		if (!m || !m.body) return '';
+		let body = m.body;
+		if ((m.mediaType || '').includes('json') || /^\s*[[{]/.test(body)) {
+			try { body = JSON.stringify(JSON.parse(body), null, 2); } catch (e) { /* as it is */ }
+		}
+		const all = body.split('\n');
+		const shown = all.slice(0, lines).map((l) => (l.length > width ? l.slice(0, width - 1) + '…' : l));
+		if (all.length > lines) shown.push('…');
+		return shown.join('\n');
+	};
 
 	S.scene('card', {
 		render(el, state) {

@@ -41,12 +41,13 @@ func parcelsAPI(t *testing.T) *httptest.Server {
 
 // A step that registers a service says that the scenario talks to it, and an
 // executed request what went to it and what came back: the method and the
-// path, the status, and both bodies, with no header and no secret.
+// path, the status, and both bodies, with no header and no secret; and where
+// the service was reached, without the user and password its URL may carry.
 func TestAnExecutedRequestSaysItsExchange(t *testing.T) {
 	srv := parcelsAPI(t)
 	h := newHarness(t)
 	secrets.Keep(h.sc, "s3cret-value")
-	h.service("parcels", srv.URL, "")
+	h.service("parcels", strings.Replace(srv.URL, "http://", "http://depot:pa55word@", 1), "")
 	h.ok("a POST request to /api/parcels?source=web")
 	h.ok("the request header Authorization is 'Bearer s3cret-value'")
 	h.ok("a request payload using an application/json empty content template")
@@ -65,6 +66,9 @@ func TestAnExecutedRequestSaysItsExchange(t *testing.T) {
 	if x.Peer != "parcels" || x.Kind != "service" || x.From != "" || x.Sent == nil || x.Seen == nil {
 		t.Fatalf("the request: %+v", x)
 	}
+	if x.Address != srv.URL {
+		t.Errorf("where the service was reached: %q, want %q", x.Address, srv.URL)
+	}
 	if x.Sent.Title != "POST /api/parcels?source=web" || x.Sent.MediaType != "application/json" || x.Sent.Body != `{"reference":"PX-1"}` {
 		t.Errorf("sent: %+v", x.Sent)
 	}
@@ -76,7 +80,7 @@ func TestAnExecutedRequestSaysItsExchange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, kept := range []string{"s3cret-value", "Bearer", "Authorization", "session=abc", srv.URL} {
+	for _, kept := range []string{"s3cret-value", "Bearer", "Authorization", "session=abc", "depot", "pa55word"} {
 		if strings.Contains(string(all), kept) {
 			t.Errorf("the exchanges should not have %q: %s", kept, all)
 		}
