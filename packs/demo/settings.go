@@ -19,7 +19,7 @@ type Settings struct {
 	Scenes []string `json:"scenes,omitempty"`
 	Styles []string `json:"styles,omitempty"`
 	// Diagrams are the project's diagrams of its system, by name: files of
-	// Mermaid flowcharts. A demo starts on the first, and a cue goes to
+	// Mermaid flowcharts or sequence diagrams. A demo starts on the first, and a cue goes to
 	// another ([diagram name]).
 	Diagrams Diagrams `json:"diagrams,omitzero"`
 	// Soundtrack is how a film's sound is made: nothing, without it.
@@ -157,7 +157,7 @@ const configSchema = `{
       "type": "object",
       "additionalProperties": {"type": "string"},
       "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
-      "description": "The project's diagrams of its system, by name: files of Mermaid flowcharts (system: docs/system.mmd), whose boxes are named as the scenarios name what they talk to. A demo's diagram is the first; a cue goes to another with [diagram name]. Axx draws them itself, in characters. Without any, a demo's diagram is of what its scenario talked to."
+      "description": "The project's diagrams of its system, by name: files of Mermaid flowcharts or sequence diagrams (system: docs/system.mmd), whose boxes and participants are named as the scenarios name what they talk to. A demo's diagram is the first; a cue goes to another with [diagram name]. Axx draws them itself, in characters. Without any, a demo's diagram is of what its scenario talked to."
     },
     "soundtrack": {
       "type": "object",

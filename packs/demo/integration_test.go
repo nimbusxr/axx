@@ -250,3 +250,71 @@ func TestAProjectsDiagrams(t *testing.T) {
 		t.Errorf("a diagram that is no Mermaid: %v", err)
 	}
 }
+
+// A project's sequence diagram is drawn too: who takes part, each with its
+// line, and the messages in the diagram's order. A step lights the message
+// that fits what it sent or found; a message the film has not come to is dim,
+// and one it has shown stays.
+func TestAProjectsSequenceDiagram(t *testing.T) {
+	ctx := context.Background()
+	seq := "sequenceDiagram\n  actor shop\n  participant parcels\n  participant db as parcels-db\n  participant address\n" +
+		"  shop->>parcels: hold the parcel\n  parcels->>address: where is it going?\n  parcels->>db: keep the hold\n  Note over parcels: a note is not drawn\n  parcels-->>shop: the parcel, held\n  db-)parcels: never shown by this demo\n"
+	src := strings.Replace(holdFeature, "# demo: [action] Ms Okafor", "# demo: [action] [as shop] Ms Okafor", 1)
+	var st Settings
+	st.Diagrams = Diagrams{Names: []string{"holding"}, Files: map[string]string{"holding": "holding.mmd"}}
+	var err error
+	if st.mermaid, err = mermaidFile(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), st.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	take := holdTake()
+	tl := Cut(take, script, DefaultPace)
+	s, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: tl, Diagrams: []Diagram{{Name: "holding", Source: seq}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	// The text of the diagram's characters of a kind: what is lit, what is dim.
+	of := func(kind string) string {
+		got, err := s.page.Evaluate(`(kind) => [...document.querySelectorAll('.surface-diagram .grid span.k-' + kind)].map((e) => e.textContent).join('').replace(/[^A-Za-z?,' ]+/g, ' ').replace(/ +/g, ' ').trim()`, kind)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.(string)
+	}
+	each := DefaultPace.Exchange
+	req := tl.Segments[1]
+	got := shown(t, s, req.Start+0.1*each)
+	for _, who := range []string{"shop", "parcels", "parcels-db", "address"} {
+		if !strings.Contains(got["diagram"], who) {
+			t.Errorf("the sequence diagram has no %q:\n%s", who, got["diagram"])
+		}
+	}
+	if strings.Contains(got["diagram"], "a note is not drawn") {
+		t.Errorf("a note was drawn:\n%s", got["diagram"])
+	}
+	// The request goes out; nothing else has happened yet.
+	if lit, dim := of("coord"), of("dim"); !strings.Contains(lit, "hold the parcel") || !strings.Contains(dim, "keep the hold") || !strings.Contains(dim, "the parcel, held") {
+		t.Errorf("as the request goes out: lit %q, dim %q", lit, dim)
+	}
+	// Its answer comes back along the message that answers it.
+	shown(t, s, req.Start+0.5*each)
+	if ok := of("ok"); !strings.Contains(ok, "the parcel, held") {
+		t.Errorf("as the answer comes back: %q", ok)
+	}
+	// The call the mock received is the message to it.
+	shown(t, s, req.Start+each+0.2*each)
+	if ok := of("ok"); !strings.Contains(ok, "where is it going?") {
+		t.Errorf("the call the mock received: %q", ok)
+	}
+	// The selection found the row: the message to the database; the messages
+	// shown before it stay, and the one the demo never shows stays dim.
+	sel := tl.Segments[3]
+	shown(t, s, sel.Start+0.4)
+	if ok, past, dim := of("ok"), of("sub"), of("dim"); !strings.Contains(ok, "keep the hold") || !strings.Contains(past, "hold the parcel") || !strings.Contains(dim, "never shown by this demo") {
+		t.Errorf("as the selection plays: lit %q, shown before %q, dim %q", ok, past, dim)
+	}
+}

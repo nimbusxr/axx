@@ -1,6 +1,7 @@
 // The diagram: what a scenario with no screen looks like. The system as
-// boxes and the lines between them, and for each step what went along a
-// line and what came back. It shows what the run sent and saw, on a map of
+// boxes and the lines between them (a flowchart), or as who takes part and
+// the messages between them in their order (a sequence diagram), and for each
+// step what went along a line and what came back. It shows what the run sent and saw, on a map of
 // the system: one of the project's diagrams, written in Mermaid, or, without
 // any, what the scenario talked to.
 //
@@ -155,7 +156,8 @@
 	async function read(diagram) {
 		const parsed = await mermaid.mermaidAPI.getDiagramFromText(diagram.source);
 		const db = parsed.db;
-		if (!db || !db.getVertices || !db.getEdges) throw new Error('it is a ' + parsed.type + ', and a demo\'s diagram is a flowchart');
+		if (db && db.getActors && db.getMessages) return sequence(diagram, db);
+		if (!db || !db.getVertices || !db.getEdges) throw new Error('it is a ' + parsed.type + ', and a demo\'s diagram is a flowchart or a sequence diagram');
 		const vertices = db.getVertices();
 		const map = { name: diagram.name, nodes: [], edges: [], groups: [], caller: null };
 		for (const v of vertices.values ? vertices.values() : Object.values(vertices)) {
@@ -262,6 +264,148 @@
 		return { map, width, height, boxes, edges, zones, sources, services };
 	}
 
+	// --- A sequence diagram: who takes part, each with a line down the
+	// picture, and the messages between them, one under the other.
+	// The kinds of line Mermaid has for a message; the rest of what a
+	// sequence diagram has (notes, loops) is not drawn.
+	const MESSAGES = new Set([0, 1, 3, 4, 5, 6, 24, 25, 33, 34]);
+	const DOTTED = new Set([1, 4, 6, 25, 34]);
+
+	function sequence(diagram, db) {
+		const actors = db.getActors();
+		const map = { name: diagram.name, kind: 'sequence', nodes: [], messages: [], caller: null };
+		// Who takes part is named as the scenarios name it: by what it is shown
+		// as, where the diagram gives it a shorter name of its own.
+		const named = {};
+		for (const a of actors.values ? actors.values() : Object.values(actors)) {
+			named[a.name] = String(a.description || a.name).replace(/<[^>]*>/g, ' ').trim();
+			map.nodes.push({ id: named[a.name], label: named[a.name] });
+		}
+		for (const m of db.getMessages()) {
+			if (!MESSAGES.has(m.type) || !named[m.from] || !named[m.to]) continue;
+			map.messages.push({ from: named[m.from], to: named[m.to], label: String(m.message || '').trim(), stroke: DOTTED.has(m.type) ? 'dotted' : '' });
+		}
+		return map;
+	}
+
+	function sequenceOf(map) {
+		const ids = map.nodes.map((n) => n.id);
+		const at = Object.fromEntries(ids.map((id, i) => [id, i]));
+		const bw = Math.max(14, Math.min(26, Math.max(...map.nodes.map((n) => n.label.length), 6) + 6));
+		// Room between two lines for the longest message that goes between them.
+		let gap = 8;
+		for (const m of map.messages) {
+			const span = Math.abs(at[m.to] - at[m.from]) || 1;
+			gap = Math.max(gap, Math.ceil((m.label.length + 6) / span) - bw);
+		}
+		gap = Math.min(gap, 30);
+		const colX = (i) => i * (bw + gap), life = (id) => colX(at[id]) + Math.floor(bw / 2);
+		const boxes = {};
+		map.nodes.forEach((n, i) => { boxes[n.id] = { id: n.id, x: colX(i), y: 0, w: bw, h: 3, title: clip(n.label, bw - 6), style: 'light' }; });
+		let y = 4;
+		const edges = map.messages.map((m, i) => {
+			const fx = life(m.from), tx = life(m.to);
+			let path, text;
+			if (m.from === m.to) {
+				// A message to itself: out and back.
+				path = [[fx + 1, y + 1], [fx + 6, y + 1], [fx + 6, y + 2], [fx + 1, y + 2]];
+				text = { x: fx + 2, y };
+				y += 4;
+			} else {
+				const dir = Math.sign(tx - fx);
+				path = [[fx + dir, y + 1], [tx - dir, y + 1]];
+				text = { x: Math.min(fx, tx) + Math.max(2, Math.floor((Math.abs(tx - fx) - m.label.length) / 2)), y };
+				y += 3;
+			}
+			return { id: i, from: m.from, to: m.to, stroke: m.stroke, text: m.label, at: text, cells: cells(path) };
+		});
+		const height = y + 1, width = colX(ids.length - 1) + bw + 8;
+		const lifelines = ids.map((id) => ({ id, x: life(id), from: 3, to: height - 1 }));
+		return { map, kind: 'sequence', width, height, boxes, edges, lifelines, zones: [], sources: new Set(), services: [] };
+	}
+
+	// Which of a sequence diagram's messages each step of the film was: the
+	// next message, in the diagram's order, that fits what the step sent, found
+	// or was told. A message the run never showed stays dim.
+	function played(L, state) {
+		const take = state.take, tl = state.timeline;
+		const used = new Set(), past = new Set();
+		let now = [];
+		const next = (ok) => {
+			const e = L.edges.find((m) => !used.has(m.id) && ok(m));
+			if (e) used.add(e.id);
+			return e;
+		};
+		const upTo = state.playing ? state.stepIndex : state.done - 1;
+		for (const seg of tl.segments) {
+			if (seg.kind !== 'step' || seg.step > upTo) continue;
+			const who = seg.as || '';
+			const mine = [];
+			acts(take.steps[seg.step]).forEach((x, k) => {
+				if (x.from || looked(x.kind)) {
+					const m = next((m) => m.to === x.peer && (!x.from || x.from === 'system' || m.from === x.from));
+					if (m) mine.push({ m, k, role: 'found' });
+					return;
+				}
+				const out = next((m) => m.to === x.peer && m.from !== x.peer && (!who || m.from === who)) || next((m) => m.to === x.peer && m.from !== x.peer);
+				if (!out) return;
+				mine.push({ m: out, k, role: 'out' });
+				const back = x.seen && next((m) => m.from === x.peer && m.to === out.from);
+				if (back) mine.push({ m: back, k, role: 'back' });
+			});
+			(seg.flows || []).forEach(([a, b], k) => {
+				const m = next((m) => m.from === a && m.to === b);
+				if (m) mine.push({ m, k, role: 'told' });
+			});
+			if (state.playing && seg.step === state.stepIndex) now = mine;
+			else mine.forEach((p) => past.add(p.m.id));
+		}
+		return { past, now };
+	}
+
+	function drawSequence(L, state, { met, lastSaid, kinds, active }) {
+		const grid = newGrid(L.width, L.height);
+		const { past, now } = played(L, state);
+		const list = state.playing && state.step ? acts(state.step) : [];
+		const k = active && !active.over ? list.indexOf(active.x) : -1;
+		const p = active ? active.phase : 0;
+		const told = now.filter((n) => n.role === 'told');
+		for (const l of L.lifelines) for (let y = l.from; y <= l.to; y++) put(grid, l.x, y, '╎', 'dim');
+		const lit = {};
+		for (const n of now) {
+			// A message of the exchange that plays goes along its line as the
+			// exchange does: out, then back; one of an exchange before stays lit.
+			let head, kind = 'coord', on = n.k < k || n.role === 'told';
+			const len = n.m.cells.length - 1;
+			if (n.role === 'told') {
+				const q = Math.min(1, Math.max(0, state.progress * told.length - told.indexOf(n)));
+				kind = 'told';
+				if (q > 0 && q < 1) head = q * len;
+				on = q > 0;
+			} else if (n.k === k) {
+				if (n.role === 'found') { kind = active.failed ? 'fail' : 'ok'; on = true; if (p < 0.4) head = (p / 0.4) * len; }
+				if (n.role === 'out') { on = true; if (p < 0.32) head = Math.min(1, p / 0.28) * len; }
+				if (n.role === 'back') { kind = active.failed ? 'fail' : 'ok'; on = p >= 0.36; if (p >= 0.36 && p < 0.66) head = Math.min(1, (p - 0.36) / 0.28) * len; }
+			} else if (n.role !== 'out') {
+				kind = 'ok';
+			}
+			lit[n.m.id] = { kind, head, on };
+		}
+		for (const e of L.edges) {
+			const l = lit[e.id];
+			const kind = l && l.on ? l.kind : past.has(e.id) ? 'line' : 'dim';
+			drawEdge(grid, e, kind, l && l.on ? l.head : undefined);
+			write(grid, e.at.x, e.at.y, e.text, kind === 'dim' ? 'dim' : kind === 'line' ? 'sub' : kind);
+		}
+		for (const b of Object.values(L.boxes)) {
+			const on = now.some((n) => lit[n.m.id].on && n.m.to === b.id && (n.k === k || n.role === 'told'));
+			drawBox(grid, { ...b, lines: [{ text: kinds[b.id] || '', kind: 'sub' }] }, on ? (active && active.failed ? 'fail' : 'key') : 'line');
+		}
+		const found = now.some((n) => n.k === k && n.role === 'found');
+		const from = (now.find((n) => n.k === k && n.role === 'found' && active && active.x.from) || { m: {} }).m.from || '';
+		return { html: html(grid), found, from };
+	}
+
 	// The line an exchange went along, in a map, and whether the scenario
 	// sent it (out and back) or found it there (the map's line leads to it).
 	function lineOf(L, x, who) {
@@ -306,7 +450,8 @@
 				if ((data.diagrams || []).length && window.mermaid) mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
 				for (const d of data.diagrams || []) {
 					try {
-						layouts[d.name] = layout(await read(d));
+						const map = await read(d);
+						layouts[d.name] = map.kind === 'sequence' ? sequenceOf(map) : layout(map);
 						first = first || d.name;
 					} catch (e) {
 						axxStage.problems.push('the diagram ' + d.name + ' cannot be read: ' + String(e.message || e).split('\n').slice(0, 4).join(' '));
@@ -392,7 +537,7 @@
 				const L = maps[n];
 				pre.hidden = !L;
 				if (!L) return;
-				const drawn = draw(L, state, { met, lastSaid, kinds, active });
+				const drawn = (L.kind === 'sequence' ? drawSequence : draw)(L, state, { met, lastSaid, kinds, active });
 				pre.innerHTML = drawn.html;
 				found = found || drawn.found;
 				from = from || drawn.from;

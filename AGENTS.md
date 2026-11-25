@@ -244,7 +244,7 @@ the skills instead: `axx skills install`.
   timeline, whose time is its own; the stage (`stage/`, a page: `axxStage.seek(t)` draws any moment, so draw from the state
   and never from a clock) is filmed frame by frame in a browser of web-core's (`film.go`, `webcore.OwnPage`). The diagram of
   what has no screen (`stage/diagram.js`) is a map drawn in characters, by an engine of its own: the project's diagrams
-  (`packs.demo.diagrams`, Mermaid flowcharts) or, without any, what the scenario talked to. Mermaid's library only reads a
+  (`packs.demo.diagrams`, Mermaid flowcharts and sequence diagrams) or, without any, what the scenario talked to. Mermaid's library only reads a
   diagram's text (`mermaid.go` pins it and its hash; downloaded from npm, never distributed with axx): nothing of its
   drawing is used, keep it so. What the run sent and saw plays on the map's lines, and what a cue tells (`[a --> b]`) is
   drawn apart from what was seen: keep that so too. `--present` is the same stage

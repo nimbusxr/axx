@@ -102,7 +102,7 @@ Without a diagram of your own, the diagram is of what the scenario talked to: a 
 
 ## Draw your system
 
-A demo is better on a map of your system. Write the map as a [Mermaid](https://mermaid.js.org/syntax/flowchart.html) flowchart, the same file a README or a docs site draws, and name it in `axx.yaml`.
+A demo is better on a map of your system. Write the map as a [Mermaid](https://mermaid.js.org/syntax/flowchart.html) flowchart (or a sequence diagram, [below](#a-sequence-diagram)), the same file a README or a docs site draws, and name it in `axx.yaml`.
 
 1. Write the flowchart. Give each box the name your scenarios give what they talk to (`parcels`, `parcels-db`), and add the boxes no scenario talks to, so the audience sees the whole system. Draw a call that is answered as a solid line (`-->`) and an event as a dotted one (`-.->`): Axx draws them so.
 
@@ -138,6 +138,20 @@ What a run did plays on the map by these rules:
 A cue that names a box or a line its diagram has not makes no film: `axx demo` says which.
 
 The picture shows two things at the most: a screen and a diagram (`[show browser + diagram]`), or two diagrams (`[diagram stored + announced]`). Two diagrams beside a screen make no film.
+
+### A sequence diagram
+
+A diagram can also be a Mermaid [sequence diagram](https://mermaid.js.org/syntax/sequenceDiagram.html): who takes part, and the messages between them in their order.
+
+```text
+sequenceDiagram
+  participant shop
+  participant parcels
+  shop->>parcels: what does this parcel cost?
+  parcels-->>shop: its price
+```
+
+Axx draws each participant with a line down the picture and each message as an arrow across, a dotted one where the diagram's is. As the film plays, a step lights the next message that fits what it sent or found, and the answer it got lights the message that answers it. A message the film has shown stays, and one it has not come to is dim, so the diagram never shows more than the run did. Notes, loops and the like are not drawn.
 
 To change the diagram during a demo, name the other one in a cue:
 
