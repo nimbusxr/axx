@@ -104,7 +104,7 @@ Without a diagram of your own, the diagram is of what the scenario talked to: a 
 
 A demo is better on a map of your system. Write the map as a [Mermaid](https://mermaid.js.org/syntax/flowchart.html) flowchart, the same file a README or a docs site draws, and name it in `axx.yaml`.
 
-1. Write the flowchart. Give each box the name your scenarios give what they talk to (`parcels`, `parcels-db`), and add the boxes no scenario talks to, so the audience sees the whole system.
+1. Write the flowchart. Give each box the name your scenarios give what they talk to (`parcels`, `parcels-db`), and add the boxes no scenario talks to, so the audience sees the whole system. Draw a call that is answered as a solid line (`-->`) and an event as a dotted one (`-.->`): Axx draws them so.
 
    ```text
    flowchart LR
@@ -112,7 +112,7 @@ A demo is better on a map of your system. Write the map as a [Mermaid](https://m
      shop --> parcels
      parcels --> parcels-db[(parcels-db)]
      parcels --> addresses
-     parcels --> parcel-events{{parcel-events}} --> billing
+     parcels -.-> parcel-events{{parcel-events}} -.-> billing
    ```
 
 2. Name it in `axx.yaml`. The first diagram is the one a demo starts on.

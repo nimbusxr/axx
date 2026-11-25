@@ -145,7 +145,8 @@
 		for (const p of peers) {
 			map.nodes.push({ id: p.name, label: p.name, shape: p.kind === 'mock' ? 'round' : null });
 			if (p.kind === 'mock' && service) map.edges.push({ from: service.name, to: p.name });
-			else if (p.kind !== 'mock') map.edges.push({ from: caller, to: p.name });
+			// A topic's line is dotted, as an event's is: sent, and read later.
+			else if (p.kind !== 'mock') map.edges.push({ from: caller, to: p.name, stroke: p.kind === 'topic' ? 'dotted' : '' });
 		}
 		return map;
 	}

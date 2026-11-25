@@ -1,11 +1,12 @@
 flowchart LR
   %% The parcels system, as its demos draw it (packs.demo.diagrams in axx.yaml). A box is
-  %% named as the scenarios name what they talk to.
+  %% named as the scenarios name what they talk to. A solid line is a call that is answered,
+  %% a dotted one an event: sent, and read by whoever listens, when they do.
   shop([shop]) --> portal --> parcels
   shop --> parcels
   parcels --> parcels-db[(parcels-db)]
   parcels --> addresses
-  parcels --> parcel-events{{parcel-events}} --> billing
+  parcels -.-> parcel-events{{parcel-events}} -.-> billing
   subgraph partners
     addresses
     billing
