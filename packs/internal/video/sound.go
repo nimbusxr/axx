@@ -126,13 +126,17 @@ func flacFrames(s *Sound) (frames [][]byte, info []byte) {
 		} else {
 			w.bits(0b0111, 4) // as the header's end says, in 16 bits
 		}
-		w.bits(0, 4)                            // the rate is the stream's
+		rateCode, rateBits := flacRate(s.Rate)
+		w.bits(rateCode, 4)                     // the rate, said in every frame: players that take a frame by itself need it
 		w.bits(uint64(s.Channels-1), 4)         //nolint:gosec // each channel by itself
 		w.bits(0b100, 3)                        // 16 bits a sample
 		w.bits(0, 1)                            // reserved
 		w.buf = append(w.buf, utf8Number(n)...) // the frame's number
 		if size != flacBlock {
 			w.bits(uint64(size-1), 16) //nolint:gosec // a block's size
+		}
+		if rateBits {
+			w.bits(uint64(s.Rate), 16) //nolint:gosec // 8000 to 65535
 		}
 		w.buf = append(w.buf, crc8(w.buf))
 		block := make([]int64, size)
@@ -158,6 +162,17 @@ func flacFrames(s *Sound) (frames [][]byte, info []byte) {
 	i.bits(uint64(total), 36)                  //nolint:gosec // the sound's samples
 	i.buf = append(i.buf, make([]byte, 16)...) // the samples' MD5: not said
 	return frames, i.buf
+}
+
+// flacRate is a frame header's code of a rate: one of the rates FLAC has a
+// code for, or the code that says the rate follows at the header's end, in
+// hertz and 16 bits.
+func flacRate(rate int) (code uint64, follows bool) {
+	codes := map[int]uint64{8000: 4, 16000: 5, 22050: 6, 24000: 7, 32000: 8, 44100: 9, 48000: 10}
+	if c, ok := codes[rate]; ok {
+		return c, false
+	}
+	return 13, true
 }
 
 // subframe writes one channel's block: one value where it is all the same

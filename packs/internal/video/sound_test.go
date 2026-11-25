@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -92,7 +94,10 @@ func TestASoundTrackIsReadBack(t *testing.T) {
 			t.Fatal(err)
 		}
 		dir := t.TempDir()
-		in, out := filepath.Join(dir, "film.mp4"), filepath.Join(dir, "sound.raw")
+		if keep := os.Getenv("AXX_SOUND_KEEP"); keep != "" {
+			dir = keep
+		}
+		in, out := filepath.Join(dir, fmt.Sprintf("film-%d.mp4", channels)), filepath.Join(dir, "sound.raw")
 		if err := os.WriteFile(in, film.Bytes(), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -112,6 +117,49 @@ func TestASoundTrackIsReadBack(t *testing.T) {
 		for i := range got {
 			if got[i] != sound.Samples[i] {
 				t.Fatalf("%d channels: sample %d is %d, was %d", channels, i, got[i], sound.Samples[i])
+			}
+		}
+	}
+}
+
+// A Mac's own decoder reads the sound track too: what QuickTime and Safari
+// play it with. It takes each frame by itself, so a frame says its rate (a
+// track whose frames left the rate to the stream's header played as silence
+// there, though ffmpeg read it).
+func TestASoundTrackIsReadByAMac(t *testing.T) {
+	afconvert, err := exec.LookPath("afconvert")
+	if runtime.GOOS != "darwin" || err != nil {
+		t.Skip("a Mac's afconvert reads the sound back, and this is no Mac")
+	}
+	for _, rate := range []int{22050, 24000, 44100, 11025} {
+		sound := voice(rate, 2)
+		clip := Clip{Width: 16, Height: 16, SPS: []byte{0x67, 0x42, 0xc0, 0x0a}, PPS: []byte{0x68, 0xce}, Samples: []Sample{{Data: []byte{0, 0, 0, 1, 0x65}, Key: true}}, End: sound.Length()}
+		var film bytes.Buffer
+		if err := WriteMP4Sound(&film, []Clip{clip}, sound); err != nil {
+			t.Fatal(err)
+		}
+		dir := t.TempDir()
+		in, out := filepath.Join(dir, "film.mp4"), filepath.Join(dir, "sound.wav")
+		if err := os.WriteFile(in, film.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if msg, err := exec.CommandContext(context.Background(), afconvert, "-f", "WAVE", "-d", "LEI16", in, out).CombinedOutput(); err != nil {
+			t.Fatalf("%d Hz: afconvert cannot read the sound: %v\n%s", rate, err, msg)
+		}
+		data, err := os.ReadFile(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := ReadWAV(data)
+		if err != nil {
+			t.Fatalf("%d Hz: %v", rate, err)
+		}
+		if len(got.Samples) != len(sound.Samples) {
+			t.Fatalf("%d Hz: a Mac read back %d samples of %d", rate, len(got.Samples), len(sound.Samples))
+		}
+		for i := range got.Samples {
+			if got.Samples[i] != sound.Samples[i] {
+				t.Fatalf("%d Hz: sample %d is %d, was %d", rate, i, got.Samples[i], sound.Samples[i])
 			}
 		}
 	}
