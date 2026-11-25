@@ -150,6 +150,40 @@ To make the film again after changing the subtitles, the directions or the look,
 axx demo --recut features/demos/register-a-parcel.demo.feature
 ```
 
+## Add a soundtrack
+
+Axx makes no sound and has no voice of its own. It makes the picture, and writes the film's subtitles with their times beside it, as a `.srt` file: what a soundtrack is made from, and what a video site takes as captions.
+
+```text
+.axx/demo/register-a-parcel/
+  register-a-parcel.mp4
+  register-a-parcel.srt
+```
+
+To have `axx demo` make the soundtrack too, name a command of yours. A model that speaks, a service, anything that makes sound:
+
+```yaml
+packs:
+  demo:
+    soundtrack:
+      command: python3 demo/soundtrack.py
+```
+
+1. Axx makes the film, as it does without the setting. The picture's timing is set by then, and the sound follows it.
+2. Axx runs your command, in the folder of `axx.yaml`, and tells it where things are:
+
+   | Variable | What it is |
+   | --- | --- |
+   | `AXX_DEMO_SUBTITLES` | the subtitles with their times, a `.srt` file |
+   | `AXX_DEMO_SOUNDTRACK` | the file to write: one WAV file, as long as the film |
+   | `AXX_DEMO_SECONDS` | how long the film is |
+   | `AXX_DEMO_FILM` | the film, without sound |
+
+3. Your command writes the WAV file, with each line said at its time.
+4. Axx puts the sound under the picture. A soundtrack shorter than the film is silent to its end, and a longer one is cut.
+
+If a line takes longer to say than its subtitle shows, give that step more time with a cue (`[pause 2s]`, `[6s]`) and run `axx demo` again.
+
 ## Present it live
 
 ```sh

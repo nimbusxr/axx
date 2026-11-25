@@ -277,18 +277,41 @@ func Film(ctx context.Context, projectDir string, st Settings, staged *Staged, o
 // Scenario Outline, each a chapter of the film, with its title. A film of
 // one take has a chapter for each of its subtitles.
 func FilmOf(ctx context.Context, projectDir string, st Settings, parts []*Staged, titles []string, out string, progress func(float64)) error {
+	clip, chapters, err := shoot(ctx, projectDir, st, parts, titles, progress)
+	if err != nil {
+		return err
+	}
+	return writeFilm(out, clip, nil, chapters)
+}
+
+// writeFilm writes a film's picture, with its sound when it has one.
+func writeFilm(out string, clip video.Clip, sound *video.Sound, chapters []video.Chapter) error {
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	if err := video.WriteMP4Sound(&buf, []video.Clip{clip}, sound, chapters...); err != nil {
+		return err
+	}
+	return os.WriteFile(out, buf.Bytes(), 0o644)
+}
+
+// shoot films the stage for each take, one after another, and returns the
+// picture and its chapters.
+func shoot(ctx context.Context, projectDir string, st Settings, parts []*Staged, titles []string, progress func(float64)) (video.Clip, []video.Chapter, error) {
+	var none video.Clip
 	total := 0.0
 	for _, p := range parts {
 		total += p.Timeline.Duration
 	}
 	if total <= 0 {
-		return errors.New("the demo shows nothing: its camera is off for every step ([cut] with no [action] after it)")
+		return none, nil, errors.New("the demo shows nothing: its camera is off for every step ([cut] with no [action] after it)")
 	}
 	width, height, scale := st.size()
 	fps := st.fps()
 	enc, err := video.NewEncoderOf(int(float64(width)*scale), int(float64(height)*scale), float64(fps), video.ScreenQuality)
 	if err != nil {
-		return err
+		return none, nil, err
 	}
 	defer enc.Close()
 	var chapters []video.Chapter
@@ -307,19 +330,19 @@ func FilmOf(ctx context.Context, projectDir string, st Settings, parts []*Staged
 		}
 		s, err := openStudio(ctx, projectDir, st, part)
 		if err != nil {
-			return err
+			return none, nil, err
 		}
 		frames := int(tl.Duration*float64(fps)) + 1
 		for n := range frames {
 			if err := ctx.Err(); err != nil {
 				s.close()
-				return err
+				return none, nil, err
 			}
 			at := time.Duration(float64(n) / float64(fps) * float64(time.Second))
 			changed, err := s.seek(at)
 			if err != nil {
 				s.close()
-				return err
+				return none, nil, err
 			}
 			if !changed && n > 0 {
 				continue
@@ -327,11 +350,11 @@ func FilmOf(ctx context.Context, projectDir string, st Settings, parts []*Staged
 			img, err := s.shot()
 			if err != nil {
 				s.close()
-				return err
+				return none, nil, err
 			}
 			if err := enc.Encode(opaque(img), offset+at); err != nil {
 				s.close()
-				return err
+				return none, nil, err
 			}
 			if progress != nil {
 				progress((offset.Seconds() + at.Seconds()) / total)
@@ -340,15 +363,7 @@ func FilmOf(ctx context.Context, projectDir string, st Settings, parts []*Staged
 		s.close()
 		offset += time.Duration(tl.Duration * float64(time.Second))
 	}
-	clip := enc.Finish(offset)
-	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-		return err
-	}
-	var buf bytes.Buffer
-	if err := video.WriteMP4(&buf, []video.Clip{clip}, chapters...); err != nil {
-		return err
-	}
-	return os.WriteFile(out, buf.Bytes(), 0o644)
+	return enc.Finish(offset), chapters, nil
 }
 
 // opaque is a picture as the encoder takes it quickest.

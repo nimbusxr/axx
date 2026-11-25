@@ -22,6 +22,8 @@ type Settings struct {
 	// Mermaid flowcharts. A demo starts on the first, and a cue goes to
 	// another ([diagram name]).
 	Diagrams Diagrams `json:"diagrams,omitzero"`
+	// Soundtrack is how a film's sound is made: nothing, without it.
+	Soundtrack Soundtrack `json:"soundtrack,omitzero"`
 	// Size is the film's, like 1920x1080, and FPS its frames a second.
 	Size string `json:"size,omitempty"`
 	FPS  int    `json:"fps,omitempty"`
@@ -156,6 +158,14 @@ const configSchema = `{
       "additionalProperties": {"type": "string"},
       "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
       "description": "The project's diagrams of its system, by name: files of Mermaid flowcharts (system: docs/system.mmd), whose boxes are named as the scenarios name what they talk to. A demo's diagram is the first; a cue goes to another with [diagram name]. Axx draws them itself, in characters. Without any, a demo's diagram is of what its scenario talked to."
+    },
+    "soundtrack": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How a film's sound is made, once its picture is: by a command of the project's. Axx makes no sound itself.",
+      "properties": {
+        "command": {"type": "string", "description": "A command of the project's, run through the shell in axx.yaml's folder for each film. It reads the film's subtitles with their times ($AXX_DEMO_SUBTITLES, a .srt file) and writes the film's sound to $AXX_DEMO_SOUNDTRACK, a WAV file as long as the film ($AXX_DEMO_SECONDS); $AXX_DEMO_FILM is the film without sound. A model that speaks, or anything else that makes sound."}
+      }
     },
     "scenes": {
       "type": "array", "items": {"type": "string"},

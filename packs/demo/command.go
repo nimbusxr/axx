@@ -63,10 +63,14 @@ type Made struct {
 
 // MadeFilm is one film.
 type MadeFilm struct {
-	Scenario string  `json:"scenario"`
-	Film     string  `json:"film"`
-	Take     string  `json:"take"`
-	Seconds  float64 `json:"seconds"`
+	Scenario string `json:"scenario"`
+	Film     string `json:"film"`
+	Take     string `json:"take"`
+	// Subtitles is the film's subtitles with their times, a .srt file, and
+	// Sound whether the film has a soundtrack.
+	Subtitles string  `json:"subtitles"`
+	Sound     bool    `json:"sound"`
+	Seconds   float64 `json:"seconds"`
 	// Chapters is how many rows of a Scenario Outline the film has, each a
 	// chapter: 1 for a scenario that is no outline.
 	Chapters int `json:"chapters"`
@@ -201,10 +205,33 @@ func runDemo(call *core.CommandCall) error {
 			seconds += tl.Duration
 		}
 		fmt.Fprintf(call.Stderr, "axx: filming %q (%.0f seconds)\n", of[0].Scenario, seconds)
-		if err := FilmOf(call.Context, call.ProjectDir, st, parts, titles, out, nil); err != nil {
+		clip, chapters, err := shoot(call.Context, call.ProjectDir, st, parts, titles, nil)
+		if err != nil {
 			return err
 		}
-		made.Films = append(made.Films, MadeFilm{Scenario: of[0].Scenario, Film: out, Take: filepath.Join(dir, fmt.Sprintf("take-%d.json", of[0].Line)), Seconds: seconds, Chapters: len(of)})
+		if err := writeFilm(out, clip, nil, chapters); err != nil {
+			return err
+		}
+		// The film's subtitles with their times: what its sound is made from,
+		// and what a video site takes as captions.
+		subtitles := strings.TrimSuffix(out, filepath.Ext(out)) + ".srt"
+		if err := os.WriteFile(subtitles, []byte(srtOf(parts)), 0o644); err != nil {
+			return err
+		}
+		film := MadeFilm{Scenario: of[0].Scenario, Film: out, Subtitles: subtitles, Take: filepath.Join(dir, fmt.Sprintf("take-%d.json", of[0].Line)), Seconds: seconds, Chapters: len(of)}
+		if st.Soundtrack.Command != "" {
+			// The picture is made: the project's command makes its sound.
+			fmt.Fprintf(call.Stderr, "axx: making the soundtrack of %q\n", of[0].Scenario)
+			sound, err := soundtrackOf(call.Context, call.ProjectDir, st.Soundtrack, out, subtitles, clip.Length(), call.Stderr)
+			if err != nil {
+				return fmt.Errorf("%w\n  the film is made, without sound: %s", err, out)
+			}
+			if err := writeFilm(out, clip, sound, chapters); err != nil {
+				return err
+			}
+			film.Sound = true
+		}
+		made.Films = append(made.Films, film)
 	}
 	return call.Emit(made, func(w io.Writer) error {
 		for _, f := range made.Films {

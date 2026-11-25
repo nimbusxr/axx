@@ -249,7 +249,10 @@ the skills instead: `axx skills install`.
   drawing is used, keep it so. What the run sent and saw plays on the map's lines, and what a cue tells (`[a --> b]`) is
   drawn apart from what was seen: keep that so too. `--present` is the same stage
   before an audience (`present.go`): the run waits at each beat for the presenter, back shows again and undoes nothing, and a
-  step that failed is asked about (`core.StepFailed`) before the audience sees anything of it. The pack's scenes are
+  step that failed is asked about (`core.StepFailed`) before the audience sees anything of it. A film's sound is made after its picture, from
+  its subtitles with their times (the `.srt` beside it), by a command of the project's (`soundtrack.go`): the pack makes no
+  sound and ships no voice, keep it so. The sound is one FLAC track, which `packs/internal/video` encodes itself
+  (`sound.go`). The pack's scenes are
   registered as a project's are (`axxStage.scene`): keep them no different. Its browser tests run in CI's web job.
 - `packs/internal/memcheck`: axx's C, C++ and Objective-C under a memory checker, for axx's own
   tests: with `AXX_MEMCHECK` naming a folder, the libraries the packs load into apps (the
