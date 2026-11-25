@@ -13,7 +13,7 @@ Feature: Prices by weight, as a demo
     And a request payload using an application/json content example named 'Domestic parcel'
     And the request payload property weightGrams is '<grams>'
 
-    # demo: [action] [diagram quote] [as shop] A shop asks what a parcel of <grams> grams costs within Germany.
+    # demo: [action] [diagram quote] [as shop] [hold response] A shop asks what a parcel of <grams> grams costs within Germany.
     When the request is executed
 
     # demo: [pause 5s] We answer with its price, in cents: <price>.

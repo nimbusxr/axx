@@ -29,7 +29,7 @@ Feature: Register a parcel, as a demo
       | reference          | PX-DEMO-9001 |
       | recipient.postcode | "10115"      |
 
-    # demo: [action] [as shop] The shop sends us the parcel's details.
+    # demo: [action] [as shop] [hold response] The shop sends us the parcel's details.
     When the request is executed
 
     # demo: We answer that it is registered,

@@ -50,6 +50,9 @@ type Segment struct {
 	Diagrams []string    `json:"diagrams,omitempty"`
 	As       string      `json:"as,omitempty"`
 	Flows    [][2]string `json:"flows,omitempty"`
+	// HoldResponse is whether the step shows only what it sent, what came
+	// back being shown with the step after it.
+	HoldResponse bool `json:"holdResponse,omitempty"`
 	// Directions are the project's own directions on the step's cues, which
 	// its stage acts on.
 	Directions []Direction `json:"directions,omitempty"`
@@ -173,6 +176,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		var cards []Segment
 		var own []Direction
 		var flows [][2]string
+		holdResponse := false
 		subtitle := ""
 		for _, c := range cs {
 			text := false
@@ -192,6 +196,8 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 					diagram, as = showSurfaces(d.Args), ""
 				case "as":
 					as = d.Args[0]
+				case "hold":
+					holdResponse = true
 				case "flow":
 					for k := 0; k+1 < len(d.Args); k++ {
 						flows = append(flows, [2]string{d.Args[k], d.Args[k+1]})
@@ -286,7 +292,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			}
 		}
 		if dur > 0 {
-			tl.Segments = append(tl.Segments, Segment{Kind: "step", Start: t, End: t + dur, Step: i, From: from, To: to, Show: shows, Directions: own, Diagrams: slices.Clone(diagram), As: as, Flows: flows})
+			tl.Segments = append(tl.Segments, Segment{Kind: "step", Start: t, End: t + dur, Step: i, From: from, To: to, Show: shows, Directions: own, Diagrams: slices.Clone(diagram), As: as, Flows: flows, HoldResponse: holdResponse})
 			t += dur
 		}
 		if camera {

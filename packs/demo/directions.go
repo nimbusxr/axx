@@ -141,6 +141,16 @@ func init() {
 		},
 	})
 	Register(Kind{
+		Name: "hold", Usage: "[hold response]",
+		Doc: "The step below shows what it sent, and what came back shows with the step after it: for a step that sends a request and gets its answer, where the next cue is the one that says what the answer is.",
+		Check: func(args []string) string {
+			if len(args) != 1 || args[0] != "response" {
+				return "hold takes what to hold: [hold response] keeps what came back for the next step"
+			}
+			return ""
+		},
+	})
+	Register(Kind{
 		Name: "as", Usage: "[as courier]",
 		Doc: "Who the scenario is, from the step below on: a box of the diagram, which what the scenario sends then comes from. It holds until the cue that goes to another diagram.",
 		Check: func(args []string) string {

@@ -84,6 +84,7 @@ What a cue has in square brackets directs the film. The film's time is its own: 
 | `[cut]` | The camera stops before the step below. The steps run, and the film shows none of them until `[action]`. Use it for the steps that set things up. | The steps run straight through. |
 | `[action]` | The camera starts again with the step below. | The same. |
 | `[card 3s] A title` | A card with the cue's text fills the picture for 3 seconds. | The card stays until the presenter goes on. |
+| `[hold response]` | The step below shows what it sent, and what came back shows with the step after it. Use it where a step sends a request and gets its answer, and the next cue is the one that says what the answer is. | The same. |
 | `[show diagram]` | Says what the picture shows from the step below on: `diagram`, `browser`, `phone` or `desktop`, two of them side by side like `[show browser + diagram]`, or `auto`. | The same. |
 | `[diagram checkout]` | Goes to another of the project's diagrams, by its name, from the step below on. Two names show two diagrams side by side: `[diagram stored + announced]`. | The same. |
 | `[as courier]` | Says who the scenario is, from the step below on: a box of the diagram, which what the scenario sends then comes from. | The same. |

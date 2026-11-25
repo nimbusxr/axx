@@ -321,7 +321,7 @@ func TestCuesOfTheDiagram(t *testing.T) {
     Then the event is consumed
     # demo: [diagram payments] There is none of that name.
     And nothing else
-    # demo: [diagram system + aaa] Two of them, side by side.
+    # demo: [diagram system + aaa] [hold response] Two of them, side by side.
     And both are shown
 `
 	var st Settings
@@ -354,7 +354,7 @@ func TestCuesOfTheDiagram(t *testing.T) {
 	if len(steps) != 4 {
 		t.Fatalf("segments: %+v", tl.Segments)
 	}
-	if s := steps[3]; strings.Join(s.Diagrams, "+") != "system+aaa" {
+	if s := steps[3]; strings.Join(s.Diagrams, "+") != "system+aaa" || !s.HoldResponse || steps[2].HoldResponse {
 		t.Errorf("two diagrams side by side: %+v", s)
 	}
 	if s := steps[0]; s.As != "shop" || len(s.Diagrams) != 0 || len(s.Flows) != 2 || s.Flows[0] != [2]string{"shop", "portal"} || s.Flows[1] != [2]string{"portal", "parcels"} {

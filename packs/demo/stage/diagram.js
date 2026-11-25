@@ -327,7 +327,7 @@
 	// Which of a sequence diagram's messages each step of the film was: the
 	// next message, in the diagram's order, that fits what the step sent, found
 	// or was told. A message the run never showed stays dim.
-	function played(L, state) {
+	function played(L, state, active) {
 		const take = state.take, tl = state.timeline;
 		const used = new Set(), past = new Set();
 		let now = [];
@@ -357,7 +357,8 @@
 				const m = next((m) => m.from === a && m.to === b);
 				if (m) mine.push({ m, k, role: 'told' });
 			});
-			if (state.playing && seg.step === state.stepIndex) now = mine;
+			// The step that plays, and one whose response is still held.
+			if ((state.playing && seg.step === state.stepIndex) || (active && active.held === seg.step)) now = now.concat(mine.map((p) => ({ ...p, step: seg.step })));
 			else mine.forEach((p) => past.add(p.m.id));
 		}
 		return { past, now };
@@ -365,9 +366,12 @@
 
 	function drawSequence(L, state, { met, lastSaid, kinds, active }) {
 		const grid = newGrid(L.width, L.height);
-		const { past, now } = played(L, state);
-		const list = state.playing && state.step ? acts(state.step) : [];
+		const { past, now } = played(L, state, active);
+		const list = active && active.list ? active.list : [];
 		const k = active && !active.over ? list.indexOf(active.x) : -1;
+		// The exchange that plays is of the step it was in: the step that plays
+		// now, or the one before it whose response was held.
+		const own = active && active.held !== undefined ? active.held : state.stepIndex;
 		const p = active ? active.phase : 0;
 		const told = now.filter((n) => n.role === 'told');
 		for (const l of L.lifelines) for (let y = l.from; y <= l.to; y++) put(grid, l.x, y, '╎', 'dim');
@@ -375,14 +379,14 @@
 		for (const n of now) {
 			// A message of the exchange that plays goes along its line as the
 			// exchange does: out, then back; one of an exchange before stays lit.
-			let head, kind = 'coord', on = n.k < k || n.role === 'told';
+			let head, kind = 'coord', on = (n.step === own && n.k < k) || n.role === 'told';
 			const len = n.m.cells.length - 1;
 			if (n.role === 'told') {
 				const q = Math.min(1, Math.max(0, state.progress * told.length - told.indexOf(n)));
 				kind = 'told';
 				if (q > 0 && q < 1) head = q * len;
 				on = q > 0;
-			} else if (n.k === k) {
+			} else if (n.k === k && n.step === own) {
 				if (n.role === 'found') { kind = active.failed ? 'fail' : 'ok'; on = true; if (p < 0.4) head = (p / 0.4) * len; }
 				if (n.role === 'out') { on = true; if (p < 0.32) head = Math.min(1, p / 0.28) * len; }
 				if (n.role === 'back') { kind = active.failed ? 'fail' : 'ok'; on = p >= 0.36; if (p >= 0.36 && p < 0.66) head = Math.min(1, (p - 0.36) / 0.28) * len; }
@@ -398,11 +402,11 @@
 			write(grid, e.at.x, e.at.y, e.text, kind === 'dim' ? 'dim' : kind === 'line' ? 'sub' : kind);
 		}
 		for (const b of Object.values(L.boxes)) {
-			const on = now.some((n) => lit[n.m.id].on && n.m.to === b.id && (n.k === k || n.role === 'told'));
+			const on = now.some((n) => lit[n.m.id].on && n.m.to === b.id && ((n.k === k && n.step === own) || n.role === 'told'));
 			drawBox(grid, { ...b, lines: [{ text: kinds[b.id] || '', kind: 'sub' }] }, on ? (active && active.failed ? 'fail' : 'key') : 'line');
 		}
-		const found = now.some((n) => n.k === k && n.role === 'found');
-		const from = (now.find((n) => n.k === k && n.role === 'found' && active && active.x.from) || { m: {} }).m.from || '';
+		const found = now.some((n) => n.k === k && n.step === own && n.role === 'found');
+		const from = (now.find((n) => n.k === k && n.step === own && n.role === 'found' && active && active.x.from) || { m: {} }).m.from || '';
 		return { html: html(grid), found, from };
 	}
 
@@ -500,6 +504,46 @@
 				el.style.setProperty('--rows', Math.max(...maps.map((L) => L.height)));
 				el.style.setProperty('--cols', maps.reduce((n, L) => n + L.width, 0) + (maps.length - 1) * 8);
 			}
+			// A step whose response is held ([hold response]) shows what it
+			// sent; what came back is kept for the step after it, which shows it.
+			// So the answer comes with the cue that says what it is.
+			const segs = state.timeline.segments;
+			let hold = null;
+			for (let i = state.segmentIndex; i >= 0; i--) {
+				if (segs[i].kind !== 'step') continue;
+				const here = i === state.segmentIndex;
+				const after = segs.findIndex((s, j) => j > i && s.kind === 'step');
+				if (segs[i].holdResponse && after >= 0) {
+					hold = { step: segs[i].step, stage: here ? 'out' : 'waiting' };
+				} else if (here) {
+					// The step after a held one, when it sends nothing of its own.
+					let before = -1;
+					for (let j = i - 1; j >= 0 && before < 0; j--) if (segs[j].kind === 'step') before = j;
+					if (before >= 0 && segs[before].holdResponse && !acts(state.step).length) hold = { step: segs[before].step, stage: 'reveal' };
+				}
+				break;
+			}
+			const held = hold ? acts(take.steps[hold.step]) : [];
+			// The exchange whose answer is held: the step's last that was sent and answered.
+			const kept = [...held].reverse().find((x) => x.sent && x.seen) || null;
+			// The step that plays: which of its exchanges, and how far along.
+			let active = null;
+			if (state.playing && state.step) {
+				const list = acts(state.step);
+				if (list.length) {
+					const at = Math.min(list.length - 1e-9, state.progress * list.length);
+					const k = Math.floor(at);
+					active = { x: list[k], phase: at - k, failed: state.step.status !== 'passed', list };
+					// Out along its line, and no further for now.
+					if (hold && hold.stage === 'out' && list[k] === kept) active.phase *= 0.34;
+				}
+			}
+			if (kept && hold.stage !== 'out') {
+				// Waiting for the step after it, or, in that step, coming back.
+				const phase = hold.stage === 'waiting' ? 0.34 : 0.36 + 0.64 * state.progress;
+				active = { x: kept, phase, failed: take.steps[hold.step].status !== 'passed', list: held, held: hold.step };
+			}
+			const answered = !kept || (hold.stage === 'reveal' && active.phase >= 0.62);
 			// What the scenario has talked to by now, and what each last said.
 			const met = {}, lastSaid = {}, kinds = {};
 			for (const p of take.peers) kinds[p.name] = p.kind;
@@ -508,18 +552,8 @@
 				const current = state.playing && i === state.stepIndex;
 				for (const x of take.steps[i].exchanges || []) {
 					met[x.peer] = true;
-					if (!current && x.seen) lastSaid[x.peer] = { text: x.seen.title, kind: 'ok' };
+					if (!current && x.seen && (x !== kept || answered)) lastSaid[x.peer] = { text: x.seen.title, kind: 'ok' };
 					else if (!current && x.sent && !x.from) lastSaid[x.peer] = { text: x.sent.title, kind: 'coord' };
-				}
-			}
-			// The step that plays: which of its exchanges, and how far along.
-			let active = null;
-			if (state.playing && state.step) {
-				const list = acts(state.step);
-				if (list.length) {
-					const at = Math.min(list.length - 1e-9, state.progress * list.length);
-					const k = Math.floor(at);
-					active = { x: list[k], phase: at - k, failed: state.step.status !== 'passed' };
 				}
 			}
 			if (!active) {

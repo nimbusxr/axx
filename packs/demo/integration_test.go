@@ -318,3 +318,47 @@ func TestAProjectsSequenceDiagram(t *testing.T) {
 		t.Errorf("as the selection plays: lit %q, shown before %q, dim %q", ok, past, dim)
 	}
 }
+
+// [hold response]: a step shows what it sent, and what came back shows with
+// the step after it, which is where its cue says what the answer is.
+func TestAResponseIsHeldForTheNextStep(t *testing.T) {
+	src := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: [hold response] The depot's", 1)
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), Known{})
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	take := holdTake()
+	tl := Cut(take, script, DefaultPace)
+	var sel, check Segment
+	for _, seg := range tl.Segments {
+		if seg.Kind == "step" && seg.Step == 3 {
+			sel = seg
+		}
+		if seg.Kind == "step" && seg.Step == 4 {
+			check = seg
+		}
+	}
+	if !sel.HoldResponse || check.End == 0 {
+		t.Fatalf("the selection holds its response, and the check follows it: %+v, %+v", sel, check)
+	}
+	s, err := openStudio(context.Background(), t.TempDir(), Settings{}, &Staged{Take: take, Timeline: tl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	// To the end of the selection, and while the picture holds after it: what
+	// was asked, and nothing of what was found.
+	for _, at := range []float64{sel.Start + 0.9*(sel.End-sel.Start), (sel.End + check.Start) / 2, check.Start + 0.05*(check.End-check.Start)} {
+		got := shown(t, s, at)
+		if !strings.Contains(got["sent"], "select parcels.holds") || got["seen"] != "" || strings.Contains(got["diagram"], "1 row") {
+			t.Errorf("at %.2f, before the answer is shown: %v", at, got)
+		}
+	}
+	// With the check, it is shown.
+	if got := shown(t, s, check.Start+0.9*(check.End-check.Start)); !strings.Contains(got["seen"], "1 row") {
+		t.Errorf("with the step after it: %v", got)
+	}
+	if got := shown(t, s, tl.Duration); !strings.Contains(got["seen"], "1 row") || !strings.Contains(got["diagram"], "1 row") {
+		t.Errorf("at the end: %v", got)
+	}
+}
