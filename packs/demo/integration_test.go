@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -409,8 +410,20 @@ func TestACueWritesInABox(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w, ok := width.([]any); !ok || len(w) != 2 || w[0] != w[1] {
-		t.Errorf("the line with an emoji is %v wide, and the one above it %v", w[0], w[1])
+	// To half a pixel: a font's own rounding differs by less from one machine
+	// to the next, and an edge out of line is off by a cell, some ten pixels.
+	w, _ := width.([]any)
+	px := func(v any) float64 {
+		switch v := v.(type) {
+		case float64:
+			return v
+		case int:
+			return float64(v)
+		}
+		return math.NaN()
+	}
+	if len(w) != 2 || !(math.Abs(px(w[0])-px(w[1])) < 0.5) {
+		t.Errorf("the line with an emoji is %v wide, and the one above it %v", w, width)
 	}
 	bad := strings.Replace(src, "[mark reports", "[mark warehouse", 1)
 	script, _ = ParseScript("features/hold.demo.feature", []byte(bad), st.known())
