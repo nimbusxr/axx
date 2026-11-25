@@ -742,6 +742,8 @@ jobs:
           - {feature: courier-app-notifications, part: 1, of: 3}
           - {feature: courier-app-notifications, part: 2, of: 3}
           - {feature: courier-app-notifications, part: 3, of: 3}
+          # The example's demos on a phone, which run as its other scenarios do.
+          - {feature: demos, part: 1, of: 1}
     steps:
       # The example's images need more disk than a runner of 14 GB free had: on one with less
       # than 40 GB free, remove toolchains the job never uses (not the Android SDK), in the
@@ -824,7 +826,7 @@ jobs:
         working-directory: examples/parcels/acceptance
         run: |
           android=$(grep -rl --include='*.feature' '@android' features | sort | tr '\n' ' ')
-          [ "$android" = "features/courier-app-camera/courier-app-camera-android.feature features/courier-app-documents/courier-app-documents-android.feature features/courier-app-measure/courier-app-measure-android.feature features/courier-app-notifications/courier-app-notifications-android.feature features/courier-app/courier-app-android.feature " ] || { echo "::error::the android job runs courier-app, courier-app-camera, courier-app-documents, courier-app-measure and courier-app-notifications, and the Android features are: $android"; exit 1; }
+          [ "$android" = "features/courier-app-camera/courier-app-camera-android.feature features/courier-app-documents/courier-app-documents-android.feature features/courier-app-measure/courier-app-measure-android.feature features/courier-app-notifications/courier-app-notifications-android.feature features/courier-app/courier-app-android.feature features/demos/at-the-door-android.demo.feature features/demos/deliver-on-android.demo.feature " ] || { echo "::error::the android job runs courier-app, courier-app-camera, courier-app-documents, courier-app-measure, courier-app-notifications and the demos, and the Android features are: $android"; exit 1; }
       - uses: ./.github/actions/android-builds
         with:
           part: android-${{ matrix.feature }}
@@ -833,8 +835,11 @@ jobs:
           FEATURE: ${{ matrix.feature }}
           SHARD: ${{ matrix.part }}/${{ matrix.of }}
         run: |
+          # A feature's Android file, or the demos' folder, whose Android ones the tag takes.
+          path="features/$FEATURE/$FEATURE-android.feature"
+          [ "$FEATURE" != demos ] || path=features/demos
           axx run --tags @android --shard "$SHARD" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html \
-            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed "features/$FEATURE/$FEATURE-android.feature"
+            --set packs.mobile-core.traces=failed --set packs.mobile-core.videos=failed "$path"
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -1501,15 +1506,17 @@ jobs:
     # Each example's acceptance suite, the way its README runs it: axx starts the service and
     # its infrastructure with Docker Compose, runs the features and removes everything. axx is
     # built with every pack, so it prepares none. parcel-support's features and its other
-    # engines' runs (some 5 minutes each) are two jobs.
-    name: acceptance (${{ matrix.example }}${{ matrix.engines && ', its engines' || '' }})
+    # engines' runs (some 5 minutes each) are two jobs. Parcels' showcase, a demo of axx made with
+    # axx, is a project beside its acceptance suite, and a job of its own: its scenario has
+    # `axx demo` start the example again.
+    name: acceptance (${{ matrix.example }}${{ matrix.engines && ', its engines' || '' }}${{ matrix.showcase && ', its showcase' || '' }})
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         # On main, only parcels, whose job keeps the caches.
-        include: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '[{"example":"parcels"}, {"example":"parcel-claims"}, {"example":"carrier-billing"}, {"example":"customs-clearance"}, {"example":"parcel-support"}, {"example":"parcel-support", "engines":true}]' || '[{"example":"parcels"}]') }}
+        include: ${{ fromJSON(needs.changes.outputs.tests == 'true' && '[{"example":"parcels"}, {"example":"parcels","showcase":true}, {"example":"parcel-claims"}, {"example":"carrier-billing"}, {"example":"customs-clearance"}, {"example":"parcel-support"}, {"example":"parcel-support", "engines":true}]' || '[{"example":"parcels"}]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -1566,7 +1573,7 @@ jobs:
           cat "$RUNNER_TEMP/pull.log"
           # A pull that failed is done again as the example starts.
           [ "$(cat "$RUNNER_TEMP/pull.done" 2> /dev/null)" = 0 ] || echo "::warning::the example's images were not all pulled"
-      - if: needs.changes.outputs.tests == 'true' && !matrix.engines
+      - if: needs.changes.outputs.tests == 'true' && !matrix.engines && !matrix.showcase
         working-directory: examples/${{ matrix.example }}/acceptance
         # The Android scenarios run in the android job, on an emulator; the iOS ones on Macs, as
         # do those whose pages run a model on the GPU (@gpu): a runner has none.
@@ -1574,6 +1581,12 @@ jobs:
         env:
           COVERAGE: ${{ matrix.example == 'parcels' && '--coverage' || '' }}
         run: axx run ${COVERAGE:+"$COVERAGE"} --tags "not @mobile and not @gpu" --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
+      # axx, shown with axx: the scenario opens a demo's file of the acceptance project, has
+      # `axx demo` run it there and make its video, and watches the video play. The axx it runs
+      # is the one this job built, on the PATH.
+      - if: matrix.showcase && needs.changes.outputs.tests == 'true'
+        working-directory: examples/parcels/showcase
+        run: axx run --format progress --format junit:build/axx/junit.xml --format html:build/axx/report.html
       # The parcel-support service's transcriber and photo check on their other engines, each
       # with a stub of its engine's format (the example's profiles).
       - if: matrix.engines && needs.changes.outputs.tests == 'true'
@@ -1585,25 +1598,28 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: acceptance-${{ matrix.example }}${{ matrix.engines && '-engines' || '' }}
+          name: acceptance-${{ matrix.example }}${{ matrix.engines && '-engines' || '' }}${{ matrix.showcase && '-showcase' || '' }}
           # The report, and the screenshots, traces and logs a failure leaves.
           path: |
             examples/${{ matrix.example }}/acceptance/build/axx/
             examples/${{ matrix.example }}/acceptance/.axx/web/
             examples/${{ matrix.example }}/acceptance/.axx/logs/
+            examples/parcels/showcase/build/axx/
+            examples/parcels/showcase/.axx/web/
+            examples/parcels/showcase/.axx/demo/
           if-no-files-found: ignore
           retention-days: 7
       # The controls the example is to cover (its security/controls.yaml): the report is the job's
       # summary, and the check fails the job when a required control is not covered. What the
       # check judged goes to the controls-attest job, with the report as OSCAL beside it.
-      - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
+      - if: matrix.example == 'parcels' && !matrix.showcase && needs.changes.outputs.tests == 'true'
         name: the controls the scenarios prove
         working-directory: examples/parcels/acceptance
         run: |
           axx controls report --format markdown >> "$GITHUB_STEP_SUMMARY"
           axx controls report --format oscal --out .axx/controls/assessment-results.json
           axx controls check
-      - if: matrix.example == 'parcels' && needs.changes.outputs.tests == 'true'
+      - if: matrix.example == 'parcels' && !matrix.showcase && needs.changes.outputs.tests == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: controls-parcels
@@ -1612,7 +1628,7 @@ jobs:
             examples/parcels/acceptance/.axx/controls/assessment-results.json
           retention-days: 7
       # The run's coverage report.
-      - if: ${{ !cancelled() && matrix.example == 'parcels' && needs.changes.outputs.tests == 'true' }}
+      - if: ${{ !cancelled() && matrix.example == 'parcels' && !matrix.showcase && needs.changes.outputs.tests == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coverage-parcels
@@ -1633,14 +1649,14 @@ jobs:
       - if: ${{ !cancelled() && env.AXX_NIGHTLY == 'true' }}
         uses: ./.github/actions/nightly
       # How long the example took to build, pull and start, from its log.
-      - if: ${{ !cancelled() && matrix.example == 'parcels' }}
+      - if: ${{ !cancelled() && matrix.example == 'parcels' && !matrix.showcase }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: apps-log-parcels
           path: examples/parcels/acceptance/.axx/logs/services.log
           if-no-files-found: ignore
           retention-days: 7
-      - if: ${{ !cancelled() && matrix.example == 'parcels' }}
+      - if: ${{ !cancelled() && matrix.example == 'parcels' && !matrix.showcase }}
         uses: ./.github/actions/go-cache
         with:
           build: acceptance

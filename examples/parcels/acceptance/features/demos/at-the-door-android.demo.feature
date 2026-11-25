@@ -1,5 +1,5 @@
 # demo: [card 3s] At the door, with the phone's camera
-@mobile @demo
+@mobile @android
 Feature: A courier measures and photographs a parcel, as a demo on an Android phone
 
   A demo of the phone's camera: a courier walks up to a porch, measures the parcel there with the

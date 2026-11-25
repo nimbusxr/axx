@@ -19,7 +19,7 @@ Feature: Make a demo with axx, as a demo
       | timeout | 5m            |
     And the videos web app with the following properties:
       | url    | http://videos.test |
-      | engine | chrome             |
+      | engine | chromium           |
 
     # demo: [action] [show editor] [5s] Meet the demo file. It's the test you already have,
     #       with the script written right in: narration, and directions for the camera.

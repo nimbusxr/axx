@@ -1,5 +1,5 @@
 # demo: [card 3s] A courier delivers a parcel
-@mobile @demo
+@mobile @ios
 Feature: A courier delivers a parcel, as a demo on an iPhone
 
   A demo on a phone: a courier hands a parcel over with the couriers' iOS app, and the service
