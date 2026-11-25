@@ -118,7 +118,11 @@ func scriptOf(ast *messages.GherkinDocument, custom []string) *Script {
 			taken[next], last = true, next
 		}
 		cue := Cue{Line: line}
-		cue.Directions, cue.Text, s.Problems = parseCue(body, line, column, custom, s.Problems)
+		// Where a mistake is, in the line: the comment's indent, then the
+		// cue's text from its "#".
+		raw := byLine[line].Text
+		indent := len(raw) - len(strings.TrimLeft(raw, " \t"))
+		cue.Directions, cue.Text, s.Problems = parseCue(body, line, indent+column, custom, s.Problems)
 		// What it belongs to: the first line of the feature below it.
 		i := sort.SearchInts(anchors, last+1)
 		if i < len(anchors) {

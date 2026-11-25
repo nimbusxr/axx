@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -226,7 +225,7 @@ func cuesCheck() core.FeatureCheck {
 					continue
 				}
 				for _, p := range script.Problems {
-					out = append(out, core.FeatureFinding{URI: sc.URI, Line: sc.Line, Message: "the demo's cue on line " + strconv.Itoa(p.Line) + ": " + p.Message})
+					out = append(out, core.FeatureFinding{URI: sc.URI, Line: sc.Line, At: p.Line, Column: p.Column, Message: "the demo's cue: " + p.Message})
 				}
 			}
 			return out

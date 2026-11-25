@@ -1,6 +1,8 @@
 package demo
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -283,5 +285,25 @@ Feature: Prices
 		if cards != want.cards || len(tl.Subtitles) != 1 || tl.Subtitles[0].Text != want.text {
 			t.Errorf("row %d: %d cards, subtitles %+v; want %d and %q", row, cards, tl.Subtitles, want.cards, want.text)
 		}
+	}
+}
+
+// A mistake in a cue is reported where it is, for lint, validate and editors.
+func TestCuesCheck(t *testing.T) {
+	dir := t.TempDir()
+	src := "Feature: F\n\n  Scenario: S\n    # demo: [sped 2x] Faster.\n    Given something\n"
+	if err := os.WriteFile(filepath.Join(dir, "f.demo.feature"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "plain.feature"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	found := cuesCheck().Run(&core.FeatureCheckCall{
+		Scenarios:  []core.ScenarioInfo{{URI: "f.demo.feature", Line: 3}, {URI: "plain.feature", Line: 3}},
+		Settings:   func(any) error { return nil },
+		ProjectDir: dir,
+	})
+	if len(found) != 1 || found[0].URI != "f.demo.feature" || found[0].At != 4 || found[0].Column != 13 || !strings.Contains(found[0].Message, "did you mean [speed]?") {
+		t.Errorf("findings: %+v", found)
 	}
 }

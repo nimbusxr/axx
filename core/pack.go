@@ -158,6 +158,11 @@ type FeatureFinding struct {
 	// Tag is the tag the finding is about ("@asvs:6.2.99"), when it is
 	// about one: the finding is then reported where the tag is written.
 	Tag string
+	// At is the line of the feature file the finding is about, with its
+	// column, when it is about one that is no scenario's and no tag's (a
+	// comment a pack reads): the finding is then reported there.
+	At     int
+	Column int
 	// Message says what is wrong, and what would be right.
 	Message string
 }
