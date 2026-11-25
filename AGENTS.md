@@ -260,7 +260,10 @@ the skills instead: `axx skills install`.
   project's (`packs.demo.surfaces`) or a module's, which is how another pack adds scenes, styles and directions
   (`modules.go`, `demo.RegisterModule`). The steps of apps are one pack's on a phone and
   on a desktop (app-core): a step is on the screen that is filmed (`surfaceOf`), and what a step did with the camera off
-  stays out of the picture (`state.filmed`). The terminal (`modules/terminal`) is a module registered as another pack's is,
+  stays out of the picture (`state.filmed`). The cli pack says what each command ran and printed
+  (`packs/cli/exchange.go`), which the terminal types out: the parcels example's `showcase` project is a demo of axx made
+  that way, its scenario running `axx demo` in the acceptance project beside it (another project, as two runs of one
+  take turns). The terminal (`modules/terminal`) is a module registered as another pack's is,
   and the docs' example of one: keep it built on what the guide "Build a demo's scenes" lists and nothing else. Its
   browser tests run in CI's web job.
 - `packs/internal/memcheck`: axx's C, C++ and Objective-C under a memory checker, for axx's own

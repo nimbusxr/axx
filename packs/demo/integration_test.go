@@ -625,3 +625,77 @@ func TestWhatACutStepDidIsNotShown(t *testing.T) {
 		t.Errorf("at the first step on camera, of the step before it: %v", got)
 	}
 }
+
+// A command a step ran is that command in the terminal, typed out, with what
+// it printed: a long thing (a file) in smaller letters, so that more of it
+// shows, a demo's cues in it picked out, and how it ended where that was not
+// well.
+func TestTheTerminalShowsACommand(t *testing.T) {
+	src := `Feature: A demo of a demo
+
+  Scenario: A team shows a demo's file
+    # demo: [show terminal] A demo is a feature file.
+    When the cat command is run with "hold.demo.feature"
+    # demo: And a command that fails says so.
+    And the axx command is run with "demo missing.demo.feature"
+`
+	script, err := ParseScript("features/meta.demo.feature", []byte(src), Settings{}.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	file := strings.TrimRight(holdFeature, "\n")
+	take := &Take{
+		Version: TakeVersion, Feature: "features/meta.demo.feature", Scenario: "A team shows a demo's file", Line: 3, Passed: true,
+		Peers: []Peer{{"cat", "command"}, {"axx", "command"}},
+		Steps: []TakeStep{
+			{Keyword: "When", Text: `the cat command is run with "hold.demo.feature"`, Line: 5, Pack: "cli", Status: "passed", End: 0.01, Exchanges: []core.Exchange{{
+				Peer: "cat", Kind: "command", Sent: &core.Message{Title: "cat hold.demo.feature"},
+				Seen: &core.Message{Title: "exit code 0", MediaType: "text/plain", Body: file},
+			}}},
+			{Keyword: "And", Text: `the axx command is run with "demo missing.demo.feature"`, Line: 7, Pack: "cli", Status: "passed", Start: 0.01, End: 0.02, Exchanges: []core.Exchange{{
+				Peer: "axx", Kind: "command", Sent: &core.Message{Title: "axx demo missing.demo.feature"},
+				Seen: &core.Message{Title: "exit code 2", MediaType: "text/plain", Body: "error: no such file: missing.demo.feature"},
+			}}},
+		},
+	}
+	tl := Cut(take, script, DefaultPace)
+	s, err := openStudio(context.Background(), t.TempDir(), Settings{}, &Staged{Take: take, Timeline: tl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	look := func(at float64) (text string, dense bool, cues, failed int) {
+		t.Helper()
+		got := shown(t, s, at)
+		v, err := s.page.Evaluate(`() => [document.querySelector('.term').classList.contains('dense'), document.querySelectorAll('.term-lines .t-cue').length, document.querySelectorAll('.term-lines .t-failed').length]`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a := v.([]any)
+		n := func(x any) int {
+			switch x := x.(type) {
+			case int:
+				return x
+			case float64:
+				return int(x)
+			}
+			return 0
+		}
+		return got["terminal"], a[0] == true, n(a[1]), n(a[2])
+	}
+	cat := tl.Segments[0]
+	// As the step begins, the command is being typed, and nothing is printed.
+	if text, _, _, _ := look(cat.Start + 0.05*(cat.End-cat.Start)); !strings.HasPrefix(text, "$ cat") || strings.Contains(text, "Feature:") {
+		t.Errorf("the command, as it is typed:\n%s", text)
+	}
+	// Then the whole file, in smaller letters, with its cues picked out.
+	text, dense, cues, _ := look(cat.Start + 0.9*(cat.End-cat.Start))
+	if !strings.Contains(text, "$ cat hold.demo.feature\n"+file) || !dense || cues != strings.Count(file, "# demo:") {
+		t.Errorf("the file the command printed (small letters: %v, %d cues, want %d):\n%s", dense, cues, strings.Count(file, "# demo:"), text)
+	}
+	// A command that failed says how it ended.
+	text, dense, _, failed := look(tl.Duration)
+	if !strings.Contains(text, "$ axx demo missing.demo.feature\nerror: no such file: missing.demo.feature\nexit code 2") || failed != 1 || dense {
+		t.Errorf("the command that failed (small letters: %v, %d failures):\n%s", dense, failed, text)
+	}
+}

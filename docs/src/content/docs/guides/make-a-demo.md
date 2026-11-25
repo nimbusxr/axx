@@ -247,13 +247,15 @@ axx demo --present --recorded features/demos/register-a-parcel.demo.feature
 
 ## Show the steps in a terminal
 
-`[show terminal]` shows the steps as someone would type them. A request to a service is the curl command that makes it, typed out as the step plays, and what came back is printed under it. What the scenario found in a database or on a topic is a line that says where, with what was there.
+`[show terminal]` shows the steps as someone would type them. A command a step ran (the cli pack's steps) is that command, typed out, with what it printed under it. A request to a service is the curl command that makes it, typed out as the step plays, and what came back is printed under it. What the scenario found in a database or on a topic is a line that says where, with what was there.
 
 ```text
 # demo: [show terminal + diagram] A shop asks what a parcel costs.
 ```
 
-The command is what the step sent: its method, its address and its body. It has no headers but the body's type, as headers carry credentials.
+A demo of a command-line tool is made of these: the parcels example has one of axx itself (`examples/parcels/showcase`), whose scenario shows a demo's file, runs `axx demo` on it, and watches the film it made play in a browser.
+
+A curl command is what the step sent: its method, its address and its body. It has no headers but the body's type, as headers carry credentials.
 
 ## Give it your own look
 
