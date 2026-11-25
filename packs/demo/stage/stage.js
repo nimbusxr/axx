@@ -68,8 +68,11 @@
 			// A step that sent nothing (a check of what came back) leaves the
 			// last thing that was sent and seen on the stage: it is what the
 			// step is about.
+			// Of the steps the film showed: what a step did with the camera off
+			// ([cut]) the audience never saw.
 			const upTo = state.playing ? state.stepIndex : state.done - 1;
 			for (let i = Math.min(upTo, take.steps.length - 1); i >= 0 && !now; i--) {
+				if (!state.filmed.has(i)) continue;
 				const list = acts(take.steps[i]);
 				if (list.length) now = { exchange: list[list.length - 1], phase: 1, failed: take.steps[i].status !== 'passed', over: true, list, step: i };
 			}
@@ -115,6 +118,8 @@
 			show: seg.show && seg.show.length ? seg.show : ['diagram'],
 			take: data.take, timeline: tl, theme: data.theme || {},
 		};
+		// The steps the film has shown by now: those with time of their own in it.
+		state.filmed = new Set(tl.segments.filter((s) => s.kind === 'step' && s.start <= t).map((s) => s.step));
 		state.now = happening(state);
 		return state;
 	}
@@ -203,6 +208,9 @@
 				}
 			}
 			root.dataset.surfaces = state.card ? '0' : String(state.show.length);
+			// What shows, for a stylesheet: a phone is narrow, and what stands
+			// beside it has the room it leaves.
+			root.dataset.show = state.card ? '' : state.show.join(' ');
 			(scenes.card || {}).render?.(root.querySelector('.card'), state);
 			(scenes.subtitle || {}).render?.(root.querySelector('.subtitle'), state);
 			(scenes.ticker || {}).render?.(root.querySelector('.ticker'), state);

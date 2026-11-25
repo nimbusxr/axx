@@ -258,7 +258,9 @@ the skills instead: `axx skills install`.
   plays, what of it shows, a held response) is worked out once, in the stage (`happening`, `state.now`), for every scene:
   a rule of the film goes there, never into one scene. A surface is a scene a cue shows (`[show ...]`): the pack's, a
   project's (`packs.demo.surfaces`) or a module's, which is how another pack adds scenes, styles and directions
-  (`modules.go`, `demo.RegisterModule`). The terminal (`modules/terminal`) is a module registered as another pack's is,
+  (`modules.go`, `demo.RegisterModule`). The steps of apps are one pack's on a phone and
+  on a desktop (app-core): a step is on the screen that is filmed (`surfaceOf`), and what a step did with the camera off
+  stays out of the picture (`state.filmed`). The terminal (`modules/terminal`) is a module registered as another pack's is,
   and the docs' example of one: keep it built on what the guide "Build a demo's scenes" lists and nothing else. Its
   browser tests run in CI's web job.
 - `packs/internal/memcheck`: axx's C, C++ and Objective-C under a memory checker, for axx's own

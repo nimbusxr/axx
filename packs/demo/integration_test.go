@@ -12,6 +12,8 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/nimbusxr/axx/core"
+
 	"github.com/nimbusxr/axx/packs/internal/video"
 )
 
@@ -594,5 +596,32 @@ func TestAResponseIsHeldBeforeAnAudience(t *testing.T) {
 	}
 	if now, ok := got.([]any); !ok || len(now) != 3 || !strings.Contains(now[0].(string), "select parcels.holds") || now[1] != "" || strings.Contains(now[2].(string), "1 row") {
 		t.Errorf("at the selection's end, before the presenter goes on: %v", got)
+	}
+}
+
+// What a step did with the camera off ([cut]) stays out of the picture: the
+// audience never saw it.
+func TestWhatACutStepDidIsNotShown(t *testing.T) {
+	script, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), Known{})
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	// A step under [cut] seeds the database, and the first step on camera
+	// sends nothing.
+	take := holdTake()
+	take.Steps[1].Exchanges = append(take.Steps[1].Exchanges, core.Exchange{Peer: "parcels-db", Kind: "database", Sent: &core.Message{Title: "seed parcels.holds: 1 row"}})
+	take.Steps[2].Exchanges = nil
+	tl := Cut(take, script, DefaultPace)
+	s, err := openStudio(context.Background(), t.TempDir(), Settings{}, &Staged{Take: take, Timeline: tl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	put := tl.Segments[1]
+	if put.Kind != "step" || put.Step != 2 {
+		t.Fatalf("the first step on camera: %+v", put)
+	}
+	if got := shown(t, s, put.Start+0.5*(put.End-put.Start)); got["sent"] != "" || got["seen"] != "" || strings.Contains(got["diagram"], "seed") {
+		t.Errorf("at the first step on camera, of the step before it: %v", got)
 	}
 }

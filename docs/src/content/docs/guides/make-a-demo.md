@@ -102,6 +102,14 @@ The picture follows the step:
 
 Without a diagram of your own, the diagram is of what the scenario talked to: a box for each service, database, topic and mock, and what the scenario sends coming in from the edge of the picture.
 
+What a step does while the camera is off (`[cut]`) stays out of the picture too: a database a step seeded says nothing in its box.
+
+### On a phone
+
+A scenario that drives a phone's app is filmed the same way: the film shows the phone at each of its steps, as the simulator or the emulator showed it. Beside a diagram (`[show phone + diagram]`), the phone takes the width it needs and the diagram has the rest.
+
+What the phone's camera sees is the scenario's too. A step gives it a picture, a video or a 3D scene, and other steps carry the phone through the scene, so a demo can show a courier walking up to a door and measuring a parcel with the camera. The parcels example has two such demos for each of iOS and Android (`features/demos/deliver-on-*.demo.feature` and `at-the-door-*.demo.feature`).
+
 ## Draw your system
 
 A demo is better on a map of your system. Write the map as a [Mermaid](https://mermaid.js.org/syntax/flowchart.html) flowchart (or a sequence diagram, [below](#a-sequence-diagram)), the same file a README or a docs site draws, and name it in `axx.yaml`.

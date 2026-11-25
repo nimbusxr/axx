@@ -147,7 +147,11 @@ func pictureOf(sc *core.Scenario) error {
 		return nil
 	}
 	cams := camerasOf(s)
-	if len(cams) > 0 && surfaceOf(st.Pack) != "" {
+	var filmed []string
+	for _, c := range cams {
+		filmed = append(filmed, c.surface)
+	}
+	if len(cams) > 0 && surfaceOf(st.Pack, filmed) != "" {
 		release := sc.Hold()
 		settle(cams)
 		release()

@@ -301,7 +301,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			dur = stepTime(st, pace)
 			// A step on a screen lasts as long as it took, to where its
 			// screen last changed: the film plays what happened.
-			if on := onScreen(shows); len(on) > 0 && surfaceOf(st.Pack) != "" && st.Status == "passed" {
+			if on := onScreen(shows); len(on) > 0 && surfaceOf(st.Pack, filmedOf(take)) != "" && st.Status == "passed" {
 				// What the screen showed until the next step began is this
 				// step's doing.
 				until := st.End
@@ -431,7 +431,7 @@ func surfaces(show []string, take *Take, step int) []string {
 		return slices.Clone(show)
 	}
 	if step >= 0 && step < len(take.Steps) {
-		if s := surfaceOf(take.Steps[step].Pack); s != "" {
+		if s := surfaceOf(take.Steps[step].Pack, filmedOf(take)); s != "" {
 			return []string{s}
 		}
 	}
@@ -439,12 +439,31 @@ func surfaces(show []string, take *Take, step int) []string {
 }
 
 // surfaceOf is the screen a pack's steps happen on, or "" for a pack with
-// none.
-func surfaceOf(pack string) string {
+// none. The steps of apps (app-core) are the same on a phone and on a
+// desktop: they happen on the one that is filmed, a phone before a desktop.
+func surfaceOf(pack string, filmed []string) string {
 	for prefix, surface := range screens {
 		if pack == prefix || strings.HasPrefix(pack, prefix+"-") {
 			return surface
 		}
 	}
+	if pack == "app" || strings.HasPrefix(pack, "app-") {
+		for _, surface := range []string{"phone", "desktop"} {
+			if slices.Contains(filmed, surface) {
+				return surface
+			}
+		}
+	}
 	return ""
+}
+
+// filmedOf are the screens a take has pictures of.
+func filmedOf(take *Take) []string {
+	var out []string
+	for _, shot := range take.Footage {
+		if !slices.Contains(out, shot.Surface) {
+			out = append(out, shot.Surface)
+		}
+	}
+	return out
 }

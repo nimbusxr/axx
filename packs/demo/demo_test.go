@@ -449,3 +449,43 @@ func TestShowNamesASurface(t *testing.T) {
 		}
 	}
 }
+
+// The steps of apps are the same on a phone and on a desktop (app-core): they
+// happen on the screen that is filmed, so a film shows the phone at them with
+// nothing said, and they last as long as they took on it.
+func TestAnAppsStepsAreOnTheScreenThatIsFilmed(t *testing.T) {
+	for _, c := range []struct {
+		pack   string
+		filmed []string
+		want   string
+	}{
+		{"app-core", []string{"phone"}, "phone"},
+		{"app-core", []string{"desktop"}, "desktop"},
+		{"app-core", []string{"browser", "desktop", "phone"}, "phone"},
+		{"app-core", nil, ""},
+		{"mobile-ios", nil, "phone"},
+		{"web-core", []string{"phone"}, "browser"},
+		{"rest", []string{"phone"}, ""},
+	} {
+		if got := surfaceOf(c.pack, c.filmed); got != c.want {
+			t.Errorf("surfaceOf(%q, %v) = %q, want %q", c.pack, c.filmed, got, c.want)
+		}
+	}
+	take := &Take{
+		Version: TakeVersion, Line: 3, Passed: true,
+		Steps: []TakeStep{
+			{Keyword: "When", Text: `the "Sign in" button is tapped in the courier app`, Line: 4, Pack: "app-core", Status: "passed", Start: 1, End: 1.2},
+			{Keyword: "Then", Text: `the courier app shows "Hello"`, Line: 5, Pack: "app-core", Status: "passed", Start: 6, End: 6.1},
+		},
+		Footage: []Shot{{Surface: "phone", File: "a.jpg", At: 0.5}, {Surface: "phone", File: "b.jpg", At: 4.5}},
+	}
+	tl := Cut(take, nil, DefaultPace)
+	first := tl.Segments[0]
+	if len(first.Show) != 1 || first.Show[0] != "phone" {
+		t.Errorf("the step shows %v, want the phone", first.Show)
+	}
+	// The tap's doing showed until the next step began: the film plays it.
+	if first.From != 1 || first.To != 4.5 || first.End-first.Start != 3.5 {
+		t.Errorf("the tap plays from %v to %v, in %v seconds; want 1 to 4.5, in 3.5", first.From, first.To, first.End-first.Start)
+	}
+}

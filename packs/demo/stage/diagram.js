@@ -531,6 +531,8 @@
 				const current = state.playing && i === state.stepIndex;
 				for (const x of take.steps[i].exchanges || []) {
 					met[x.peer] = true;
+					// What a step did with the camera off stays out of the boxes.
+					if (!state.filmed.has(i)) continue;
 					if (!current && x.seen && (x !== kept || answered)) lastSaid[x.peer] = { text: x.seen.title, kind: 'ok' };
 					else if (!current && x.sent && !x.from) lastSaid[x.peer] = { text: x.sent.title, kind: 'coord' };
 				}
