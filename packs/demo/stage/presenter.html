@@ -48,7 +48,7 @@
 	const say = (word) => fetch('control/' + word, { method: 'POST' });
 	const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	const states = {
-		live: (l) => l.failure ? 'A step failed. The audience sees nothing of it yet.' : l.waiting ? 'Waiting for you.' : 'Running.',
+		live: (l) => l.failure ? 'A step failed. The audience sees nothing of it yet.' : l.waiting ? 'Waiting for you.' : l.row === 0 && l.entered <= 1 ? 'Getting ready: what the demo sets up is running (a phone starts here). Forward works once it is done.' : 'Running.',
 		recorded: () => 'Playing the last take. The stage says "recorded".',
 		restarting: () => 'Running again from the top. The stage says "One moment".',
 		done: () => 'The scenario passed. Back and forward show it again.',

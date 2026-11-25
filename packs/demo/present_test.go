@@ -342,3 +342,74 @@ Feature: Prices
 		t.Errorf("the introduction over it: %+v, beats %v", tl.Subtitles, tl.Beats)
 	}
 }
+
+// What a demo sets up runs before the presenter is asked anything: a card and
+// an introduction before the camera is on wait where it comes on, so that a
+// phone is up before the first word. And a step's time begins when the
+// presenter lets it go on: the wait before it is no part of it.
+func TestAShowSetsUpBeforeItsFirstBeat(t *testing.T) {
+	src := `# demo: [card 3s] Prices
+Feature: Prices
+
+  # demo: This is how a price is asked.
+  Scenario: A parcel
+    # demo: [cut]
+    Given the prices app is launched
+    # demo: [action] It costs 490 cents.
+    When the price is asked
+`
+	script, err := ParseScript("prices.demo.feature", []byte(src), Known{})
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	sh := newShow(script, Settings{}, nil, "prices")
+	sc := core.NewScenario(context.Background(), core.ScenarioInfo{URI: "prices.demo.feature", Line: 5, Name: "A parcel"}, core.NewSuite(core.SuiteOptions{}), nil)
+	steps := []core.StepProgress{
+		{StepInfo: core.StepInfo{Keyword: "Given", Text: "the prices app is launched", Line: 7, Pack: "app-core"}},
+		{StepInfo: core.StepInfo{Keyword: "When", Text: "the price is asked", Line: 9, Pack: "app-core"}},
+	}
+	sc.SetProgress(steps)
+	done := make(chan bool, 1)
+	go func() {
+		sh.start()
+		for i := range steps {
+			sc.SetStep(&steps[i].StepInfo)
+			sc.UpdateProgress(i, func(p *core.StepProgress) { p.Status, p.Started = "running", time.Now() })
+			if !sh.arrive(sc) {
+				done <- false
+				return
+			}
+			sh.update(sc, nil)
+			sh.gate(sc)
+			beganNow(sc, steps[i].Line)
+			sc.UpdateProgress(i, func(p *core.StepProgress) { p.Ended, p.Status = time.Now(), "passed" })
+			sh.update(sc, nil)
+		}
+		sh.ended(true)
+		done <- true
+	}()
+	// The launch ran with nobody asked, and the run waits at the introduction.
+	st := until(t, sh, "waiting where the camera comes on", func(l *Live) bool { return l.Waiting })
+	if st.Live.Entered != 1 || st.Take == nil || len(st.Take.Steps) != 2 || st.Take.Steps[0].Status != "passed" {
+		t.Fatalf("before the presenter's first word: %+v, %+v", st.Live, st.Take)
+	}
+	time.Sleep(60 * time.Millisecond) // the presenter takes their time
+	sh.say("forward")
+	// The introduction, over the picture the camera comes on to: the launched app.
+	st = until(t, sh, "waiting after the introduction", func(l *Live) bool { return l.Waiting && l.Entered == 2 })
+	last := st.Timeline.Segments[len(st.Timeline.Segments)-1]
+	if last.Kind != "hold" || last.Step != 0 || len(st.Timeline.Subtitles) != 1 || st.Timeline.Subtitles[0].Text != "This is how a price is asked." {
+		t.Errorf("the introduction: %+v, %+v", last, st.Timeline.Subtitles)
+	}
+	time.Sleep(60 * time.Millisecond)
+	sh.say("forward")
+	st = until(t, sh, "done", func(l *Live) bool { return l.Mode == "done" })
+	<-done
+	// The step the presenter was asked about began when they went on: the
+	// time it waited is not in the take, nor in the film of it.
+	asked := st.Take.Steps[1]
+	if asked.End-asked.Start > 0.05 {
+		t.Errorf("the step lasted %.3f seconds in the take: the presenter's wait is in it", asked.End-asked.Start)
+	}
+	forget(sc)
+}

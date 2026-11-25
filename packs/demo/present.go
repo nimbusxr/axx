@@ -204,6 +204,66 @@ func (sh *show) beats() []beat {
 	return out
 }
 
+// cameraOn is the line of the first of a scenario's steps the camera is on,
+// or 0 when it is on from the first: a cue's [cut] stops it before the step
+// the cue belongs to, and [action] starts it. The caller holds mu.
+func (sh *show) cameraOn(steps []core.StepProgress) int {
+	if sh.script == nil || len(steps) == 0 {
+		return 0
+	}
+	lines := map[int]bool{}
+	for _, p := range steps {
+		lines[p.Line] = true
+	}
+	on := true
+	for _, p := range steps {
+		for _, c := range sh.script.Cues {
+			// The cues of this step: those whose anchor it is the first step
+			// at or below, of this scenario's own.
+			if c.Anchor == 0 || c.Anchor > p.Line || !lines[c.Anchor] && c.Anchor <= sh.script.FeatureLine {
+				continue
+			}
+			first := 0
+			for _, q := range steps {
+				if q.Line >= c.Anchor {
+					first = q.Line
+					break
+				}
+			}
+			if first != p.Line || !lines[c.Anchor] && !sh.introduces(c.Anchor) {
+				continue
+			}
+			for _, d := range c.Directions {
+				switch d.Name {
+				case "cut":
+					on = false
+				case "action":
+					on = true
+				}
+			}
+		}
+		if on {
+			if p.Line == steps[0].Line {
+				return 0
+			}
+			return p.Line
+		}
+	}
+	return 0
+}
+
+// introduces reports whether a line is the line of the scenario the show is
+// in: a cue above it introduces the scenario. The caller holds mu.
+func (sh *show) introduces(line int) bool {
+	for i := range sh.script.Scenarios {
+		sc := &sh.script.Scenarios[i]
+		if sc.Line == line && (sc.Line == sh.line || slices.Contains(sc.Rows, sh.line)) {
+			return true
+		}
+	}
+	return false
+}
+
 // fallbackOf is the last good take of the scenario the show is in, or nil.
 // The caller holds mu.
 func (sh *show) fallbackOf() (*Take, int) {
@@ -312,16 +372,20 @@ func (sh *show) gate(sc *core.Scenario) {
 		return // the show plays takes: the run goes on unseen
 	}
 	if sh.gates == nil {
-		// Each beat belongs to the first step at or below its anchor.
+		// Each beat belongs to the first step at or below its anchor. What
+		// comes before the camera is on (a card, an introduction) waits where
+		// it comes on: what the demo sets up runs first, with nobody asked, so
+		// that a phone is up before the presenter says a word.
 		sh.gates = map[int]int{}
 		steps := sc.Progress()
+		on := sh.cameraOn(steps)
 		for _, b := range sh.beats() {
 			if b.anchor == 0 {
 				continue
 			}
 			for _, p := range steps {
 				if p.Line >= b.anchor {
-					sh.gates[p.Line]++
+					sh.gates[max(p.Line, on)]++
 					break
 				}
 			}

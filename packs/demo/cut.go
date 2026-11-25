@@ -147,6 +147,36 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			cues[i] = append(cues[i], c)
 		}
 	}
+	// Where the camera first comes on, and what the picture is of there:
+	// before an audience, an introduction is read over that picture.
+	opening := struct {
+		step          int
+		show, diagram []string
+		as            string
+	}{step: -1}
+	for i, on := 0, true; i < len(take.Steps) && opening.step < 0; i++ {
+		for _, c := range cues[i] {
+			for _, d := range c.Directions {
+				switch d.Name {
+				case "cut":
+					on = false
+				case "action":
+					on = true
+				case "show":
+					if opening.show = showSurfaces(d.Args); len(opening.show) == 1 && opening.show[0] == "auto" {
+						opening.show = nil
+					}
+				case "diagram":
+					opening.diagram, opening.as = showSurfaces(d.Args), ""
+				case "as":
+					opening.as = d.Args[0]
+				}
+			}
+		}
+		if on {
+			opening.step = i
+		}
+	}
 	t, camera := 0.0, true
 	var show []string    // what a direction says to show; nil follows the steps
 	var diagram []string // the diagrams a cue went to
@@ -273,11 +303,19 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 				// Before an audience a subtitle shows before its steps ran, over
 				// the picture as it stands. Where that is a card, or nothing yet
 				// (a demo's introduction), it is the picture its step begins on.
-				at := 0.0
+				seg := Segment{Kind: "hold", Start: t, End: t + 0.1, Step: last, Show: surfaces(show, take, last), Diagrams: slices.Clone(diagram), As: as}
 				if last >= 0 {
-					at = take.Steps[last].End
+					seg.From = shownUntil(take, last, true)
 				}
-				tl.Segments = append(tl.Segments, Segment{Kind: "hold", Start: t, End: t + 0.1, Step: last, From: at, To: at, Show: surfaces(show, take, last), Diagrams: slices.Clone(diagram), As: as})
+				// Where the camera has not come on yet and the steps before it
+				// ran (a show runs what a demo sets up before its first beat),
+				// the picture is the one the camera comes on to.
+				if k := opening.step; k > last && k > 0 && take.Steps[k-1].Status == "passed" {
+					seg.Step, seg.From = k-1, shownUntil(take, k-1, true)
+					seg.Show, seg.Diagrams, seg.As = surfaces(opening.show, take, k), slices.Clone(opening.diagram), opening.as
+				}
+				seg.To = seg.From
+				tl.Segments = append(tl.Segments, seg)
 				t += 0.1
 			}
 		}
@@ -304,11 +342,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			if on := onScreen(shows); len(on) > 0 && surfaceOf(st.Pack, filmedOf(take)) != "" && st.Status == "passed" {
 				// What the screen showed until the next step began is this
 				// step's doing.
-				until := st.End
-				if i+1 < len(take.Steps) && take.Steps[i+1].Start > until {
-					until = take.Steps[i+1].Start
-				}
-				to = lastChange(take, on, st.Start, until)
+				to = lastChange(take, on, st.Start, shownUntil(take, i, pace.Live))
 				dur = max(to-from, pace.Screen)
 			}
 			dur /= speed
@@ -384,6 +418,19 @@ func stepTime(st TakeStep, pace Pace) float64 {
 		return pace.Meet
 	}
 	return pace.Check
+}
+
+// shownUntil is how long a screen showed what a step did: until the camera had
+// its picture, and in a film until the next step began. Before an audience
+// the next step begins when the presenter says, and what a screen did while
+// it waited (a clock, a cursor) is no part of the step.
+func shownUntil(take *Take, i int, live bool) float64 {
+	st := take.Steps[i]
+	until := max(st.End, st.Settled)
+	if !live && i+1 < len(take.Steps) && take.Steps[i+1].Start > until {
+		until = take.Steps[i+1].Start
+	}
+	return until
 }
 
 // onScreen are the screens among the surfaces a step shows.

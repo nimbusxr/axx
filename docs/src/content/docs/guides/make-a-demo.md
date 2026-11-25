@@ -218,7 +218,7 @@ If a line takes longer to say than its subtitle shows, give that step more time 
 axx demo --present features/demos/register-a-parcel.demo.feature
 ```
 
-1. Axx opens a page in your browser. Put that page on the screen the audience sees. It shows the demo's first card while your services start.
+1. Axx opens a page in your browser. Put that page on the screen the audience sees. It shows the demo's first card while your services start and what the demo sets up runs: the steps under `[cut]` at its start, such as launching a phone's app. The presenter's page says "Getting ready" until that is done, and "Waiting for you" after.
 2. Axx prints the address of a second page, the presenter's page. Keep it on your own screen. It lists the subtitles and shows where you are.
 3. Press the right arrow, or the forward button of a clicker. The next subtitle shows and its steps run against the real system, in front of the audience.
 4. Press the left arrow to go back. Back shows again what was shown. It does not undo anything in the system.

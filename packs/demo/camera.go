@@ -75,6 +75,59 @@ func settle(cams []*camera) {
 	}
 }
 
+// settled keeps, for each scenario that is filmed, when the camera's wait
+// after each of its steps was over, by the step's line; began, when a step
+// of a show went on, once the presenter said so.
+var settled = struct {
+	mu    sync.Mutex
+	at    map[*core.Scenario]map[int]float64
+	began map[*core.Scenario]map[int]float64
+}{at: map[*core.Scenario]map[int]float64{}, began: map[*core.Scenario]map[int]float64{}}
+
+// beganNow notes that the running step goes on now: the time it waited for
+// the presenter is over.
+func beganNow(sc *core.Scenario, line int) {
+	settled.mu.Lock()
+	defer settled.mu.Unlock()
+	if settled.began[sc] == nil {
+		settled.began[sc] = map[int]float64{}
+	}
+	settled.began[sc][line] = time.Since(sc.Started()).Seconds()
+}
+
+// beganAt is when a step of a show went on, or 0.
+func beganAt(sc *core.Scenario, line int) float64 {
+	settled.mu.Lock()
+	defer settled.mu.Unlock()
+	return settled.began[sc][line]
+}
+
+// settledNow notes that the camera has the picture of what the running step
+// did.
+func settledNow(sc *core.Scenario, line int) {
+	settled.mu.Lock()
+	defer settled.mu.Unlock()
+	if settled.at[sc] == nil {
+		settled.at[sc] = map[int]float64{}
+	}
+	settled.at[sc][line] = time.Since(sc.Started()).Seconds()
+}
+
+// settledAt is when the camera had the picture of what a step did, or 0.
+func settledAt(sc *core.Scenario, line int) float64 {
+	settled.mu.Lock()
+	defer settled.mu.Unlock()
+	return settled.at[sc][line]
+}
+
+// forget drops what was kept of a scenario that is over.
+func forget(sc *core.Scenario) {
+	settled.mu.Lock()
+	defer settled.mu.Unlock()
+	delete(settled.at, sc)
+	delete(settled.began, sc)
+}
+
 // film starts a camera on a scenario's screen. Its pictures go into the
 // demo's folder, beside the take.
 func film(sc *core.Scenario, dir, stamp, surface string, look recording.Look) *camera {

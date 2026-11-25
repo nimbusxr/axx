@@ -155,6 +155,7 @@ func pictureOf(sc *core.Scenario) error {
 		release := sc.Hold()
 		settle(cams)
 		release()
+		settledNow(sc, st.Line)
 	}
 	if s.show != nil {
 		s.show.update(sc, cams)
@@ -170,6 +171,9 @@ func gate(sc *core.Scenario) error {
 		}
 		s.show.update(sc, camerasOf(s))
 		s.show.gate(sc)
+		if st := sc.Step(); st != nil {
+			beganNow(sc, st.Line)
+		}
 	}
 	return nil
 }
@@ -192,6 +196,7 @@ func keepTake(sc *core.Scenario) error {
 		return nil
 	}
 	take := takeOf(sc)
+	forget(sc)
 	for _, c := range s.cameras {
 		take.Footage = append(take.Footage, c.stop()...)
 	}

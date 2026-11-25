@@ -70,6 +70,10 @@ type TakeStep struct {
 	// Start and End are when it ran, in seconds from the scenario's start.
 	Start float64 `json:"start"`
 	End   float64 `json:"end"`
+	// Settled is when the camera had the picture of what it did on a
+	// screen, after it ended: what the screen showed until then is the
+	// step's doing. 0 for a step on no screen.
+	Settled float64 `json:"settled,omitempty"`
 	// Exchanges are what it sent and saw.
 	Exchanges []core.Exchange `json:"exchanges,omitempty"`
 }
@@ -95,6 +99,13 @@ func takeOf(sc *core.Scenario) *Take {
 			if !sp.Ended.IsZero() {
 				st.End = sp.Ended.Sub(t.At).Seconds()
 			}
+		}
+		st.Settled = settledAt(sc, sp.Line)
+		// A step of a show waits for the presenter before it runs: its time
+		// begins when it goes on.
+		if began := beganAt(sc, sp.Line); began > st.Start {
+			st.Start = began
+			st.End = max(st.End, st.Start)
 		}
 		if sp.Status != "passed" {
 			t.Passed = false

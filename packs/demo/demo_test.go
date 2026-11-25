@@ -489,3 +489,27 @@ func TestAnAppsStepsAreOnTheScreenThatIsFilmed(t *testing.T) {
 		t.Errorf("the tap plays from %v to %v, in %v seconds; want 1 to 4.5, in 3.5", first.From, first.To, first.End-first.Start)
 	}
 }
+
+// What a screen showed until the camera had a step's picture is the step's
+// doing. In a film that goes on to where the next step began; before an
+// audience the next step begins when the presenter says, and what the screen
+// did while it waited is no part of the step.
+func TestAScreenStepLastsUntilItsPicture(t *testing.T) {
+	take := &Take{
+		Version: TakeVersion, Line: 3, Passed: true,
+		Steps: []TakeStep{
+			{Keyword: "When", Text: `the "Sign in" button is tapped in the courier app`, Line: 4, Pack: "app-core", Status: "passed", Start: 1, End: 1.2, Settled: 2.4},
+			{Keyword: "Then", Text: `the courier app shows "Hello"`, Line: 5, Pack: "app-core", Status: "passed", Start: 90, End: 90.1, Settled: 90.4},
+		},
+		// The tap's doing, and a clock that ticked while the presenter waited.
+		Footage: []Shot{{Surface: "phone", File: "a.jpg", At: 0.5}, {Surface: "phone", File: "b.jpg", At: 2.2}, {Surface: "phone", File: "c.jpg", At: 60}},
+	}
+	live := DefaultPace
+	live.Live, live.Entered = true, 1<<30
+	if tap := Cut(take, nil, live).Segments[0]; tap.From != 1 || tap.To != 2.2 {
+		t.Errorf("before an audience the tap plays from %v to %v, want 1 to 2.2", tap.From, tap.To)
+	}
+	if tap := Cut(take, nil, DefaultPace).Segments[0]; tap.From != 1 || tap.To != 60 {
+		t.Errorf("in a film the tap plays from %v to %v, want 1 to 60", tap.From, tap.To)
+	}
+}
