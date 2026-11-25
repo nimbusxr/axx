@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
+	"github.com/nimbusxr/axx/internal/cachedir"
 	"github.com/nimbusxr/axx/internal/config"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/filelock"
@@ -36,7 +37,7 @@ const (
 
 // installedAxxCommands stay on the installed axx: they are about it, or about
 // moving the project's version, or are asked for at every Tab of a shell.
-var installedAxxCommands = []string{"upgrade", "install", "version", "completion", "__complete", "__completeNoDesc"}
+var installedAxxCommands = []string{"upgrade", "install", "version", "cache", "completion", "__complete", "__completeNoDesc"}
 
 // peekedArgs is what deciding on a version needs from a command line, before
 // anything parses it: a newer version can have flags and commands this axx
@@ -121,6 +122,7 @@ func (a *App) useProjectVersion(ctx context.Context, args []string) error {
 		}
 		return err
 	}
+	a.tidyCache()
 	return handOver(bin)
 }
 
@@ -192,6 +194,7 @@ func (a *App) releaseBinary(ctx context.Context, v string) (string, error) {
 	}
 	bin := filepath.Join(dir, v, selfupdate.BinaryName(runtime.GOOS))
 	if isRegularFile(bin) {
+		cachedir.Use(filepath.Dir(bin))
 		return bin, nil
 	}
 	switch a.Env(envAutoDownload) {
@@ -251,6 +254,7 @@ func (a *App) downloadRelease(ctx context.Context, env *upgradeEnv, v, announce 
 	if err := selfupdate.Move(fetched.Binary, bin); err != nil {
 		return "", err
 	}
+	cachedir.Use(versionDir)
 	return bin, nil
 }
 

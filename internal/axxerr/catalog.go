@@ -152,7 +152,7 @@ func init() {
 		"Write `--set path.to.key=value`, like `--set run.workers=1` or `--set packs.<pack>.<key>=value`. The value is read as YAML, so `true` and `1` are a boolean and a number.")
 
 	add("AXX-E0106", u, "A hook in axx.yaml names no command",
-		"A hook of axx.yaml's `hooks.commands` names, in `before` or `after`, a command axx does not have, one that only groups others (`fixtures`), or one that has no hooks because it manages axx and its packs (`pack`, `init`, `upgrade`, `install`, `version`) or only lays out feature files (`fmt`); or its `command` runs nothing. Every command but `axx doctor`, which lists it, stops.",
+		"A hook of axx.yaml's `hooks.commands` names, in `before` or `after`, a command axx does not have, one that only groups others (`fixtures`), or one that has no hooks because it manages axx and its packs (`pack`, `init`, `upgrade`, `install`, `version`, `cache`) or only lays out feature files (`fmt`); or its `command` runs nothing. Every command but `axx doctor`, which lists it, stops.",
 		"Name the command by its words after axx, as `axx --help` lists them: `before: fixtures generate`.")
 	add("AXX-E0200", u, "Feature file does not parse",
 		"A `.feature` file has a Gherkin syntax error.",
@@ -268,6 +268,9 @@ func init() {
 	add("AXX-E0418", u, "A service started before it was told",
 		"A service's `command`, `env` or `cleanup` names a property `${sys:name}` that another service told axx, but it started before that one had, so it started without the value. A service's `command`, `env` and `cleanup` are filled in as it starts, with what the services it depends on told.",
 		"Add the service that tells it to the service's `dependsOn`, as the message says. A service's own command cannot read what it tells: its readiness check, the services that depend on it and the scenarios can.")
+	add("AXX-E0419", env, "The project is in use",
+		"`axx clean` removes what runs left in a project's `.axx` folder, and the project is in use: `axx up` keeps its services running, or a run of it is going on. Both write there, so nothing was removed.",
+		"Stop the services with `axx down`, or wait for the run to end, then run `axx clean` again. `axx clean --dry-run` says what it would remove, whatever is running.")
 	add("AXX-E0500", env, "The axx host refused the run",
 		"The axx host serving the project (`.axx/host.json`) did not take the run: it did not give the host's token, it speaks another version of the host's protocol, or it loaded a configuration outside the project the host serves. Or `.axx/host.json` cannot be read.",
 		"Run the same version of axx as the host, in the project it serves, as the user it runs as. To start the services without the host, stop it.")

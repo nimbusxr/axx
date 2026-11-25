@@ -136,7 +136,7 @@ What it does:
 
 A restored cache can never give a run the wrong build. Axx finds a build by what it is made from: the Axx release, the packs and their versions, and the code of the project's own packs. When no build fits, it prepares one.
 
-The cache grows a little each time it is saved under a new key, because it then holds the earlier builds too. To start again from an empty cache, change the key's first word (`axx-` to `axx2-`, in `key` and in `restore-keys`).
+The cache grows a little each time it is saved under a new key, because it then holds the earlier builds too. Axx removes the builds that nothing used for 30 days by itself, as of the day the cache was saved, so a restored cache loses nothing the job still uses ([Clean up after runs](/guides/clean-up/#what-axx-removes-by-itself)). To start again from an empty cache, change the key's first word (`axx-` to `axx2-`, in `key` and in `restore-keys`).
 
 :::note
 Axx 0.8.0 and earlier find a build by the time the `axx` program was installed, among other things, so a fresh runner prepares again even with the cache restored. Upgrade Axx first.

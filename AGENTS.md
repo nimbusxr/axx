@@ -362,6 +362,13 @@ the skills instead: `axx skills install`.
   custom pack's Go files hold), and of nothing of the machine: no time of a file, no place of a folder, nothing of the copy of axx
   that runs. Keep it so: a CI runner installs axx and checks the project out afresh for each run, and must find the build its
   cache kept (the docs' "Keep Axx's cache", whose step `axx init`'s workflow has).
+- `internal/cachedir`: axx's cache on a machine (`axx cache`, `axx cache clean`). The binaries of axx in it (a
+  build with a project's packs, a release a project names) are marked each time they are used (`cachedir.Use`,
+  under the binary's lock), and the ones nothing used for 30 days are removed: by axx itself, at most once a day,
+  before it hands over to one (`tidyCache`), judged as of its last look so that a cache a CI job restored loses
+  nothing. Keep it so: axx removes by itself only what it makes again in seconds, and everything else in the cache
+  only when a person asks. `axx clean` (`internal/cli/clean.go`) is the project's side: what runs left in `.axx`
+  and the reporters' files, but for what says what is running (`keptByClean`), and never in a project in use.
 - `internal/packref`: what axx knows of every pack it publishes, whether a project uses it or not
   (what it reaches, its settings, parameter types and steps): data `go generate` writes from the
   packs (`packs.json`), built into the core, so `axx pack list|show`, `axx steps` and the MCP
