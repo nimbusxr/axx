@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.2](https://github.com/nimbusxr/axx/compare/v0.8.1...v0.8.2) (2026-11-25)
+
+
+### Features
+
+* **core:** a pack says what a step sent and saw, a pack's command can run scenarios, and a hook can have a failed step run once more ([9942245](https://github.com/nimbusxr/axx/commit/9942245c944b96e7c04440129ef1a80c3b896024))
+* **demo:** the demo pack (experimental): a scenario becomes a demo video with subtitles, or a live presentation ([9942245](https://github.com/nimbusxr/axx/commit/9942245c944b96e7c04440129ef1a80c3b896024))
+* **lint:** a demo's feature file is exempt from the one-behavior rule ([9942245](https://github.com/nimbusxr/axx/commit/9942245c944b96e7c04440129ef1a80c3b896024))
+* the rest, mock, sql, mongo, kafka, cli and files packs say what their steps sent and saw ([9942245](https://github.com/nimbusxr/axx/commit/9942245c944b96e7c04440129ef1a80c3b896024))
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#437](https://github.com/nimbusxr/axx/issues/437)) ([7bf4ea7](https://github.com/nimbusxr/axx/commit/7bf4ea7b12183af7d4e95f0e5e2a1110aedf83b0))
+* **mobile-ios:** a new simulator's keyboard does not show its tip about sliding to type ([9942245](https://github.com/nimbusxr/axx/commit/9942245c944b96e7c04440129ef1a80c3b896024))
+
 ## [0.8.1](https://github.com/nimbusxr/axx/compare/v0.8.0...v0.8.1) (2026-11-23)
 
 
