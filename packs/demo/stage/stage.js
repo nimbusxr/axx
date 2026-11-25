@@ -169,9 +169,12 @@
 	// what the audience sees is a step that ran.
 	S.scene('ticker', {
 		render(el, state) {
+			// Only a step the film showed: while the picture holds on what the
+			// camera was off for (an introduction, say), there is no step to name.
 			const st = state.step;
-			el.hidden = !st || !!state.card || state.theme.steps === false;
-			if (!st) return;
+			const shown = st && state.timeline.segments.some((s) => s.kind === 'step' && s.step === state.stepIndex);
+			el.hidden = !shown || !!state.card || state.theme.steps === false;
+			if (!shown) return;
 			const over = !state.playing || state.progress >= 1;
 			const sign = !over ? '›' : st.status === 'passed' ? '✓' : '✕';
 			const cls = !over ? 'running' : st.status === 'passed' ? 'passed' : 'failed';

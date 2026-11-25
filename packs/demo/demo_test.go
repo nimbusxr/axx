@@ -362,3 +362,58 @@ func TestCuesOfTheDiagram(t *testing.T) {
 		t.Errorf("the third step keeps the diagram and lights nothing: %+v", s)
 	}
 }
+
+// A film is cut again after its file was edited: a take has the lines its
+// steps had when it ran, and a cue still belongs to the step it is written
+// above, though lines were added over it. A file whose scenario has other
+// steps than the take is not the take's any more.
+func TestCutAfterTheFilesLinesMoved(t *testing.T) {
+	take := &Take{Version: TakeVersion, Scenario: "S", Line: 3, Passed: true, Steps: []TakeStep{
+		{Keyword: "Given", Text: "the service", Line: 4, Status: "passed"},
+		{Keyword: "When", Text: "the request is executed", Line: 5, Status: "passed"},
+		{Keyword: "Then", Text: "the answer is checked", Line: 6, Status: "passed"},
+	}}
+	// The file as it is now: an introduction and a cue were added above.
+	src := `Feature: F
+
+  # demo: An introduction, two lines long,
+  #       which moved everything below it.
+  Scenario: S
+    # demo: [cut]
+    Given the service
+    # demo: [action] The request.
+    When the request is executed
+    # demo: The check.
+    Then the answer is checked
+`
+	script, err := ParseScript("f.demo.feature", []byte(src), Known{})
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	lines, _, ok := script.Placed(take, 0)
+	if !ok || len(lines) != 3 || lines[0] != 7 || lines[2] != 11 {
+		t.Fatalf("the take's steps in the file as it is: %v, %v", lines, ok)
+	}
+	tl := Cut(take, script, DefaultPace)
+	var steps []int
+	for _, seg := range tl.Segments {
+		if seg.Kind == "step" {
+			steps = append(steps, seg.Step)
+		}
+	}
+	if len(steps) != 2 || steps[0] != 1 || steps[1] != 2 {
+		t.Errorf("the steps on camera: %v, want the request and the check: %+v", steps, tl.Segments)
+	}
+	if len(tl.Subtitles) != 3 || tl.Subtitles[1].Text != "The request." || tl.Subtitles[1].Start != tl.Segments[1].Start {
+		t.Errorf("the request's subtitle starts with its step: %+v\n%+v", tl.Subtitles, tl.Segments)
+	}
+	// The introduction shows before anything happens: the picture holds.
+	if first := tl.Segments[0]; first.Kind != "hold" || first.Step != 0 || tl.Subtitles[0].End != first.End {
+		t.Errorf("the introduction: %+v, %+v", first, tl.Subtitles[0])
+	}
+	// A scenario of other steps is not the take's.
+	other, _ := ParseScript("f.demo.feature", []byte("Feature: F\n\n  Scenario: S\n    Given the service\n"), Known{})
+	if _, _, ok := other.Placed(take, 0); ok {
+		t.Error("a scenario of one step was taken for the take's, of three")
+	}
+}

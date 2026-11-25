@@ -3,6 +3,7 @@ package demo
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -68,6 +69,68 @@ type Script struct {
 	// by the row's line and its column's name: a cue's <name> is the row's
 	// value, as a step's is.
 	Rows map[int]map[string]string
+	// Scenarios are the file's scenarios, each with the lines of its steps
+	// as the file has them now: a take made before the file was edited has
+	// the lines of then, and its steps are found by their order.
+	Scenarios []ScriptScenario
+}
+
+// ScriptScenario is a scenario of a demo's file.
+type ScriptScenario struct {
+	Name string
+	Line int
+	// Rows are the lines of the rows of its Examples, in order: none for a
+	// scenario that is no outline.
+	Rows []int
+	// Steps are the lines of the steps a run of it runs, in order: its
+	// Backgrounds' first.
+	Steps []int
+}
+
+// Placed says where a take's steps are in the file as it is now: each step's
+// line, and the values of the take's row, for a row of an outline. Row is
+// which row the take is of, from 0, when its own line no longer says. It
+// reports false when the file has no scenario of the take's steps: the
+// scenario changed since the take.
+func (s *Script) Placed(take *Take, row int) (lines []int, values map[string]string, ok bool) {
+	var found *ScriptScenario
+	// The scenario the take's line is in, when the file's lines are as they
+	// were; otherwise the one of its name; otherwise the file's only one.
+	for i := range s.Scenarios {
+		sc := &s.Scenarios[i]
+		if at := slices.Index(sc.Rows, take.Line); at >= 0 {
+			found, row = sc, at
+			break
+		}
+		if sc.Line == take.Line && len(sc.Rows) == 0 {
+			found = sc
+			break
+		}
+	}
+	if found == nil || len(found.Steps) != len(take.Steps) {
+		found = nil
+		for i := range s.Scenarios {
+			sc := &s.Scenarios[i]
+			name := sc.Name
+			if row < len(sc.Rows) {
+				name = fill(name, s.Rows[sc.Rows[row]])
+			}
+			if name == take.Scenario && len(sc.Steps) == len(take.Steps) {
+				found = sc
+				break
+			}
+		}
+	}
+	if found == nil && len(s.Scenarios) == 1 && len(s.Scenarios[0].Steps) == len(take.Steps) {
+		found = &s.Scenarios[0]
+	}
+	if found == nil {
+		return nil, nil, false
+	}
+	if row < len(found.Rows) {
+		values = s.Rows[found.Rows[row]]
+	}
+	return found.Steps, values, true
 }
 
 const marker = "demo:"
@@ -100,6 +163,7 @@ func scriptOf(ast *messages.GherkinDocument, custom Known) *Script {
 	if ast.Feature != nil {
 		s.FeatureLine = int(ast.Feature.Location.Line)
 		rowsOf(ast.Feature.Children, s.Rows)
+		s.Scenarios = scenariosOf(ast.Feature.Children, nil)
 	}
 	anchors := anchorLines(ast)
 	// The comments by line, to find the ones that go on below a cue.
@@ -176,6 +240,48 @@ func rowsOf(children []*messages.FeatureChild, rows map[int]map[string]string) {
 			}
 		}
 	}
+}
+
+// scenariosOf are the scenarios among a feature's or a rule's children, each
+// with the steps a run of it runs: before are the steps of the Backgrounds
+// above.
+func scenariosOf(children []*messages.FeatureChild, before []int) []ScriptScenario {
+	var out []ScriptScenario
+	lines := func(steps []*messages.Step) []int {
+		var l []int
+		for _, st := range steps {
+			l = append(l, int(st.Location.Line))
+		}
+		return l
+	}
+	scenario := func(sc *messages.Scenario, before []int) ScriptScenario {
+		s := ScriptScenario{Name: sc.Name, Line: int(sc.Location.Line), Steps: append(slices.Clone(before), lines(sc.Steps)...)}
+		for _, ex := range sc.Examples {
+			for _, row := range ex.TableBody {
+				s.Rows = append(s.Rows, int(row.Location.Line))
+			}
+		}
+		return s
+	}
+	for _, c := range children {
+		switch {
+		case c.Background != nil:
+			before = append(slices.Clone(before), lines(c.Background.Steps)...)
+		case c.Scenario != nil:
+			out = append(out, scenario(c.Scenario, before))
+		case c.Rule != nil:
+			inRule := before
+			for _, rc := range c.Rule.Children {
+				switch {
+				case rc.Background != nil:
+					inRule = append(slices.Clone(inRule), lines(rc.Background.Steps)...)
+				case rc.Scenario != nil:
+					out = append(out, scenario(rc.Scenario, inRule))
+				}
+			}
+		}
+	}
+	return out
 }
 
 // fill puts a row's values in the place of a text's <name>s.

@@ -102,7 +102,15 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 	// its anchor, and one below the last step to the end.
 	cues := make([][]Cue, len(take.Steps)+1)
 	if script != nil {
-		row := script.Rows[take.Line]
+		// Where the take's steps are in the file as it is now: a film is cut
+		// again after the file was edited, and its lines moved.
+		lines, row, placed := script.Placed(take, pace.Row)
+		if !placed {
+			lines, row = nil, script.Rows[take.Line]
+			for _, st := range take.Steps {
+				lines = append(lines, st.Line)
+			}
+		}
 		for _, c := range script.Cues {
 			// What belongs to the Feature is the whole film's: of the rows
 			// of a Scenario Outline, the first plays it.
@@ -114,8 +122,8 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			}
 			i := len(take.Steps)
 			if c.Anchor != 0 {
-				for j, st := range take.Steps {
-					if st.Line >= c.Anchor {
+				for j, line := range lines {
+					if line >= c.Anchor {
 						i = j
 						break
 					}
@@ -136,9 +144,14 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		if d <= 0 || pace.Live {
 			return
 		}
+		// The picture stays as the step left it: a screen's picture of what
+		// a step did is taken after the step, up to where the next began.
 		at := 0.0
 		if last >= 0 {
 			at = take.Steps[last].End
+			if last+1 < len(take.Steps) && take.Steps[last+1].Start > at {
+				at = take.Steps[last+1].Start
+			}
 		}
 		tl.Segments = append(tl.Segments, Segment{Kind: "hold", Start: t, End: t + d, Step: last, From: at, To: at, Show: surfaces(show, take, last), Diagram: diagram, As: as})
 		t += d

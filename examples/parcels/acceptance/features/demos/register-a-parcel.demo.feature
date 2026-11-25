@@ -5,6 +5,8 @@ Feature: Register a parcel, as a demo
   films what it did. `axx run` runs it as any other feature. The comments that start with
   "demo:" are what the people who watch the film read.
 
+  # demo: This is our parcels system. Watch what happens across it
+  #       when a shop registers a single parcel.
   Scenario: A shop registers a parcel, and everyone who has to know of it does
     # demo: [cut]
     Given the parcels service with the following properties:
@@ -27,7 +29,7 @@ Feature: Register a parcel, as a demo
       | reference          | PX-DEMO-9001 |
       | recipient.postcode | "10115"      |
 
-    # demo: [action] [as shop] A shop registers a parcel with us.
+    # demo: [action] [as shop] The shop sends us the parcel's details.
     When the request is executed
 
     # demo: We answer that it is registered,

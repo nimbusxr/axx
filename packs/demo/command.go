@@ -176,6 +176,12 @@ func runDemo(call *core.CommandCall) error {
 		if !take.Passed {
 			return fmt.Errorf("the take of %q did not pass, so there is no film of it: run `axx demo %s` again", take.Scenario, file)
 		}
+		// A take is of the file's scenario as it was: where its steps are no
+		// longer the file's, cutting it again would put the cues on the wrong
+		// steps.
+		if _, _, ok := script.Placed(take, 0); !ok && len(script.Cues) > 0 {
+			return fmt.Errorf("the steps of %q changed since its take: run `axx demo %s`, without --recut", take.Scenario, file)
+		}
 		key := outlineOf(take)
 		if i, ok := rows[key]; ok {
 			films[i] = append(films[i], take)

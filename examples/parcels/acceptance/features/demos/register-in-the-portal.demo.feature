@@ -5,6 +5,8 @@ Feature: Register a parcel in the portal, as a demo
   portal's form, and the depots' database and billing know of it. `axx demo` films the
   browser while the scenario is in it, and a diagram of what the scenario saw afterwards.
 
+  # demo: Not every shop has a system of its own. This is the portal,
+  #       where those shops register their parcels by hand.
   Scenario: A shop registers a parcel in the portal, and the depots and billing know of it
     # demo: [cut]
     Given the parcels web app with the following properties:
@@ -20,7 +22,7 @@ Feature: Register a parcel in the portal, as a demo
       | consumer.schema.registry.url | http://${sys:local.host}:9081                        |
     And the "/parcels/new" page is opened
 
-    # demo: [action] A shop with no system of its own registers its parcels in the portal.
+    # demo: [action] A shop starts with its account, and the parcel's reference and weight.
     When the "Shop account" field is filled with "fjord-outdoor"
     And the "Parcel reference" field is filled with "PX-DEMO-9002"
     And the "Weight (grams)" field is filled with '"1200"'
