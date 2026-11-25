@@ -582,7 +582,17 @@ func TestAResponseIsHeldBeforeAnAudience(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.close()
-	if got := shown(t, s, tl.Duration); !strings.Contains(got["sent"], "select parcels.holds") || got["seen"] != "" || strings.Contains(got["diagram"], "1 row") {
+	// A show's page plays in its own time: the moment is asked for and read
+	// in one go, with no picture of its own between.
+	got, err := s.page.Evaluate(`(t) => {
+		axxStage.seek(t);
+		const text = (sel) => { const el = document.querySelector(sel); return el && !el.hidden && !el.closest('[hidden]') ? el.innerText : ''; };
+		return [text('.msg.sent.on'), text('.msg.seen.on'), text('.surface-diagram .grid')];
+	}`, tl.Duration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if now, ok := got.([]any); !ok || len(now) != 3 || !strings.Contains(now[0].(string), "select parcels.holds") || now[1] != "" || strings.Contains(now[2].(string), "1 row") {
 		t.Errorf("at the selection's end, before the presenter goes on: %v", got)
 	}
 }
