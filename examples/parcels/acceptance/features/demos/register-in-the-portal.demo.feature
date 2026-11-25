@@ -36,7 +36,7 @@ Feature: Register a parcel in the portal, as a demo
     And the "Register the parcel" button is clicked
     Then the page shows "Parcel PX-DEMO-9002 registered"
 
-    # demo: [show browser + diagram] The depots' database has the parcel,
+    # demo: [show browser + diagram] [diagram registered] The depots' database has the parcel,
     And a selection of rows is retrieved from the parcels.parcels table where:
       | reference | PX-DEMO-9002 |
 
