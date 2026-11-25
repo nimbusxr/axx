@@ -58,12 +58,15 @@ func Modules() []Module {
 //go:embed modules
 var moduleFiles embed.FS
 
-// The pack's own module: a terminal, which shows a demo's steps as someone
-// would type them. It is registered as another pack's is.
+// The pack's own modules: a terminal, which shows a demo's steps as someone
+// would type them, and an editor, which shows a file a step read. They are
+// registered as another pack's are.
 func init() {
-	files, _ := fs.Sub(moduleFiles, "modules/terminal")
-	RegisterModule(Module{
-		Name: "terminal", Surfaces: []string{"terminal"},
-		Files: files, Scripts: []string{"terminal.js"}, Styles: []string{"terminal.css"},
-	})
+	for _, name := range []string{"terminal", "editor"} {
+		files, _ := fs.Sub(moduleFiles, "modules/"+name)
+		RegisterModule(Module{
+			Name: name, Surfaces: []string{name},
+			Files: files, Scripts: []string{name + ".js"}, Styles: []string{name + ".css"},
+		})
+	}
 }

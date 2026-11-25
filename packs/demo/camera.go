@@ -14,7 +14,7 @@ import (
 	"github.com/nimbusxr/axx/packs/internal/recording"
 )
 
-// A camera films one screen of a scenario for its take: it looks at the
+// A camera videos one screen of a scenario for its take: it looks at the
 // screen as a video of it would, and keeps a picture each time the screen
 // changed, with when. The stage shows the picture of the moment it plays.
 
@@ -44,9 +44,9 @@ func (c *camera) lastChange() time.Time {
 	return c.changed
 }
 
-// settle waits until the screens the cameras film show what the step that
+// settle waits until the screens the cameras video show what the step that
 // just ran did: for a change, when one comes, and then until they are still.
-// A step's own time is over by then; the wait is the film's, so that each
+// A step's own time is over by then; the wait is the video's, so that each
 // step has its picture, whatever the speed of the run.
 func settle(cams []*camera) {
 	const (
@@ -75,7 +75,7 @@ func settle(cams []*camera) {
 	}
 }
 
-// settled keeps, for each scenario that is filmed, when the camera's wait
+// settled keeps, for each scenario that is recorded, when the camera's wait
 // after each of its steps was over, by the step's line; began, when a step
 // of a show went on, once the presenter said so.
 var settled = struct {
@@ -128,7 +128,7 @@ func forget(sc *core.Scenario) {
 	delete(settled.began, sc)
 }
 
-// film starts a camera on a scenario's screen. Its pictures go into the
+// video starts a camera on a scenario's screen. Its pictures go into the
 // demo's folder, beside the take.
 func film(sc *core.Scenario, dir, stamp, surface string, look recording.Look) *camera {
 	c := &camera{sc: sc, dir: dir, stamp: stamp, surface: surface, look: look, halt: make(chan struct{}), done: make(chan struct{})}
@@ -188,7 +188,7 @@ func (c *camera) sofar() []Shot {
 	return append([]Shot(nil), c.shots...)
 }
 
-// stop ends the filming and returns the pictures.
+// stop ends the recording and returns the pictures.
 func (c *camera) stop() []Shot {
 	close(c.halt)
 	<-c.done

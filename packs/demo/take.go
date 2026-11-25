@@ -14,7 +14,7 @@ import (
 
 // A take is the record of one run of a demo's scenario: every step with
 // when it ran and how it ended, and what it sent to and saw of what the
-// scenario talks to. The film is made from it, and can be made again from it
+// scenario talks to. The video is made from it, and can be made again from it
 // without another run; before an audience, the last good take is what the
 // show falls back on.
 
@@ -127,11 +127,11 @@ func takeOf(sc *core.Scenario) *Take {
 }
 
 // sysRef is a reference to a property in a step's text, which the take
-// fills in: what a step said is what the film shows. An environment
+// fills in: what a step said is what the video shows. An environment
 // variable's stays as written, as it may be a secret.
 var sysRef = regexp.MustCompile(`\$\{sys:[^}]+\}`)
 
-// takeDir is where a demo's take and film are kept: a folder of the
+// takeDir is where a demo's take and video are kept: a folder of the
 // project's .axx/demo, named after the feature file.
 func takeDir(projectDir, featureURI string) string {
 	name := strings.TrimSuffix(filepath.Base(featureURI), ".feature")

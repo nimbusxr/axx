@@ -1,6 +1,6 @@
 // The stage: the one page that plays a demo. It is given a take (what a run
-// did) and a timeline (what the film shows when), and draws the picture of
-// any moment: seek(t). A film is the stage, moment after moment; a live show
+// did) and a timeline (what the video shows when), and draws the picture of
+// any moment: seek(t). A video is the stage, moment after moment; a live show
 // is the stage in a window, its moment moved by a presenter.
 //
 // What it draws is made of scenes. The pack's own are registered as a
@@ -21,7 +21,7 @@
 	const looked = (kind) => ['database', 'topic', 'broker', 'mock'].includes(kind);
 
 	// What is happening at a moment: the exchange that plays, how far along it
-	// is, and what of it shows. Every scene draws from this, so that the film's
+	// is, and what of it shows. Every scene draws from this, so that the video's
 	// rules are the same on a diagram, in a terminal and in a project's own
 	// scene: an exchange goes out, comes back, and stays to be read; a step
 	// whose response is held ([hold response]) shows what it sent, and what
@@ -68,7 +68,7 @@
 			// A step that sent nothing (a check of what came back) leaves the
 			// last thing that was sent and seen on the stage: it is what the
 			// step is about.
-			// Of the steps the film showed: what a step did with the camera off
+			// Of the steps the video showed: what a step did with the camera off
 			// ([cut]) the audience never saw.
 			const upTo = state.playing ? state.stepIndex : state.done - 1;
 			for (let i = Math.min(upTo, take.steps.length - 1); i >= 0 && !now; i--) {
@@ -118,7 +118,7 @@
 			show: seg.show && seg.show.length ? seg.show : ['diagram'],
 			take: data.take, timeline: tl, theme: data.theme || {},
 		};
-		// The steps the film has shown by now: those with time of their own in it.
+		// The steps the video has shown by now: those with time of their own in it.
 		state.filmed = new Set(tl.segments.filter((s) => s.kind === 'step' && s.start <= t).map((s) => s.step));
 		state.now = happening(state);
 		return state;
@@ -165,7 +165,7 @@
 
 	const S = {
 		// problems are what the stage could not make sense of in what it was
-		// given: a film is not made of a stage that has any.
+		// given: a video is not made of a stage that has any.
 		problems: [],
 		// scene registers what draws a surface ("diagram", "browser"), the
 		// card or the subtitles: { mount(el, state), render(el, state) }.
@@ -275,7 +275,7 @@
 	// what the audience sees is a step that ran.
 	S.scene('ticker', {
 		render(el, state) {
-			// Only a step the film showed: while the picture holds on what the
+			// Only a step the video showed: while the picture holds on what the
 			// camera was off for (an introduction, say), there is no step to name.
 			const st = state.step;
 			const shown = st && state.timeline.segments.some((s) => s.kind === 'step' && s.step === state.stepIndex);

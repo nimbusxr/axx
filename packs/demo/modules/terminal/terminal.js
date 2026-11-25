@@ -8,7 +8,7 @@
 // registered under a name of its own, [show terminal], that draws what the
 // stage says is happening (state.now) and what happened before. Nothing here
 // keeps a clock: the picture of a moment is made from the state of that
-// moment, so the film can ask for any moment in any order.
+// moment, so the video can ask for any moment in any order.
 (() => {
 	const { acts, escape, pretty } = axxStage;
 
@@ -78,10 +78,13 @@
 			};
 			const whole = (lines) => lines.forEach((line, i) => out.push((i ? '' : prompt) + '<span class="' + (line.startsWith('#') ? 't-remark' : 't-command') + '">' + escape(line) + '</span>'));
 			const printed = (x, failed) => answer(x, failed).forEach((l) => out.push('<span class="t-' + l.is + '">' + escape(l.text) + '</span>'));
-			// Every step the film has shown, in order: what was typed, and what
+			// Every step the video has shown, in order: what was typed, and what
 			// came back; then the exchange that plays, as far as it has got.
 			for (const seg of state.timeline.segments) {
 				if (seg.kind !== 'step' || seg.start > state.t) continue;
+				// A terminal has what happened while it was on: what a step did
+				// on another surface (a file read in the editor) is not in it.
+				if (seg.show && seg.show.length && !seg.show.includes('terminal')) continue;
 				const step = take.steps[seg.step];
 				for (const x of acts(step)) {
 					const from = out.length;

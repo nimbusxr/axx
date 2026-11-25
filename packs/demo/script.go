@@ -16,7 +16,7 @@ import (
 
 // A demo's script is what its feature file says to the people who watch it,
 // in comments that start with "demo:". A comment's text is a subtitle, and
-// what it has in square brackets directs the film:
+// what it has in square brackets directs the video:
 //
 //	# demo: [speed 4x] The depot's database has the hold at once.
 //	#       Nobody had to tell it.
@@ -62,7 +62,7 @@ type Script struct {
 	Cues     []Cue
 	Problems []Problem
 	// FeatureLine is the line of the file's Feature: a cue that belongs to
-	// it is the whole film's, and plays once, whatever rows a Scenario
+	// it is the whole video's, and plays once, whatever rows a Scenario
 	// Outline has.
 	FeatureLine int
 	// Rows are the values of each row of the Scenario Outlines' Examples,
@@ -346,7 +346,7 @@ func parseCue(body string, line, column int, custom Known, problems []Problem) (
 		case len(fields) == 0:
 			problems = append(problems, Problem{line, col, "an empty direction: say what to do between the brackets, like [pause 2s]"})
 		case isDuration(fields[0]):
-			// A time alone says how long the step below lasts in the film.
+			// A time alone says how long the step below lasts in the video.
 			d.Name, d.Args = "lasts", fields
 		default:
 			d.Name, d.Args = fields[0], fields[1:]

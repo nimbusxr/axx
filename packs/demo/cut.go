@@ -6,16 +6,16 @@ import (
 	"strings"
 )
 
-// The cut is the film's timeline: what the picture shows at each moment, made
-// from a take and the script's cues. The film's time is its own. A step that
+// The cut is the video's timeline: what the picture shows at each moment, made
+// from a take and the script's cues. The video's time is its own. A step that
 // took the system 20 milliseconds gets the time a person needs to see what it
 // did; a subtitle stays as long as it takes to read; and the directions
 // change both: how long a step lasts, how fast it plays, where the camera
 // stops and starts.
 
-// Timeline is a film's cut.
+// Timeline is a video's cut.
 type Timeline struct {
-	// Duration is the film's length, in seconds.
+	// Duration is the video's length, in seconds.
 	Duration  float64    `json:"duration"`
 	Segments  []Segment  `json:"segments"`
 	Subtitles []Subtitle `json:"subtitles"`
@@ -35,7 +35,7 @@ type Mark struct {
 	Text string  `json:"text"`
 }
 
-// Segment is a stretch of the film.
+// Segment is a stretch of the video.
 type Segment struct {
 	// Kind is "step" (a step plays), "hold" (the picture stays as the step
 	// left it) or "card" (a card fills the picture).
@@ -76,7 +76,7 @@ type Subtitle struct {
 	Text  string  `json:"text"`
 }
 
-// Pace says how long things last in a film that no direction speaks of.
+// Pace says how long things last in a video that no direction speaks of.
 type Pace struct {
 	// Exchange is how long a step lasts for each thing it sent or saw, and
 	// Most the most a step lasts for them all.
@@ -93,18 +93,18 @@ type Pace struct {
 	// long to be seen.
 	Screen float64
 	// Live cuts a show before an audience, whose time is the presenter's:
-	// the directions that set a film's time do nothing, nothing is held to
+	// the directions that set a video's time do nothing, nothing is held to
 	// be read, and the timeline goes as far as the run has come. Entered is
 	// how many beats (cards and subtitles) the presenter has gone on to; a
 	// timeline made again as the run goes on only grows.
 	Live    bool
 	Entered int
-	// Row is which row of a Scenario Outline the take is, from 0, in a film
+	// Row is which row of a Scenario Outline the take is, from 0, in a video
 	// of them all.
 	Row int
 }
 
-// DefaultPace is the pace of a film whose project sets none: slow enough to
+// DefaultPace is the pace of a video whose project sets none: slow enough to
 // follow for someone who sees the system for the first time. What a step
 // sent has time to be read before its answer comes, and the answer before
 // the next step.
@@ -117,7 +117,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 	// its anchor, and one below the last step to the end.
 	cues := make([][]Cue, len(take.Steps)+1)
 	if script != nil {
-		// Where the take's steps are in the file as it is now: a film is cut
+		// Where the take's steps are in the file as it is now: a video is cut
 		// again after the file was edited, and its lines moved.
 		lines, row, placed := script.Placed(take, pace.Row)
 		if !placed {
@@ -127,7 +127,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			}
 		}
 		for _, c := range script.Cues {
-			// What belongs to the Feature is the whole film's: of the rows
+			// What belongs to the Feature is the whole video's: of the rows
 			// of a Scenario Outline, the first plays it.
 			if pace.Row > 0 && c.Anchor == script.FeatureLine {
 				continue
@@ -220,6 +220,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		var marks []Mark
 		holdResponse := false
 		subtitle := ""
+		saidFirst, any := false, false // whether what is said comes before the first card
 		for _, c := range cs {
 			text := false
 			for _, d := range c.Directions {
@@ -269,54 +270,75 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 					own = append(own, d)
 				}
 			}
+			if !any && (text || c.Text != "") {
+				saidFirst, any = !text, true
+			}
 			if !text && c.Text != "" {
 				subtitle = strings.TrimSpace(subtitle + " " + c.Text)
 			}
 		}
-		for _, c := range cards {
-			if pace.Live && len(tl.Beats) >= pace.Entered {
-				over = true
-				return
-			}
-			closeSubtitle()
-			if pace.Live {
-				c.End = pace.Card
-			}
-			c.Start, c.End, c.Step = t, t+c.End, last
-			if last >= 0 {
-				c.From, c.To = take.Steps[last].End, take.Steps[last].End
-			}
-			tl.Beats = append(tl.Beats, t)
-			tl.Segments = append(tl.Segments, c)
-			t = c.End
-		}
-		if subtitle != "" {
-			if pace.Live && len(tl.Beats) >= pace.Entered {
-				over = true
-				return
-			}
-			closeSubtitle()
-			tl.Subtitles = append(tl.Subtitles, Subtitle{Start: t, End: t, Text: subtitle})
-			tl.Beats = append(tl.Beats, t)
-			open = len(tl.Subtitles) - 1
-			if n := len(tl.Segments); pace.Live && (n == 0 || tl.Segments[n-1].Kind == "card") {
-				// Before an audience a subtitle shows before its steps ran, over
-				// the picture as it stands. Where that is a card, or nothing yet
-				// (a demo's introduction), it is the picture its step begins on.
-				seg := Segment{Kind: "hold", Start: t, End: t + 0.1, Step: last, Show: surfaces(show, take, last), Diagrams: slices.Clone(diagram), As: as}
+		playCards := func() bool {
+			for _, c := range cards {
+				if pace.Live && len(tl.Beats) >= pace.Entered {
+					over = true
+					return false
+				}
+				closeSubtitle()
+				if pace.Live {
+					c.End = pace.Card
+				}
+				c.Start, c.End, c.Step = t, t+c.End, last
 				if last >= 0 {
-					seg.From = shownUntil(take, last, true)
+					c.From, c.To = take.Steps[last].End, take.Steps[last].End
 				}
-				// Where the camera has not come on yet and the steps before it
-				// ran (a show runs what a demo sets up before its first beat),
-				// the picture is the one the camera comes on to.
-				if k := opening.step; k > last && k > 0 && take.Steps[k-1].Status == "passed" {
-					seg.Step, seg.From = k-1, shownUntil(take, k-1, true)
-					seg.Show, seg.Diagrams, seg.As = surfaces(opening.show, take, k), slices.Clone(opening.diagram), opening.as
+				tl.Beats = append(tl.Beats, t)
+				tl.Segments = append(tl.Segments, c)
+				t = c.End
+			}
+			return true
+		}
+		playSubtitle := func() bool {
+			if subtitle != "" {
+				if pace.Live && len(tl.Beats) >= pace.Entered {
+					over = true
+					return false
 				}
-				seg.To = seg.From
-				tl.Segments = append(tl.Segments, seg)
-				t += 0.1
+				closeSubtitle()
+				tl.Subtitles = append(tl.Subtitles, Subtitle{Start: t, End: t, Text: subtitle})
+				tl.Beats = append(tl.Beats, t)
+				open = len(tl.Subtitles) - 1
+				if n := len(tl.Segments); pace.Live && (n == 0 || tl.Segments[n-1].Kind == "card") {
+					// Before an audience a subtitle shows before its steps ran, over
+					// the picture as it stands. Where that is a card, or nothing yet
+					// (a demo's introduction), it is the picture its step begins on.
+					seg := Segment{Kind: "hold", Start: t, End: t + 0.1, Step: last, Show: surfaces(show, take, last), Diagrams: slices.Clone(diagram), As: as}
+					if last >= 0 {
+						seg.From = shownUntil(take, last, true)
+					}
+					// Where the camera has not come on yet and the steps before it
+					// ran (a show runs what a demo sets up before its first beat),
+					// the picture is the one the camera comes on to.
+					if k := opening.step; k > last && k > 0 && take.Steps[k-1].Status == "passed" {
+						seg.Step, seg.From = k-1, shownUntil(take, k-1, true)
+						seg.Show, seg.Diagrams, seg.As = surfaces(opening.show, take, k), slices.Clone(opening.diagram), opening.as
+					}
+					seg.To = seg.From
+					tl.Segments = append(tl.Segments, seg)
+					t += 0.1
+				}
+			}
+			return true
+		}
+		// The cards of a step come before what is said at it. Below the last
+		// step there is no step to wait for: its cues play in the order they
+		// are written, so that a demo can end on a card.
+		order := []func() bool{playCards, playSubtitle}
+		if i >= len(take.Steps) && saidFirst {
+			order = []func() bool{playSubtitle, playCards}
+		}
+		for _, part := range order {
+			if !part() {
+				return
 			}
 		}
 		if i >= len(take.Steps) {
@@ -338,7 +360,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		if camera {
 			dur = stepTime(st, pace)
 			// A step on a screen lasts as long as it took, to where its
-			// screen last changed: the film plays what happened.
+			// screen last changed: the video plays what happened.
 			if on := onScreen(shows); len(on) > 0 && surfaceOf(st.Pack, filmedOf(take)) != "" && st.Status == "passed" {
 				// What the screen showed until the next step began is this
 				// step's doing.
@@ -371,10 +393,12 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 	if !over {
 		play(len(take.Steps), cues[len(take.Steps)])
 	}
-	// The last subtitle stays to the end of the film.
+	// The last subtitle stays to the end of the video, and the last picture a
+	// moment longer. A demo that ends on a card ends on it: the card had its
+	// time, and the picture before it does not come back.
 	ending := open
 	closeSubtitle()
-	if t > 0 {
+	if n := len(tl.Segments); t > 0 && tl.Segments[n-1].Kind != "card" {
 		hold(pace.End)
 	}
 	if ending >= 0 {
@@ -400,7 +424,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 // wherever it is made.
 func round(v float64) float64 { return math.Round(v*1000) / 1000 }
 
-// stepTime is how long a step lasts in a film that says nothing of it.
+// stepTime is how long a step lasts in a video that says nothing of it.
 func stepTime(st TakeStep, pace Pace) float64 {
 	if st.Status != "passed" {
 		return pace.Failed
@@ -421,7 +445,7 @@ func stepTime(st TakeStep, pace Pace) float64 {
 }
 
 // shownUntil is how long a screen showed what a step did: until the camera had
-// its picture, and in a film until the next step began. Before an audience
+// its picture, and in a video until the next step began. Before an audience
 // the next step begins when the presenter says, and what a screen did while
 // it waited (a clock, a cursor) is no part of the step.
 func shownUntil(take *Take, i int, live bool) float64 {
@@ -447,7 +471,7 @@ func onScreen(shows []string) []string {
 }
 
 // lastChange is when the screens a step shows last changed between two
-// moments of the run: where the film leaves the step. With no change it is
+// moments of the run: where the video leaves the step. With no change it is
 // the first of the two.
 func lastChange(take *Take, on []string, from, until float64) float64 {
 	last := -1.0
@@ -487,7 +511,7 @@ func surfaces(show []string, take *Take, step int) []string {
 
 // surfaceOf is the screen a pack's steps happen on, or "" for a pack with
 // none. The steps of apps (app-core) are the same on a phone and on a
-// desktop: they happen on the one that is filmed, a phone before a desktop.
+// desktop: they happen on the one that is recorded, a phone before a desktop.
 func surfaceOf(pack string, filmed []string) string {
 	for prefix, surface := range screens {
 		if pack == prefix || strings.HasPrefix(pack, prefix+"-") {

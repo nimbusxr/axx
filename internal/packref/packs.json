@@ -6218,7 +6218,7 @@
     },
     {
       "name": "demo",
-      "doc": "Make a demo of a scenario: a film of it, with subtitles, that shows only what ran and passed. A demo is a feature file named `*.demo.feature`, with one scenario that tells a story from its start to its end, in the steps of the project's other packs. A comment that starts with `demo:` says what the people who watch read, and what it has in square brackets directs the film.\n\n```gherkin\n# demo: [card 3s] Holding a parcel at the depot\nFeature: Hold a parcel\n\n  Scenario: A shop holds a parcel for a recipient who is away\n    # demo: [cut]\n    Given the parcels service with the following properties:\n      | property | value                      |\n      | url      | http://${sys:local.host}:8080 |\n    # demo: [action] Ms Okafor is away until Friday.\n    #       Her shop asks us to hold her parcel.\n    When ...\n```\n\n- **The film.** `axx demo features/hold.demo.feature` runs the scenario and writes the film beside what the run did (its take) in `.axx/demo`. `--recut` makes the film again from the take, after a change to the subtitles or the directions, without another run.\n- **What it shows.** A step on a screen shows the screen. Any other step shows a diagram of the system, drawn in characters: what the step sent travels along a line to its box, and what came back shows under it.\n- **Your system's diagrams.** `diagrams` names diagrams of the system by name, each a file of a Mermaid flowchart or sequence diagram whose boxes and participants are named as the scenarios name what they talk to. A demo is drawn on the first, `[diagram name]` goes to another, and `[diagram one + other]` shows two side by side. `[as shop]` says which box the scenario is, an arrow, `[parcels --\u003e addresses]`, lights a line the scenario cannot see, and `[mark billing ✓]` writes in a box it does not talk to. Without a diagram, the picture is of what the scenario talked to.\n- **A terminal.** `[show terminal]` shows the steps as someone would type them: a request is its curl command, typed out, with what came back printed under it. `[show terminal + diagram]` shows both.\n- **Your own pictures.** A surface of your own is a scene, a few lines of JavaScript that draw the state of a moment: name it in `surfaces`, its script in `scenes`, and show it with `[show name]`. A pack shares scenes, styles and directions as a module. The guide \"Build a demo's scenes\" lists what a scene is given.\n- **The directions.** `[2s]` (how long the step below lasts; `[0s]` cuts it), `[speed 4x]`, `[pause 2s]`, `[cut]` and `[action]` (the camera stops and starts), `[card 3s] A title`, `[show diagram]`, `[hold response]` (the step shows what it sent, and what came back shows with the step after it). A comment line right below a cue, indented to its text, goes on with it.\n- **Its sound.** Beside each film is a `.srt` file of its subtitles with their times. `soundtrack.command` names a command of the project's that reads it and writes the film's sound, a WAV file as long as the film (a model that speaks, say), which the film then has. The pack makes no sound itself.\n- **Before an audience.** `axx demo --present` opens a page for the screen the audience sees, and the scenario runs as you go on, a subtitle at a time: forward shows the next and runs its steps, back shows again what was shown. A step that fails is not shown: you try it once more, play on from the last take, or start again from the top.\n- **Your own look.** The stage is a web page: `theme` sets its colors and names, `styles` and `scenes` load a stylesheet and scripts of the project's own, and `directions` names directions of its own, which its scenes act on.\n- **As a test.** `axx run` runs a demo's file as any feature. A demo does several things in turn, so the rule of one behavior per scenario is not for it.",
+      "doc": "Make a demo of a scenario: a video of it, with subtitles, that shows only what ran and passed. A demo is a feature file named `*.demo.feature`, with one scenario that tells a story from its start to its end, in the steps of the project's other packs. A comment that starts with `demo:` says what the people who watch read, and what it has in square brackets directs the video.\n\n```gherkin\n# demo: [card 3s] Holding a parcel at the depot\nFeature: Hold a parcel\n\n  Scenario: A shop holds a parcel for a recipient who is away\n    # demo: [cut]\n    Given the parcels service with the following properties:\n      | property | value                      |\n      | url      | http://${sys:local.host}:8080 |\n    # demo: [action] Ms Okafor is away until Friday.\n    #       Her shop asks us to hold her parcel.\n    When ...\n```\n\n- **The video.** `axx demo features/hold.demo.feature` runs the scenario and writes the video beside what the run did (its take) in `.axx/demo`. `--recut` makes the video again from the take, after a change to the subtitles or the directions, without another run.\n- **What it shows.** A step on a screen shows the screen. Any other step shows a diagram of the system, drawn in characters: what the step sent travels along a line to its box, and what came back shows under it.\n- **Your system's diagrams.** `diagrams` names diagrams of the system by name, each a file of a Mermaid flowchart or sequence diagram whose boxes and participants are named as the scenarios name what they talk to. A demo is drawn on the first, `[diagram name]` goes to another, and `[diagram one + other]` shows two side by side. `[as shop]` says which box the scenario is, an arrow, `[parcels --\u003e addresses]`, lights a line the scenario cannot see, and `[mark billing ✓]` writes in a box it does not talk to. Without a diagram, the picture is of what the scenario talked to.\n- **A terminal.** `[show terminal]` shows the steps as someone would type them: a request is its curl command, typed out, with what came back printed under it. `[show terminal + diagram]` shows both.\n- **Your own pictures.** A surface of your own is a scene, a few lines of JavaScript that draw the state of a moment: name it in `surfaces`, its script in `scenes`, and show it with `[show name]`. A pack shares scenes, styles and directions as a module. The guide \"Build a demo's scenes\" lists what a scene is given.\n- **The directions.** `[2s]` (how long the step below lasts; `[0s]` cuts it), `[speed 4x]`, `[pause 2s]`, `[cut]` and `[action]` (the camera stops and starts), `[card 3s] A title`, `[show diagram]`, `[hold response]` (the step shows what it sent, and what came back shows with the step after it). A comment line right below a cue, indented to its text, goes on with it.\n- **Its sound.** Beside each video is a `.srt` file of its subtitles with their times. `soundtrack.command` names a command of the project's that reads it and writes the video's sound, a WAV file as long as the video (a model that speaks, say), which the video then has. The pack makes no sound itself.\n- **Before an audience.** `axx demo --present` opens a page for the screen the audience sees, and the scenario runs as you go on, a subtitle at a time: forward shows the next and runs its steps, back shows again what was shown. A step that fails is not shown: you try it once more, play on from the last take, or start again from the top.\n- **Your own look.** The stage is a web page: `theme` sets its colors and names, `styles` and `scenes` load a stylesheet and scripts of the project's own, and `directions` names directions of its own, which its scenes act on.\n- **As a test.** `axx run` runs a demo's file as any feature. A demo does several things in turn, so the rule of one behavior per scenario is not for it.",
       "requires": [
         "web-core"
       ],
@@ -6255,7 +6255,7 @@
               },
               "steps": {
                 "type": "boolean",
-                "description": "Whether the film says, in a line, which step it shows. Default: true."
+                "description": "Whether the video says, in a line, which step it shows. Default: true."
               },
               "colors": {
                 "type": "object",
@@ -6283,11 +6283,11 @@
           "soundtrack": {
             "type": "object",
             "additionalProperties": false,
-            "description": "How a film's sound is made, once its picture is: by a command of the project's. Axx makes no sound itself.",
+            "description": "How a video's sound is made, once its picture is: by a command of the project's. Axx makes no sound itself.",
             "properties": {
               "command": {
                 "type": "string",
-                "description": "A command of the project's, run through the shell in axx.yaml's folder for each film. It reads the film's subtitles with their times ($AXX_DEMO_SUBTITLES, a .srt file) and writes the film's sound to $AXX_DEMO_SOUNDTRACK, a WAV file as long as the film ($AXX_DEMO_SECONDS); $AXX_DEMO_FILM is the film without sound. A model that speaks, or anything else that makes sound."
+                "description": "A command of the project's, run through the shell in axx.yaml's folder for each video. It reads the video's subtitles with their times ($AXX_DEMO_SUBTITLES, a .srt file) and writes the video's sound to $AXX_DEMO_SOUNDTRACK, a WAV file as long as the video ($AXX_DEMO_SECONDS); $AXX_DEMO_VIDEO is the video without sound. A model that speaks, or anything else that makes sound."
               }
             }
           },
@@ -6308,13 +6308,55 @@
           "size": {
             "type": "string",
             "pattern": "^[0-9]+x[0-9]+$",
-            "description": "The film's size, like 1920x1080 (the default)."
+            "description": "The video's size, like 1920x1080 (the default)."
           },
           "fps": {
             "type": "integer",
             "minimum": 1,
             "maximum": 60,
-            "description": "The film's frames a second. Default: 30."
+            "description": "The video's frames a second. Default: 30."
+          },
+          "pace": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "How fast a demo video goes, in seconds. The defaults are slow enough for someone who reads the subtitles and sees the system for the first time; a video with a voice is tighter, as a line is heard faster than it is read.",
+            "properties": {
+              "read": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long a subtitle stays before its words are counted. Default: 2."
+              },
+              "word": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "What each word of a subtitle adds to how long it stays. Default: 0.42."
+              },
+              "exchange": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long a step lasts for each thing it sent or saw. Default: 3.4."
+              },
+              "check": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long a step lasts that sent nothing: a check. Default: 1.8."
+              },
+              "screen": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "The least a step on a screen lasts. Default: 1.8."
+              },
+              "card": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long a card stays that says no time. Default: 3."
+              },
+              "end": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long the last picture stays. Default: 2.5."
+              }
+            }
           }
         }
       }

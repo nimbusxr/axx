@@ -19,35 +19,35 @@ import (
 func demoCommand() core.Command {
 	return core.Command{
 		Name: "demo", Args: "<file>",
-		Short: "Make a demo of a scenario: run it, and film what it did",
+		Short: "Make a demo of a scenario: a video of what it did, or a live presentation",
 		Long: `Make the demo of a feature file named *.demo.feature.
 
 axx runs the file's scenario as ` + "`axx run`" + ` does, against the project's
 services, and keeps what the run did as a take. From the take and the file's
-cues (comments that start with "demo:") it makes a film: a step on a screen
-shows the screen, and any other step a diagram of what it sent and what came
-back. A scenario that does not pass makes no film.
+cues (comments that start with "demo:") it makes a demo video: a step on a
+screen shows the screen, and any other step a diagram of what it sent and what
+came back. A scenario that does not pass makes no video.
 
---recut makes the film again from the last take, without a run: after a
+--recut makes the video again from the last take, without a run: after a
 change to the subtitles, the directions or the look.
 
---present shows the demo to an audience instead. A page opens for the screen
+--present presents the demo live, before an audience, instead. A page opens for the screen
 the audience sees, and the scenario runs as you go on: forward (the right
 arrow, a clicker) shows the next subtitle and runs its steps, back shows again
-what was shown and undoes nothing. The directions that set a film's time do
+what was shown and undoes nothing. The directions that set a video's time do
 nothing there. When a step fails, the audience sees nothing of it until you
 say what to do, on the presenter's page or with a key: try the step once more
 (r), play on from the last take (t), with "recorded" in a corner, or start
 again from the top (0). --recorded shows the last take and runs nothing.
 
-The film and the take are in .axx/demo, in a folder named after the file.`,
+The video and the take are in .axx/demo, in a folder named after the file.`,
 		MinArgs: 1, MaxArgs: 1,
 		Flags: []core.Flag{
-			{Name: "recut", Bool: true, Usage: "make the film again from the last take, without running the scenario"},
-			{Name: "present", Bool: true, Usage: "show the demo to an audience instead of filming it: the scenario runs as you go on, a subtitle at a time"},
+			{Name: "recut", Bool: true, Usage: "make the video again from the last take, without running the scenario"},
+			{Name: "present", Bool: true, Usage: "present the demo live instead of making its video: the scenario runs as you go on, a subtitle at a time"},
 			{Name: "recorded", Bool: true, Usage: "with --present, show the last take and run nothing"},
 			{Name: "no-open", Bool: true, Usage: "with --present, print the show's addresses and open no browser"},
-			{Name: "out", Short: "o", Usage: "where to write the film (default: .axx/demo/<name>/<name>.mp4)"},
+			{Name: "out", Short: "o", Usage: "where to write the video (default: .axx/demo/<name>/<name>.mp4)"},
 			{Name: "profile", Usage: "the profile of axx.yaml to run with"},
 		},
 		Run: runDemo,
@@ -57,21 +57,21 @@ The film and the take are in .axx/demo, in a folder named after the file.`,
 // Made is what `axx demo` reports.
 type Made struct {
 	Feature string `json:"feature"`
-	// Films are the films made, one for each scenario that ran.
-	Films []MadeFilm `json:"films"`
+	// Films are the videos made, one for each scenario that ran.
+	Films []MadeFilm `json:"videos"`
 }
 
-// MadeFilm is one film.
+// MadeFilm is one video.
 type MadeFilm struct {
 	Scenario string `json:"scenario"`
-	Film     string `json:"film"`
+	Film     string `json:"video"`
 	Take     string `json:"take"`
-	// Subtitles is the film's subtitles with their times, a .srt file, and
-	// Sound whether the film has a soundtrack.
+	// Subtitles is the video's subtitles with their times, a .srt file, and
+	// Sound whether the video has a soundtrack.
 	Subtitles string  `json:"subtitles"`
 	Sound     bool    `json:"sound"`
 	Seconds   float64 `json:"seconds"`
-	// Chapters is how many rows of a Scenario Outline the film has, each a
+	// Chapters is how many rows of a Scenario Outline the video has, each a
 	// chapter: 1 for a scenario that is no outline.
 	Chapters int `json:"chapters"`
 }
@@ -154,7 +154,7 @@ func runDemo(call *core.CommandCall) error {
 		s := end()
 		if rerr != nil {
 			// What failed is what the run said: a demo shows only what passed.
-			fmt.Fprintln(call.Stderr, "axx: the demo's scenario did not pass, so there is no film of it")
+			fmt.Fprintln(call.Stderr, "axx: the demo's scenario did not pass, so there is no video of it")
 			return rerr
 		}
 		takes = s.takes
@@ -164,8 +164,8 @@ func runDemo(call *core.CommandCall) error {
 	}
 	made := Made{Feature: uri, Films: []MadeFilm{}}
 	st.footage = dir
-	// A film for each scenario: the rows of a Scenario Outline are one
-	// scenario, and each a chapter of its film.
+	// A video for each scenario: the rows of a Scenario Outline are one
+	// scenario, and each a chapter of its video.
 	var films [][]*Take
 	rows := map[string]int{}
 	for _, path := range takes {
@@ -174,7 +174,7 @@ func runDemo(call *core.CommandCall) error {
 			return err
 		}
 		if !take.Passed {
-			return fmt.Errorf("the take of %q did not pass, so there is no film of it: run `axx demo %s` again", take.Scenario, file)
+			return fmt.Errorf("the take of %q did not pass, so there is no video of it: run `axx demo %s` again", take.Scenario, file)
 		}
 		// A take is of the file's scenario as it was: where its steps are no
 		// longer the file's, cutting it again would put the cues on the wrong
@@ -192,7 +192,7 @@ func runDemo(call *core.CommandCall) error {
 	}
 	for _, of := range films {
 		// A demo of one scenario is named after its file; of several, each
-		// film after its scenario too.
+		// video after its scenario too.
 		out := filepath.Join(dir, filepath.Base(dir)+".mp4")
 		if len(films) > 1 {
 			out = filepath.Join(dir, fmt.Sprintf("%s-%s.mp4", filepath.Base(dir), slug(of[0].Scenario)))
@@ -203,14 +203,14 @@ func runDemo(call *core.CommandCall) error {
 		var titles []string
 		seconds := 0.0
 		for i, take := range of {
-			pace := DefaultPace
+			pace := st.pace()
 			pace.Row = i
 			tl := Cut(take, script, pace)
 			parts = append(parts, &Staged{Take: take, Timeline: tl, Theme: st.Theme, Diagrams: diagrams})
 			titles = append(titles, fmt.Sprintf("%s (%d of %d)", take.Scenario, i+1, len(of)))
 			seconds += tl.Duration
 		}
-		fmt.Fprintf(call.Stderr, "axx: filming %q (%.0f seconds)\n", of[0].Scenario, seconds)
+		fmt.Fprintf(call.Stderr, "axx: making the video of %q (%.0f seconds)\n", of[0].Scenario, seconds)
 		clip, chapters, err := shoot(call.Context, call.ProjectDir, st, parts, titles, nil)
 		if err != nil {
 			return err
@@ -218,7 +218,7 @@ func runDemo(call *core.CommandCall) error {
 		if err := writeFilm(out, clip, nil, chapters); err != nil {
 			return err
 		}
-		// The film's subtitles with their times: what its sound is made from,
+		// The video's subtitles with their times: what its sound is made from,
 		// and what a video site takes as captions.
 		subtitles := strings.TrimSuffix(out, filepath.Ext(out)) + ".srt"
 		if err := os.WriteFile(subtitles, []byte(srtOf(parts)), 0o644); err != nil {
@@ -230,7 +230,7 @@ func runDemo(call *core.CommandCall) error {
 			fmt.Fprintf(call.Stderr, "axx: making the soundtrack of %q\n", of[0].Scenario)
 			sound, err := soundtrackOf(call.Context, call.ProjectDir, st.Soundtrack, out, subtitles, clip.Length(), call.Stderr)
 			if err != nil {
-				return fmt.Errorf("%w\n  the film is made, without sound: %s", err, out)
+				return fmt.Errorf("%w\n  the video is made, without sound: %s", err, out)
 			}
 			if err := writeFilm(out, clip, sound, chapters); err != nil {
 				return err

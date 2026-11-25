@@ -13,7 +13,7 @@ type Kind struct {
 	// Name is its first word. "lasts" is the one written as a time alone.
 	Name string
 	// Usage shows it as an author writes it; Doc says what it does, in a
-	// film and before an audience.
+	// video and before an audience.
 	Usage string
 	Doc   string
 	// Text marks a direction that takes the cue's text for itself (a card's
@@ -23,7 +23,7 @@ type Kind struct {
 	Check func(args []string) string
 }
 
-// Surfaces are what a film can show, of the pack's own: the diagram of what
+// Surfaces are what a video can show, of the pack's own: the diagram of what
 // the scenario talks to, and the screens the scenario drives. Modules add
 // theirs (RegisterModule), and a project its own (packs.demo.surfaces).
 var Surfaces = []string{"diagram", "browser", "phone", "desktop"}
@@ -48,10 +48,10 @@ func Kinds() []Kind {
 func init() {
 	Register(Kind{
 		Name: "lasts", Usage: "[2s]",
-		Doc: "The step below lasts this long in the film, however long it ran. [0s] is a cut: the step runs, and the film shows none of it. Before an audience it does nothing.",
+		Doc: "The step below lasts this long in the video, however long it ran. [0s] is a cut: the step runs, and the video shows none of it. Before an audience it does nothing.",
 		Check: func(args []string) string {
 			if len(args) != 1 {
-				return "a time alone says how long the step below lasts in the film, like [2s]: it takes nothing else"
+				return "a time alone says how long the step below lasts in the video, like [2s]: it takes nothing else"
 			}
 			return ""
 		},
@@ -86,7 +86,7 @@ func init() {
 	})
 	Register(Kind{
 		Name: "cut", Usage: "[cut]",
-		Doc:   "The camera stops before the step below: the steps run, and the film shows none of them until [action].",
+		Doc:   "The camera stops before the step below: the steps run, and the video shows none of them until [action].",
 		Check: noArgs("cut"),
 	})
 	Register(Kind{

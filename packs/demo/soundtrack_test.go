@@ -60,7 +60,7 @@ func TestTheSoundtrackCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	// It is run in the project's folder, and told where everything is.
-	command := `grep -q Hello. "$AXX_DEMO_SUBTITLES" && echo "$AXX_DEMO_SECONDS $AXX_DEMO_FILM" > told && cp spoken.wav "$AXX_DEMO_SOUNDTRACK"`
+	command := `grep -q Hello. "$AXX_DEMO_SUBTITLES" && echo "$AXX_DEMO_SECONDS $AXX_DEMO_VIDEO" > told && cp spoken.wav "$AXX_DEMO_SOUNDTRACK"`
 	var said bytes.Buffer
 	sound, err := soundtrackOf(context.Background(), dir, Soundtrack{Command: command}, film, subtitles, 2*time.Second, &said)
 	if err != nil {

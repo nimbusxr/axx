@@ -342,7 +342,7 @@
 		return { map, kind: 'sequence', width, height, boxes, edges, lifelines, zones: [], sources: new Set(), services: [] };
 	}
 
-	// Which of a sequence diagram's messages each step of the film was: the
+	// Which of a sequence diagram's messages each step of the video was: the
 	// next message, in the diagram's order, that fits what the step sent, found
 	// or was told. A message the run never showed stays dim.
 	function played(L, state, active) {

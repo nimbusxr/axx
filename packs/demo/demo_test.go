@@ -432,7 +432,7 @@ func TestShowNamesASurface(t *testing.T) {
 		"[show terminal + diagram]": "",
 		"[show ledger]":             "",
 		"[show ledger + browser]":   "",
-		"[show nothing]":            `show does not know "nothing": it shows diagram, browser, phone, desktop, ledger, terminal, or auto; a project adds its own in packs.demo.surfaces`,
+		"[show nothing]":            `show does not know "nothing": it shows diagram, browser, phone, desktop, ledger, editor, terminal, or auto; a project adds its own in packs.demo.surfaces`,
 		"[show a + b + c]":          "show takes what to show",
 	} {
 		feature := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: "+src+" The depot's", 1)
@@ -511,5 +511,26 @@ func TestAScreenStepLastsUntilItsPicture(t *testing.T) {
 	}
 	if tap := Cut(take, nil, DefaultPace).Segments[0]; tap.From != 1 || tap.To != 60 {
 		t.Errorf("in a film the tap plays from %v to %v, want 1 to 60", tap.From, tap.To)
+	}
+}
+
+// A demo that ends on a card ends on it: the picture before the card does
+// not come back for the moment a demo's last picture stays.
+func TestADemoEndsOnItsLastCard(t *testing.T) {
+	src := strings.Replace(holdFeature, "    # demo: That is the whole of it.\n", "    # demo: That is the whole of it.\n    # demo: [card 4s] Hold it at the depot.\n", 1)
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), Known{})
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	tl := Cut(holdTake(), script, DefaultPace)
+	last := tl.Segments[len(tl.Segments)-1]
+	if last.Kind != "card" || last.Text != "Hold it at the depot." || last.End-last.Start != 4 || tl.Duration != last.End {
+		t.Errorf("the demo ends with %+v, at %v of %v: want its card, for its 4 seconds, to the end", last, last.End, tl.Duration)
+	}
+	// Without one, the last picture stays a moment, as before.
+	script, _ = ParseScript("features/hold.demo.feature", []byte(holdFeature), Known{})
+	tl = Cut(holdTake(), script, DefaultPace)
+	if last := tl.Segments[len(tl.Segments)-1]; last.Kind != "hold" || tl.Duration != last.End {
+		t.Errorf("a demo with no card at its end ends with %+v", last)
 	}
 }

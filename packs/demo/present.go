@@ -126,12 +126,23 @@ func beatsOf(script *Script) []beat {
 	if script == nil {
 		return out
 	}
+	// saidFirst is whether, in the group being read, what is said comes
+	// before its first card: below the last step, cues play as written.
+	saidFirst, any := false, false
 	flush := func(anchor int, cards []string, subtitle string) {
+		said := func() {
+			if subtitle != "" {
+				out = append(out, beat{text: subtitle, anchor: anchor})
+			}
+		}
+		if anchor == 0 && saidFirst {
+			said()
+		}
 		for _, c := range cards {
 			out = append(out, beat{card: true, text: c, anchor: anchor})
 		}
-		if subtitle != "" {
-			out = append(out, beat{text: subtitle, anchor: anchor})
+		if anchor != 0 || !saidFirst {
+			said()
 		}
 	}
 	anchor, started := 0, false
@@ -141,6 +152,7 @@ func beatsOf(script *Script) []beat {
 		if started && c.Anchor != anchor {
 			flush(anchor, cards, subtitle)
 			cards, subtitle = nil, ""
+			saidFirst, any = false, false
 		}
 		anchor, started = c.Anchor, true
 		isCard := false
@@ -148,6 +160,9 @@ func beatsOf(script *Script) []beat {
 			if d.Name == "card" {
 				cards, isCard = append(cards, c.Text), true
 			}
+		}
+		if !any && (isCard || c.Text != "") {
+			saidFirst, any = !isCard, true
 		}
 		if !isCard && c.Text != "" {
 			if subtitle != "" {

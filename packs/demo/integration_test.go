@@ -5,6 +5,7 @@ package demo
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -697,5 +698,75 @@ func TestTheTerminalShowsACommand(t *testing.T) {
 	text, dense, _, failed := look(tl.Duration)
 	if !strings.Contains(text, "$ axx demo missing.demo.feature\nerror: no such file: missing.demo.feature\nexit code 2") || failed != 1 || dense {
 		t.Errorf("the command that failed (small letters: %v, %d failures):\n%s", dense, failed, text)
+	}
+}
+
+// The editor shows a file a step read: a tab with its name, its lines
+// numbered, a feature file's keywords and a demo's cues colored, with a
+// cue's directions apart from what the audience reads. And a terminal has
+// only what happened while it was on: not the file the editor showed.
+func TestTheEditorShowsAFile(t *testing.T) {
+	src := `Feature: A demo of a demo
+
+  Scenario: A team shows a demo's file
+    # demo: [show editor] Meet the demo file.
+    Then the hold.demo.feature file in the project folder contains "# demo:"
+    # demo: [show terminal] And one command runs it.
+    When the axx command is run with "demo hold.demo.feature"
+`
+	script, err := ParseScript("features/meta.demo.feature", []byte(src), Settings{}.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	file := strings.TrimRight(holdFeature, "\n")
+	take := &Take{
+		Version: TakeVersion, Feature: "features/meta.demo.feature", Scenario: "A team shows a demo's file", Line: 3, Passed: true,
+		Peers: []Peer{{"project", "folder"}, {"axx", "command"}},
+		Steps: []TakeStep{
+			{Keyword: "Then", Text: `the hold.demo.feature file in the project folder contains "# demo:"`, Line: 5, Pack: "files", Status: "passed", End: 0.01, Exchanges: []core.Exchange{{
+				Peer: "project", Kind: "folder", Sent: &core.Message{Title: "read hold.demo.feature"},
+				Seen: &core.Message{Title: "features/hold.demo.feature", MediaType: "text/plain", Body: file},
+			}}},
+			{Keyword: "When", Text: `the axx command is run with "demo hold.demo.feature"`, Line: 7, Pack: "cli", Status: "passed", Start: 0.01, End: 0.02, Exchanges: []core.Exchange{{
+				Peer: "axx", Kind: "command", Sent: &core.Message{Title: "axx demo hold.demo.feature"},
+				Seen: &core.Message{Title: "exit code 0", MediaType: "text/plain", Body: "hold (30 seconds): hold.mp4"},
+			}}},
+		},
+	}
+	tl := Cut(take, script, DefaultPace)
+	s, err := openStudio(context.Background(), t.TempDir(), Settings{}, &Staged{Take: take, Timeline: tl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	read := tl.Segments[0]
+	if _, err := s.seek(time.Duration((read.Start + 0.5*(read.End-read.Start)) * float64(time.Second))); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.page.Evaluate(`() => {
+		const all = (sel) => [...document.querySelectorAll('.surface-editor ' + sel)].map((e) => e.textContent);
+		return {
+			tab: all('.ed-tab')[0], path: all('.ed-path')[0], numbers: all('.ed-no').length, first: all('.ed-code')[0],
+			keywords: all('.e-keyword'), steps: all('.e-step').length, directions: all('.e-direction'), cues: all('.e-cue').filter((c) => c.trim()).length, comments: all('.e-comment'),
+		};
+	}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ed := got.(map[string]any)
+	if ed["tab"] != "hold.demo.feature" || ed["path"] != "features" || fmt.Sprint(ed["numbers"]) != fmt.Sprint(strings.Count(file, "\n")+1) || ed["first"] != "# demo: [card 3s] Holding a parcel at the depot" {
+		t.Errorf("the file in the editor: tab %v in %v, %v lines, first %q", ed["tab"], ed["path"], ed["numbers"], ed["first"])
+	}
+	if fmt.Sprint(ed["keywords"]) != "[Feature Scenario]" || fmt.Sprint(ed["steps"]) != "5" {
+		t.Errorf("a feature file's colors: keywords %v, %v steps", ed["keywords"], ed["steps"])
+	}
+	// A cue's directions apart from what the audience reads; a comment that
+	// is no cue is a comment.
+	if fmt.Sprint(ed["directions"]) != "[[card 3s] [cut] [action] [2s] [speed 4x] [pause 2s]]" || fmt.Sprint(ed["comments"]) != "[# a note of the author's own #  not a part of it]" {
+		t.Errorf("a demo's cues: directions %v, comments %v", ed["directions"], ed["comments"])
+	}
+	// The terminal, when it comes on: the command, and nothing of the file.
+	if got := shown(t, s, tl.Duration); !strings.Contains(got["terminal"], "$ axx demo hold.demo.feature\nhold (30 seconds): hold.mp4") || strings.Contains(got["terminal"], "Feature:") || strings.Contains(got["terminal"], "read hold") {
+		t.Errorf("the terminal after the editor:\n%s", got["terminal"])
 	}
 }

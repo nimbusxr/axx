@@ -26,11 +26,11 @@ import (
 	webcore "github.com/nimbusxr/axx/packs/web/core"
 )
 
-// The film is the stage, moment after moment. The stage is a page that draws
-// the picture of any moment of a timeline (stage/stage.js: seek); the film
+// The video is the stage, moment after moment. The stage is a page that draws
+// the picture of any moment of a timeline (stage/stage.js: seek); the video
 // asks it for each frame's, takes a picture of the page, and encodes the
 // pictures. Nothing depends on how fast the page or the machine is: the
-// film's clock is the timeline's.
+// video's clock is the timeline's.
 
 //go:embed stage
 var stageFiles embed.FS
@@ -43,7 +43,7 @@ type Staged struct {
 	// Mark is a word the stage shows in a corner: "recorded", where a live
 	// show plays a take.
 	Mark string `json:"mark,omitempty"`
-	// Live is the state of a show before an audience; nil for a film.
+	// Live is the state of a show before an audience; nil for a video.
 	Live *Live `json:"live,omitempty"`
 	// Diagrams are the project's diagrams, the first the one a demo starts
 	// on. With none, the diagram is of what the scenario talked to.
@@ -229,7 +229,7 @@ func openStudio(ctx context.Context, projectDir string, st Settings, staged *Sta
 	s.width, s.height, s.scale = st.size()
 	if s.page, err = webcore.OwnPage(suite, s.width, s.height, s.scale); err != nil {
 		s.close()
-		return nil, fmt.Errorf("the film is made in a browser, which did not start: %w", err)
+		return nil, fmt.Errorf("the video is made in a browser, which did not start: %w", err)
 	}
 	if _, err := s.page.Goto(srv.URL); err != nil {
 		s.close()
@@ -292,14 +292,14 @@ func Still(ctx context.Context, projectDir string, st Settings, staged *Staged, 
 	return s.shot()
 }
 
-// Film makes the film of a take with its timeline, into the file at out.
+// Video makes the video of a take with its timeline, into the file at out.
 // Progress is told how far it is, from 0 to 1.
 func Film(ctx context.Context, projectDir string, st Settings, staged *Staged, out string, progress func(float64)) error {
 	return FilmOf(ctx, projectDir, st, []*Staged{staged}, nil, out, progress)
 }
 
-// FilmOf makes one film of several takes, one after another: the rows of a
-// Scenario Outline, each a chapter of the film, with its title. A film of
+// FilmOf makes one video of several takes, one after another: the rows of a
+// Scenario Outline, each a chapter of the video, with its title. A video of
 // one take has a chapter for each of its subtitles.
 func FilmOf(ctx context.Context, projectDir string, st Settings, parts []*Staged, titles []string, out string, progress func(float64)) error {
 	clip, chapters, err := shoot(ctx, projectDir, st, parts, titles, progress)
@@ -309,7 +309,7 @@ func FilmOf(ctx context.Context, projectDir string, st Settings, parts []*Staged
 	return writeFilm(out, clip, nil, chapters)
 }
 
-// writeFilm writes a film's picture, with its sound when it has one.
+// writeFilm writes a video's picture, with its sound when it has one.
 func writeFilm(out string, clip video.Clip, sound *video.Sound, chapters []video.Chapter) error {
 	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 		return err
@@ -321,7 +321,7 @@ func writeFilm(out string, clip video.Clip, sound *video.Sound, chapters []video
 	return os.WriteFile(out, buf.Bytes(), 0o644)
 }
 
-// shoot films the stage for each take, one after another, and returns the
+// shoot videos the stage for each take, one after another, and returns the
 // picture and its chapters.
 func shoot(ctx context.Context, projectDir string, st Settings, parts []*Staged, titles []string, progress func(float64)) (video.Clip, []video.Chapter, error) {
 	var none video.Clip

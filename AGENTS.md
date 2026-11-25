@@ -240,9 +240,9 @@ the skills instead: `axx skills install`.
   registry, `directions.go`, which a project adds to in `packs.demo.directions`). `axx demo` runs the scenario through
   `core.CommandCall.Run`, with the pack's hooks keeping what the run did as a take (`take.go`: each step's times and what it
   sent and saw, `core.Exchange`, which a pack says with `Scenario.Exchanged`; and the pictures of its screens, which the
-  packs with a screen show to what watches them, `packs/internal/recording/screens.go`). The cut (`cut.go`) is the film's
+  packs with a screen show to what watches them, `packs/internal/recording/screens.go`). The cut (`cut.go`) is the video's
   timeline, whose time is its own; the stage (`stage/`, a page: `axxStage.seek(t)` draws any moment, so draw from the state
-  and never from a clock) is filmed frame by frame in a browser of web-core's (`film.go`, `webcore.OwnPage`). The diagram of
+  and never from a clock) is recorded frame by frame in a browser of web-core's (`film.go`, `webcore.OwnPage`). The diagram of
   what has no screen (`stage/diagram.js`) is a map drawn in characters, by an engine of its own: the project's diagrams
   (`packs.demo.diagrams`, Mermaid flowcharts and sequence diagrams) or, without any, what the scenario talked to. Mermaid's library only reads a
   diagram's text (`mermaid.go` pins it and its hash; downloaded from npm, never distributed with axx): nothing of its
@@ -250,20 +250,22 @@ the skills instead: `axx skills install`.
   drawn apart from what was seen: keep that so too. `--present` is the same stage
   before an audience (`present.go`): the run waits at each beat for the presenter, back shows again and undoes nothing, and a
   step that failed is asked about (`core.StepFailed`) before the audience sees anything of it. The rows of a Scenario Outline
-  play one after another, each with its own beats (`show.arrive`, `show.beats`), as a film has them as chapters. A film's sound is made after its picture, from
+  play one after another, each with its own beats (`show.arrive`, `show.beats`), as a video has them as chapters. A video's sound is made after its picture, from
   its subtitles with their times (the `.srt` beside it), by a command of the project's (`soundtrack.go`): the pack makes no
   sound and ships no voice, keep it so. The sound is one FLAC track, which `packs/internal/video` encodes itself
   (`sound.go`). The pack's scenes are
   registered as a project's are (`axxStage.scene`): keep them no different. What is happening at a moment (which exchange
   plays, what of it shows, a held response) is worked out once, in the stage (`happening`, `state.now`), for every scene:
-  a rule of the film goes there, never into one scene. A surface is a scene a cue shows (`[show ...]`): the pack's, a
+  a rule of the video goes there, never into one scene. A surface is a scene a cue shows (`[show ...]`): the pack's, a
   project's (`packs.demo.surfaces`) or a module's, which is how another pack adds scenes, styles and directions
   (`modules.go`, `demo.RegisterModule`). The steps of apps are one pack's on a phone and
-  on a desktop (app-core): a step is on the screen that is filmed (`surfaceOf`), and what a step did with the camera off
-  stays out of the picture (`state.filmed`). The cli pack says what each command ran and printed
+  on a desktop (app-core): a step is on the screen that is recorded (`surfaceOf`), and what a step did with the camera off
+  stays out of the picture (`state.recorded`). The cli pack says what each command ran and printed
   (`packs/cli/exchange.go`), which the terminal types out: the parcels example's `showcase` project is a demo of axx made
   that way, its scenario running `axx demo` in the acceptance project beside it (another project, as two runs of one
-  take turns). The terminal (`modules/terminal`) is a module registered as another pack's is,
+  take turns). The editor (`modules/editor`) shows a file a step read, which the steps that check a file's or an object's
+  text say (`internal/cloudstep/exchange.go`). A project sets how fast its videos go (`packs.demo.pace`); a voice never
+  does. A video that ends on a card ends on it. The terminal (`modules/terminal`) is a module registered as another pack's is,
   and the docs' example of one: keep it built on what the guide "Build a demo's scenes" lists and nothing else. Its
   browser tests run in CI's web job.
 - `packs/internal/memcheck`: axx's C, C++ and Objective-C under a memory checker, for axx's own

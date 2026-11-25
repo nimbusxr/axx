@@ -25,11 +25,22 @@ type Settings struct {
 	// Mermaid flowcharts or sequence diagrams. A demo starts on the first, and a cue goes to
 	// another ([diagram name]).
 	Diagrams Diagrams `json:"diagrams,omitzero"`
-	// Soundtrack is how a film's sound is made: nothing, without it.
+	// Soundtrack is how a video's sound is made: nothing, without it.
 	Soundtrack Soundtrack `json:"soundtrack,omitzero"`
-	// Size is the film's, like 1920x1080, and FPS its frames a second.
+	// Size is the video's, like 1920x1080, and FPS its frames a second.
 	Size string `json:"size,omitempty"`
 	FPS  int    `json:"fps,omitempty"`
+	// Pace is how fast the project's demo videos go, where it differs from
+	// the pack's: seconds, each 0 where the project says nothing.
+	Pace struct {
+		Read     float64 `json:"read,omitempty"`
+		Word     float64 `json:"word,omitempty"`
+		Exchange float64 `json:"exchange,omitempty"`
+		Check    float64 `json:"check,omitempty"`
+		Screen   float64 `json:"screen,omitempty"`
+		Card     float64 `json:"card,omitempty"`
+		End      float64 `json:"end,omitempty"`
+	} `json:"pace,omitzero"`
 
 	// footage is the folder a take's pictures are in: its own.
 	footage string
@@ -100,7 +111,7 @@ type Theme struct {
 	// diagram: the scenario's side of every exchange. Without it there is
 	// no such box.
 	Caller string `json:"caller,omitempty"`
-	// Steps is whether the film says, in a line, which step it shows.
+	// Steps is whether the video says, in a line, which step it shows.
 	Steps *bool `json:"steps,omitempty"`
 	// Colors are the stage's colors, by name: background, surface, text,
 	// muted, line, sent, seen, failed, accent.
@@ -109,8 +120,8 @@ type Theme struct {
 	Font string `json:"font,omitempty"`
 }
 
-// size is the page the film is taken of, in CSS pixels, and how many of the
-// film's pixels each is: the page is always 720 high, so that a demo looks
+// size is the page the video is taken of, in CSS pixels, and how many of the
+// video's pixels each is: the page is always 720 high, so that a demo looks
 // the same at every size.
 func (s Settings) size() (width, height int, scale float64) {
 	w, h := 1920, 1080
@@ -123,6 +134,22 @@ func (s Settings) size() (width, height int, scale float64) {
 	}
 	scale = float64(h) / 720
 	return int(float64(w)/scale + 0.5), 720, scale
+}
+
+// pace is the pace of the project's demo videos: the pack's, with what the
+// project sets of its own.
+func (s Settings) pace() Pace {
+	p := DefaultPace
+	for _, v := range []struct {
+		set float64
+		to  *float64
+	}{{s.Pace.Read, &p.Read}, {s.Pace.Word, &p.Word}, {s.Pace.Exchange, &p.Exchange}, {s.Pace.Check, &p.Check}, {s.Pace.Screen, &p.Screen}, {s.Pace.Card, &p.Card}, {s.Pace.End, &p.End}} {
+		if v.set > 0 {
+			*v.to = v.set
+		}
+	}
+	p.Most = max(p.Most, p.Exchange)
+	return p
 }
 
 func (s Settings) fps() int {
@@ -151,7 +178,7 @@ const configSchema = `{
       "description": "The look of the project's demos.",
       "properties": {
         "caller": {"type": "string", "description": "A name for whoever uses the system, like shop: the diagram then has a box of that name, which what the scenario sends comes from. Without it there is no such box, and what is sent comes in from the edge of the picture."},
-        "steps": {"type": "boolean", "description": "Whether the film says, in a line, which step it shows. Default: true."},
+        "steps": {"type": "boolean", "description": "Whether the video says, in a line, which step it shows. Default: true."},
         "colors": {
           "type": "object",
           "additionalProperties": {"type": "string"},
@@ -169,9 +196,9 @@ const configSchema = `{
     "soundtrack": {
       "type": "object",
       "additionalProperties": false,
-      "description": "How a film's sound is made, once its picture is: by a command of the project's. Axx makes no sound itself.",
+      "description": "How a video's sound is made, once its picture is: by a command of the project's. Axx makes no sound itself.",
       "properties": {
-        "command": {"type": "string", "description": "A command of the project's, run through the shell in axx.yaml's folder for each film. It reads the film's subtitles with their times ($AXX_DEMO_SUBTITLES, a .srt file) and writes the film's sound to $AXX_DEMO_SOUNDTRACK, a WAV file as long as the film ($AXX_DEMO_SECONDS); $AXX_DEMO_FILM is the film without sound. A model that speaks, or anything else that makes sound."}
+        "command": {"type": "string", "description": "A command of the project's, run through the shell in axx.yaml's folder for each video. It reads the video's subtitles with their times ($AXX_DEMO_SUBTITLES, a .srt file) and writes the video's sound to $AXX_DEMO_SOUNDTRACK, a WAV file as long as the video ($AXX_DEMO_SECONDS); $AXX_DEMO_VIDEO is the video without sound. A model that speaks, or anything else that makes sound."}
       }
     },
     "scenes": {
@@ -182,7 +209,21 @@ const configSchema = `{
       "type": "array", "items": {"type": "string"},
       "description": "Stylesheets of the project's own for the stage, loaded after the pack's."
     },
-    "size": {"type": "string", "pattern": "^[0-9]+x[0-9]+$", "description": "The film's size, like 1920x1080 (the default)."},
-    "fps": {"type": "integer", "minimum": 1, "maximum": 60, "description": "The film's frames a second. Default: 30."}
+    "size": {"type": "string", "pattern": "^[0-9]+x[0-9]+$", "description": "The video's size, like 1920x1080 (the default)."},
+    "fps": {"type": "integer", "minimum": 1, "maximum": 60, "description": "The video's frames a second. Default: 30."},
+    "pace": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How fast a demo video goes, in seconds. The defaults are slow enough for someone who reads the subtitles and sees the system for the first time; a video with a voice is tighter, as a line is heard faster than it is read.",
+      "properties": {
+        "read": {"type": "number", "exclusiveMinimum": 0, "description": "How long a subtitle stays before its words are counted. Default: 2."},
+        "word": {"type": "number", "exclusiveMinimum": 0, "description": "What each word of a subtitle adds to how long it stays. Default: 0.42."},
+        "exchange": {"type": "number", "exclusiveMinimum": 0, "description": "How long a step lasts for each thing it sent or saw. Default: 3.4."},
+        "check": {"type": "number", "exclusiveMinimum": 0, "description": "How long a step lasts that sent nothing: a check. Default: 1.8."},
+        "screen": {"type": "number", "exclusiveMinimum": 0, "description": "The least a step on a screen lasts. Default: 1.8."},
+        "card": {"type": "number", "exclusiveMinimum": 0, "description": "How long a card stays that says no time. Default: 3."},
+        "end": {"type": "number", "exclusiveMinimum": 0, "description": "How long the last picture stays. Default: 2.5."}
+      }
+    }
   }
 }`
