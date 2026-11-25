@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nimbusxr/axx/main/schemas/v0/axx.schema.json
+#
+# axx, shown with axx: a demo of making a demo. Its scenario runs axx's own command line in the
+# parcels example's acceptance project (../acceptance), and `axx demo` films it. From this
+# directory, with axx on the PATH:
+#   axx demo features/demos/make-a-demo.demo.feature             # the film, in .axx/demo
+#   axx demo --present features/demos/make-a-demo.demo.feature   # the same, before an audience
+version: 1
+
+run:
+  paths: [features]
+
+# Paths in steps (pages/watch.html) resolve against this directory.
+resources: ["."]
