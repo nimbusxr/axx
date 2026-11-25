@@ -319,38 +319,42 @@
 			const said = new Set();
 			const problem = (text) => { if (!said.has(text)) { said.add(text); axxStage.problems.push(text); } };
 			for (const seg of data.timeline.segments) {
-				const L = layouts[seg.diagram || first];
-				if (!L) continue;
-				if (seg.as && !L.boxes[seg.as]) problem('[as ' + seg.as + ']: the diagram ' + L.map.name + ' has no box ' + seg.as);
+				const shown = (seg.diagrams && seg.diagrams.length ? seg.diagrams : [first]).map((name) => layouts[name]).filter(Boolean);
+				if (!shown.length) continue;
+				const names = shown.map((L) => L.map.name).join(' and ');
+				const has = shown.length > 1 ? 'have' : 'has';
+				// The picture has room for two things: a screen and a diagram, or two diagrams.
+				if (shown.length > 1 && (seg.show || []).length > 1) problem('[diagram ' + seg.diagrams.join(' + ') + '] beside ' + seg.show.filter((s) => s !== 'diagram').join(', ') + ': the picture shows two things at the most, so two diagrams are shown by themselves ([show diagram])');
+				if (seg.as && !shown.some((L) => L.boxes[seg.as])) problem('[as ' + seg.as + ']: the diagram ' + names + ' ' + has + ' no box ' + seg.as);
 				for (const [a, b] of seg.flows || []) {
-					if (!L.edges.some((e) => e.from === a && e.to === b)) problem('[' + a + ' --> ' + b + ']: the diagram ' + L.map.name + ' has no line from ' + a + ' to ' + b);
+					if (!shown.some((L) => L.edges.some((e) => e.from === a && e.to === b))) problem('[' + a + ' --> ' + b + ']: the diagram ' + names + ' ' + has + ' no line from ' + a + ' to ' + b);
 				}
 			}
 		},
 		mount(el) {
-			el.innerHTML = '<pre class="grid"></pre><div class="messages"><div class="msg sent"></div><div class="msg seen"></div></div>';
+			el.innerHTML = '<div class="maps"><pre class="grid"></pre><pre class="grid"></pre></div><div class="messages"><div class="msg sent"></div><div class="msg seen"></div></div>';
 		},
 		render(el, state) {
 			const take = state.take, seg = state.segment;
-			let L = layouts[seg.diagram || first];
-			if (!L) {
-				// No diagram of the project's: the map is of what the scenario has
-				// talked to. In a show, whose take grows, it is made again when
+			// The maps the picture shows: one of the project's diagrams, or two
+			// side by side; without any, a map of what the scenario talked to.
+			let maps = (seg.diagrams && seg.diagrams.length ? seg.diagrams : [first]).map((name) => layouts[name]).filter(Boolean).slice(0, 2);
+			if (!maps.length) {
+				// In a show, whose take grows, that map is made again when
 				// another joins.
 				const spoke = [];
 				for (const st of take.steps) for (const x of acts(st)) if (!spoke.includes(x.peer)) spoke.push(x.peer);
 				const key = spoke.join('|') + '|' + (state.theme.caller || '');
 				if (el._made !== key) { el._made = key; el._layout = layout(mapOf(take, state.theme)); }
-				L = el._layout;
+				maps = [el._layout];
 			}
-			if (el._shown !== L) {
-				el._shown = L;
-				// The grid is as large as fits: a map of many boxes is drawn smaller.
-				el.style.setProperty('--rows', L.height);
-				el.style.setProperty('--cols', L.width);
+			// The grids are as large as fits: maps of many boxes are drawn smaller.
+			const size = maps.map((L) => L.width + 'x' + L.height).join('+');
+			if (el._size !== size) {
+				el._size = size;
+				el.style.setProperty('--rows', Math.max(...maps.map((L) => L.height)));
+				el.style.setProperty('--cols', maps.reduce((n, L) => n + L.width, 0) + (maps.length - 1) * 8);
 			}
-			const who = seg.as || L.map.caller || '';
-			const grid = newGrid(L.width, L.height);
 			// What the scenario has talked to by now, and what each last said.
 			const met = {}, lastSaid = {}, kinds = {};
 			for (const p of take.peers) kinds[p.name] = p.kind;
@@ -382,68 +386,88 @@
 					if (list.length) active = { x: list[list.length - 1], phase: 1, failed: take.steps[i].status !== 'passed', over: true };
 				}
 			}
-			const line = active && !active.over ? lineOf(L, active.x, who) : null;
-			// The lines a cue lights while the step plays: what the scenario
-			// cannot see, told by whoever wrote the demo.
-			const told = state.playing ? (seg.flows || []).map(([a, b]) => L.edges.find((e) => e.from === a && e.to === b)).filter(Boolean) : [];
-			for (const z of L.zones) drawBox(grid, z, 'zone');
-			for (const b of Object.values(L.boxes)) {
-				// On a project's diagram every box is there from the start; on a
-				// map of what the scenario talked to, a box is there once it did.
-				if (L.map.made && b.id !== L.map.caller && !met[b.id]) continue;
-				const kind = kinds[b.id] || SHAPES[b.shape] || '';
-				const lines = [{ text: kind, kind: 'sub' }];
-				const said = lastSaid[b.id];
-				if (said) lines.push({ text: clip(said.text, b.w - 4), kind: said.kind });
-				const on = (active && !active.over && active.x.peer === b.id) || told.some((e) => e.to === b.id);
-				drawBox(grid, { ...b, lines }, on ? (active && active.failed ? 'fail' : 'key') : 'line');
-			}
-			const lit = new Set(told.map((e) => e.id));
-			if (line) lit.add(line.edge.id);
-			for (const e of L.edges) {
-				if (lit.has(e.id) || (L.map.made && !met[e.to])) continue;
-				drawEdge(grid, e, 'line');
-			}
-			told.forEach((e, i) => {
-				// One after the other, over the step's time.
-				const p = Math.min(1, Math.max(0, state.progress * told.length - i));
-				drawEdge(grid, e, 'told', p > 0 && p < 1 ? p * (e.cells.length - 1) : undefined);
+			const grids = el.querySelectorAll('.grid');
+			let found = false, from = '';
+			grids.forEach((pre, n) => {
+				const L = maps[n];
+				pre.hidden = !L;
+				if (!L) return;
+				const drawn = draw(L, state, { met, lastSaid, kinds, active });
+				pre.innerHTML = drawn.html;
+				found = found || drawn.found;
+				from = from || drawn.from;
 			});
 			let sent = null, seen = null;
 			if (active) {
 				const x = active.x, p = active.phase;
-				if (line) {
-					const n = line.edge.cells.length - 1;
-					let head, kind = 'coord';
-					// An exchange's time: out along the line, a moment there, back,
-					// and then the rest of it for what came back to be read.
-					if (line.found) {
-						// What the scenario found there came along the system's own line.
-						kind = active.failed ? 'fail' : 'ok';
-						if (p < 0.4) head = (p / 0.4) * n;
-					} else if (x.sent && p < 0.32) {
-						head = Math.min(1, p / 0.28) * n;
-					} else if (x.seen && (x.sent ? p >= 0.36 && p < 0.66 : p < 0.4)) {
-						head = (1 - Math.min(1, Math.max(0, x.sent ? (p - 0.36) / 0.28 : p / 0.36))) * n;
-						kind = active.failed ? 'fail' : 'ok';
-					}
-					drawEdge(grid, line.edge, kind, head);
-				}
-				const found = line && line.found;
 				if (x.sent && (active.over || p > 0.05)) sent = x.sent;
 				if (x.seen && (active.over || (found ? p >= 0.38 : x.sent ? p >= 0.62 : p >= 0.36))) seen = x.seen;
-			}
-			el.querySelector('.grid').innerHTML = html(grid);
-			// A mock knows the calls it got, not who made them: the map's line says.
-			let from = '';
-			if (active && active.x.from) {
-				const l = lineOf(L, active.x, who);
-				from = active.x.from === 'system' ? (l ? l.edge.from : (L.services.length === 1 ? L.services[0] : 'system')) : active.x.from;
+				// A mock knows the calls it got, not who made them: the map's line says.
+				if (x.from && !from) from = x.from === 'system' ? (maps[0].services.length === 1 ? maps[0].services[0] : 'system') : x.from;
 			}
 			message(el.querySelector('.msg.sent'), sent, from ? from + ' → ' + active.x.peer : '→ ' + (active ? active.x.peer : ''));
 			message(el.querySelector('.msg.seen'), seen, '← ' + (active ? active.x.peer : ''), active && active.failed);
 		},
 	});
+
+	// One map as it stands at a moment: its boxes, its lines, and on them what
+	// the step that plays sent or found, and what a cue tells.
+	function draw(L, state, { met, lastSaid, kinds, active }) {
+		const seg = state.segment;
+		const who = seg.as || L.map.caller || '';
+		const grid = newGrid(L.width, L.height);
+		const line = active && !active.over ? lineOf(L, active.x, who) : null;
+		// The lines a cue lights while the step plays: what the scenario
+		// cannot see, told by whoever wrote the demo.
+		const told = state.playing ? (seg.flows || []).map(([a, b]) => L.edges.find((e) => e.from === a && e.to === b)).filter(Boolean) : [];
+		for (const z of L.zones) drawBox(grid, z, 'zone');
+		for (const b of Object.values(L.boxes)) {
+			// On a project's diagram every box is there from the start; on a
+			// map of what the scenario talked to, a box is there once it did.
+			if (L.map.made && b.id !== L.map.caller && !met[b.id]) continue;
+			const kind = kinds[b.id] || SHAPES[b.shape] || '';
+			const lines = [{ text: kind, kind: 'sub' }];
+			const said = lastSaid[b.id];
+			if (said) lines.push({ text: clip(said.text, b.w - 4), kind: said.kind });
+			const on = (active && !active.over && active.x.peer === b.id) || told.some((e) => e.to === b.id);
+			drawBox(grid, { ...b, lines }, on ? (active && active.failed ? 'fail' : 'key') : 'line');
+		}
+		const lit = new Set(told.map((e) => e.id));
+		if (line) lit.add(line.edge.id);
+		for (const e of L.edges) {
+			if (lit.has(e.id) || (L.map.made && !met[e.to])) continue;
+			drawEdge(grid, e, 'line');
+		}
+		told.forEach((e, i) => {
+			// One after the other, over the step's time.
+			const p = Math.min(1, Math.max(0, state.progress * told.length - i));
+			drawEdge(grid, e, 'told', p > 0 && p < 1 ? p * (e.cells.length - 1) : undefined);
+		});
+		if (line) {
+			const x = active.x, p = active.phase, n = line.edge.cells.length - 1;
+			let head, kind = 'coord';
+			// An exchange's time: out along the line, a moment there, back,
+			// and then the rest of it for what came back to be read.
+			if (line.found) {
+				// What the scenario found there came along the system's own line.
+				kind = active.failed ? 'fail' : 'ok';
+				if (p < 0.4) head = (p / 0.4) * n;
+			} else if (x.sent && p < 0.32) {
+				head = Math.min(1, p / 0.28) * n;
+			} else if (x.seen && (x.sent ? p >= 0.36 && p < 0.66 : p < 0.4)) {
+				head = (1 - Math.min(1, Math.max(0, x.sent ? (p - 0.36) / 0.28 : p / 0.36))) * n;
+				kind = active.failed ? 'fail' : 'ok';
+			}
+			drawEdge(grid, line.edge, kind, head);
+		}
+		// Who a call the system made came from, as this map's line says.
+		let from = '';
+		if (active && active.x.from) {
+			const l = lineOf(L, active.x, who);
+			if (l) from = l.edge.from;
+		}
+		return { html: html(grid), found: !!(line && line.found), from };
+	}
 
 	function message(el, m, where, failed) {
 		el.classList.toggle('on', !!m);

@@ -85,7 +85,7 @@ What a cue has in square brackets directs the film. The film's time is its own: 
 | `[action]` | The camera starts again with the step below. | The same. |
 | `[card 3s] A title` | A card with the cue's text fills the picture for 3 seconds. | The card stays until the presenter goes on. |
 | `[show diagram]` | Says what the picture shows from the step below on: `diagram`, `browser`, `phone` or `desktop`, two of them side by side like `[show browser + diagram]`, or `auto`. | The same. |
-| `[diagram checkout]` | Goes to another of the project's diagrams, by its name, from the step below on. | The same. |
+| `[diagram checkout]` | Goes to another of the project's diagrams, by its name, from the step below on. Two names show two diagrams side by side: `[diagram stored + announced]`. | The same. |
 | `[as courier]` | Says who the scenario is, from the step below on: a box of the diagram, which what the scenario sends then comes from. | The same. |
 | `[parcels --> addresses]` | Lights that line of the diagram while the step plays. | The same. |
 
@@ -136,6 +136,8 @@ What a run did plays on the map by these rules:
 | A cue has an arrow, `[parcel-events --> billing]` | That line lights up, in another color and with nothing shown under the diagram: the scenario cannot see it, and you are telling the audience. |
 
 A cue that names a box or a line its diagram has not makes no film: `axx demo` says which.
+
+The picture shows two things at the most: a screen and a diagram (`[show browser + diagram]`), or two diagrams (`[diagram stored + announced]`). Two diagrams beside a screen make no film.
 
 To change the diagram during a demo, name the other one in a cue:
 

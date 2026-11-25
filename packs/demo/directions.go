@@ -132,10 +132,10 @@ func init() {
 func init() {
 	Register(Kind{
 		Name: "diagram", Usage: "[diagram checkout]",
-		Doc: "The diagram the picture shows from the step below on: one of the project's (packs.demo.diagrams), by its name.",
+		Doc: "The diagram the picture shows from the step below on: one of the project's (packs.demo.diagrams), by its name, or two side by side, like [diagram stored + announced]. The picture shows two things at the most, so two diagrams are shown by themselves, with no screen beside them.",
 		Check: func(args []string) string {
-			if len(args) != 1 {
-				return "diagram takes the name of one of the project's diagrams, like [diagram checkout]"
+			if n := len(showSurfaces(args)); n < 1 || n > 2 {
+				return "diagram takes the name of one of the project's diagrams, like [diagram checkout], or of two, like [diagram stored + announced]"
 			}
 			return ""
 		},
@@ -199,11 +199,16 @@ func checkDirection(d Direction, known Known) string {
 		}
 	}
 	// A diagram a cue goes to is one the project has.
-	if d.Name == "diagram" && !slices.Contains(known.Diagrams, d.Args[0]) {
-		if len(known.Diagrams) == 0 {
-			return fmt.Sprintf("the project has no diagram %q: packs.demo.diagrams names none", d.Args[0])
+	if d.Name == "diagram" {
+		for _, name := range showSurfaces(d.Args) {
+			if slices.Contains(known.Diagrams, name) {
+				continue
+			}
+			if len(known.Diagrams) == 0 {
+				return fmt.Sprintf("the project has no diagram %q: packs.demo.diagrams names none", name)
+			}
+			return fmt.Sprintf("the project has no diagram %q: packs.demo.diagrams has %s", name, strings.Join(known.Diagrams, ", "))
 		}
-		return fmt.Sprintf("the project has no diagram %q: packs.demo.diagrams has %s", d.Args[0], strings.Join(known.Diagrams, ", "))
 	}
 	return ""
 }

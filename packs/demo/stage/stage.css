@@ -45,6 +45,11 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 .hot3 { color: color-mix(in oklab, var(--k, currentColor) 80%, white); }
 .hot4 { color: var(--k, currentColor); }
 
+/* Two diagrams stand side by side. */
+.maps { display: flex; align-items: center; justify-content: center; gap: calc(8 * 0.61em); font-size: min(2.05vh, calc(38vh / var(--rows, 9) / 1.17), calc(150vh / var(--cols, 80) / 0.61)); }
+.maps .grid { font-size: inherit !important; }
+#stage[data-surfaces="2"] .maps { font-size: min(1.35vh, calc(38vh / var(--rows, 9) / 1.17), calc(78vh / var(--cols, 80) / 0.61)); }
+
 /* What went out and what came back, under the diagram. */
 .messages { display: flex; gap: 2vw; width: 100%; max-width: 150vh; height: 27vh; margin-top: 2.5vh; flex: none; }
 .msg { flex: 1 1 0; min-width: 0; padding: 1.4vh 1.8vh; border: 1px solid var(--rule); border-radius: 1vh; background: var(--surface); opacity: 0; overflow: hidden; }

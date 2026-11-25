@@ -100,11 +100,14 @@ services:
 packs:
   # The demos (features/demos, `axx demo`) are drawn on diagrams of the system, written in
   # Mermaid: a box is named as the scenarios name what they talk to. A demo starts on the
-  # first, and a cue goes to another: [diagram registered].
+  # first, and a cue goes to another, [diagram registered], or to two side by side,
+  # [diagram stored + announced].
   demo:
     diagrams:
       system: demo/system.mmd
       registered: demo/registered.mmd
+      stored: demo/stored.mmd
+      announced: demo/announced.mmd
   # The controls the service is to cover (security/controls.yaml), and what covers the ones no
   # scenario proves: `axx controls report` shows how each stands, and CI runs `axx controls
   # check`, which fails when one is not covered.

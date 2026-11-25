@@ -321,6 +321,8 @@ func TestCuesOfTheDiagram(t *testing.T) {
     Then the event is consumed
     # demo: [diagram payments] There is none of that name.
     And nothing else
+    # demo: [diagram system + aaa] Two of them, side by side.
+    And both are shown
 `
 	var st Settings
 	if err := json.Unmarshal([]byte(`{"diagrams": {"system": "docs/system.mmd", "billing": "docs/billing.mmd", "aaa": "docs/a.mmd"}}`), &st); err != nil {
@@ -340,6 +342,7 @@ func TestCuesOfTheDiagram(t *testing.T) {
 		{Keyword: "When", Text: "the request is executed", Line: 5, Status: "passed"},
 		{Keyword: "Then", Text: "the event is consumed", Line: 7, Status: "passed"},
 		{Keyword: "And", Text: "nothing else", Line: 9, Status: "passed"},
+		{Keyword: "And", Text: "both are shown", Line: 11, Status: "passed"},
 	}}
 	tl := Cut(take, script, DefaultPace)
 	var steps []Segment
@@ -348,17 +351,20 @@ func TestCuesOfTheDiagram(t *testing.T) {
 			steps = append(steps, seg)
 		}
 	}
-	if len(steps) != 3 {
+	if len(steps) != 4 {
 		t.Fatalf("segments: %+v", tl.Segments)
 	}
-	if s := steps[0]; s.As != "shop" || s.Diagram != "" || len(s.Flows) != 2 || s.Flows[0] != [2]string{"shop", "portal"} || s.Flows[1] != [2]string{"portal", "parcels"} {
+	if s := steps[3]; strings.Join(s.Diagrams, "+") != "system+aaa" {
+		t.Errorf("two diagrams side by side: %+v", s)
+	}
+	if s := steps[0]; s.As != "shop" || len(s.Diagrams) != 0 || len(s.Flows) != 2 || s.Flows[0] != [2]string{"shop", "portal"} || s.Flows[1] != [2]string{"portal", "parcels"} {
 		t.Errorf("the first step: %+v", s)
 	}
 	// Who the scenario is on one diagram, it is not on the next.
-	if s := steps[1]; s.As != "" || s.Diagram != "billing" || len(s.Flows) != 1 || s.Flows[0] != [2]string{"parcel-events", "billing"} {
+	if s := steps[1]; s.As != "" || strings.Join(s.Diagrams, "+") != "billing" || len(s.Flows) != 1 || s.Flows[0] != [2]string{"parcel-events", "billing"} {
 		t.Errorf("the second step: %+v", s)
 	}
-	if s := steps[2]; s.Diagram != "billing" || len(s.Flows) != 0 {
+	if s := steps[2]; strings.Join(s.Diagrams, "+") != "billing" || len(s.Flows) != 0 {
 		t.Errorf("the third step keeps the diagram and lights nothing: %+v", s)
 	}
 }

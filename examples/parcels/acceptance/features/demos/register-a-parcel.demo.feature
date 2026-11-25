@@ -38,7 +38,7 @@ Feature: Register a parcel, as a demo
     # demo: after asking the address service whether we deliver to that postcode.
     And the mocked GET request to /v1/postcodes/DE/10115 named postcode-check was received by addresses
 
-    # demo: [diagram registered] The depots' database has the parcel,
+    # demo: [diagram stored + announced] The depots' database has the parcel,
     And a selection of rows is retrieved from the parcels.parcels table where:
       | reference | PX-DEMO-9001 |
 

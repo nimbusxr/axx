@@ -25,7 +25,7 @@ func shown(t *testing.T, s *studio, at float64) map[string]string {
 		const text = (sel) => { const el = document.querySelector(sel); return el && !el.hidden && !el.closest('[hidden]') ? el.innerText : ''; };
 		return {
 			card: text('#stage .card'), subtitle: text('#stage .subtitle'), ticker: text('#stage .ticker'),
-			diagram: text('.surface-diagram .grid'), sent: text('.msg.sent.on'), seen: text('.msg.seen.on'),
+			diagram: [...document.querySelectorAll('.surface-diagram .grid')].filter((e) => !e.hidden && !e.closest('[hidden]')).map((e) => e.innerText).join('\n'), sent: text('.msg.sent.on'), seen: text('.msg.seen.on'),
 			own: text('.own-scene'), said: (window.saidDirections || []).join(','),
 		};
 	}`)
@@ -213,6 +213,31 @@ func TestAProjectsDiagrams(t *testing.T) {
 	// The cue went to the other diagram.
 	if got = shown(t, s, tl.Segments[5].Start+0.1); !strings.Contains(got["diagram"], "warehouse") || strings.Contains(got["diagram"], "Monthly reports") {
 		t.Errorf("after [diagram other]:\n%s", got["diagram"])
+	}
+
+	// Two diagrams side by side: both are drawn, and what a step found is on
+	// the one that has its box.
+	two := strings.Replace(src, "[diagram other] [speed 4x]", "[diagram system + other] [speed 4x]", 1)
+	script, err = ParseScript("features/hold.demo.feature", []byte(two), st.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	tl2 := Cut(take, script, DefaultPace)
+	s2, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: tl2, Diagrams: diagrams})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = shown(t, s2, tl2.Segments[5].Start+0.1)
+	s2.close()
+	if !strings.Contains(got["diagram"], "warehouse") || !strings.Contains(got["diagram"], "Monthly reports") {
+		t.Errorf("after [diagram system + other], both diagrams:\n%s", got["diagram"])
+	}
+	// The picture shows two things at the most: two diagrams beside a screen
+	// make no film.
+	three := strings.Replace(two, "[diagram system + other]", "[show browser + diagram] [diagram system + other]", 1)
+	script, _ = ParseScript("features/hold.demo.feature", []byte(three), st.known())
+	if _, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: Cut(take, script, DefaultPace), Diagrams: diagrams}); err == nil || !strings.Contains(err.Error(), "two things at the most") {
+		t.Errorf("two diagrams beside a browser: %v", err)
 	}
 
 	// What a cue names is in its diagram, and a diagram is a flowchart.
