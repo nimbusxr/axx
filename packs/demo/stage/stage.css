@@ -20,7 +20,7 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 #stage { position: relative; width: 100vw; height: 100vh; font-family: var(--font); background: var(--background); color: var(--text); }
 [hidden] { display: none !important; }
 
-.surfaces { position: absolute; inset: 0 0 21vh 0; display: flex; align-items: center; justify-content: center; gap: 2vw; padding: 4vh 3vw 0; }
+.surfaces { position: absolute; inset: 0 0 16vh 0; display: flex; align-items: center; justify-content: center; gap: 2vw; padding: 7vh 3vw 0; }
 .surface { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .missing { color: var(--muted); font-family: var(--text-font); font-size: 2.2vh; }
 
@@ -56,8 +56,9 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 .msg.seen.failed .title { color: var(--failed); }
 .msg pre { margin: 0.9vh 0 0; font-family: var(--font); font-size: 1.55vh; line-height: 1.35; color: var(--text); opacity: 0.85; white-space: pre; overflow: hidden; }
 
-/* The step the picture is of, in the feature's words. */
-.ticker { position: absolute; left: 0; right: 0; bottom: 15.5vh; padding: 0 6vw; text-align: center; font-size: 1.7vh; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The step the picture is of, in the feature's words: at the top, away from
+   the subtitle, which is what the audience reads. */
+.ticker { position: absolute; left: 0; right: 0; top: 2.6vh; padding: 0 12vw; text-align: center; font-size: 1.7vh; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ticker b { font-weight: 600; color: var(--line); }
 .ticker .passed { color: var(--seen); }
 .ticker .failed { color: var(--failed); }
