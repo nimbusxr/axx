@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2026112501](https://github.com/nimbusxr/axx/compare/axx-wiremock-v0.8.2026112301...axx-wiremock-v0.8.2026112501) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#437](https://github.com/nimbusxr/axx/issues/437)) ([7bf4ea7](https://github.com/nimbusxr/axx/commit/7bf4ea7b12183af7d4e95f0e5e2a1110aedf83b0))
+
 ## [0.8.2026112301](https://github.com/nimbusxr/axx/compare/axx-wiremock-v0.7.2026112101...axx-wiremock-v0.8.2026112301) (2026-11-23)
 
 
