@@ -218,7 +218,8 @@ func runCommand(sc *core.Scenario, name string, a core.Args, stdin []byte) error
 			return err
 		}
 	}
-	res, err := proc.Run(sc.Context(), proc.Spec{Argv: argv, Dir: dir, Env: c.Env, Stdin: stdin, Timeout: c.Timeout})
+	var printedBoth both
+	res, err := proc.Run(sc.Context(), proc.Spec{Argv: argv, Dir: dir, Env: c.Env, Stdin: stdin, Timeout: c.Timeout, Output: &printedBoth})
 	st.mu.Lock()
 	st.runs[name] = &run{argv: argv, dir: dir, result: res}
 	st.mu.Unlock()
@@ -240,6 +241,7 @@ func runCommand(sc *core.Scenario, name string, a core.Args, stdin []byte) error
 	case res.TimedOut:
 		return secrets.Hide(sc, fmt.Errorf("the %s command ran past its timeout of %s and was stopped: %s%s", name, c.Timeout, line, printed(res)))
 	}
+	exchanged(sc, name, argv, stdin, res, printedBoth.text())
 	sc.Log("ran %s in %s: exit code %d in %s", line, dir, res.ExitCode, res.Duration.Round(1e6))
 	if res.Truncated {
 		sc.Log("the %s command printed more than axx keeps: the checks see the start", name)
