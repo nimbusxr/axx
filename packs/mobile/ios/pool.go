@@ -299,6 +299,13 @@ func (p *pool) start(ctx context.Context) (*device, error) {
 		d.stop()
 		return nil, fmt.Errorf("cannot reduce motion on the %s simulator: %w", p.name, err)
 	}
+	// A new simulator's keyboard teaches sliding a finger over its letters, the
+	// first time it shows: a sheet over the lower half of the app, which takes
+	// the taps meant for what it covers. The simulator is told it was shown.
+	if _, err := d.set.simctl(ctx, "spawn", d.udid, "defaults", "write", "com.apple.keyboard.preferences", "DidShowContinuousPathIntroduction", "-bool", "true"); err != nil {
+		d.stop()
+		return nil, fmt.Errorf("cannot set the keyboard's preferences on the %s simulator: %w", p.name, err)
+	}
 	if reused {
 		p.suite.Logger().Info("WebDriverAgent answers on the iOS simulator, as the run before left it", "simulator", d.name)
 	} else {
