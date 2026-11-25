@@ -22,6 +22,17 @@ type Timeline struct {
 	// Beats are where a presenter stops: the start of each subtitle and
 	// each card.
 	Beats []float64 `json:"beats"`
+	// Marks are what cues write in the diagram's boxes, each from its
+	// moment on.
+	Marks []Mark `json:"marks,omitempty"`
+}
+
+// Mark is something a cue writes in a box of the diagram ([mark billing ✓]),
+// from the moment the cue's step is over.
+type Mark struct {
+	At   float64 `json:"at"`
+	Box  string  `json:"box"`
+	Text string  `json:"text"`
 }
 
 // Segment is a stretch of the film.
@@ -176,6 +187,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		var cards []Segment
 		var own []Direction
 		var flows [][2]string
+		var marks []Mark
 		holdResponse := false
 		subtitle := ""
 		for _, c := range cs {
@@ -198,6 +210,8 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 					as = d.Args[0]
 				case "hold":
 					holdResponse = true
+				case "mark":
+					marks = append(marks, Mark{Box: d.Args[0], Text: strings.Join(d.Args[1:], " ")})
 				case "flow":
 					for k := 0; k+1 < len(d.Args); k++ {
 						flows = append(flows, [2]string{d.Args[k], d.Args[k+1]})
@@ -295,6 +309,11 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			tl.Segments = append(tl.Segments, Segment{Kind: "step", Start: t, End: t + dur, Step: i, From: from, To: to, Show: shows, Directions: own, Diagrams: slices.Clone(diagram), As: as, Flows: flows, HoldResponse: holdResponse})
 			t += dur
 		}
+		// What the step's cues write in the boxes is there once the step is over.
+		for _, m := range marks {
+			m.At = t
+			tl.Marks = append(tl.Marks, m)
+		}
 		if camera {
 			hold(pause)
 		}
@@ -325,6 +344,9 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 	}
 	for i := range tl.Beats {
 		tl.Beats[i] = round(tl.Beats[i])
+	}
+	for i := range tl.Marks {
+		tl.Marks[i].At = round(tl.Marks[i].At)
 	}
 	return tl
 }

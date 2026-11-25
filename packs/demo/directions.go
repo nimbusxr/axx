@@ -141,6 +141,16 @@ func init() {
 		},
 	})
 	Register(Kind{
+		Name: "mark", Usage: "[mark billing ✓]",
+		Doc: "Writes something in a box of the diagram once the step below is over, where it stays: a check mark, an emoji, a few words. It is for a box the scenario does not talk to, so that the picture can still say what happened there; it is drawn as what a cue tells, apart from what the run saw.",
+		Check: func(args []string) string {
+			if len(args) < 2 {
+				return "mark takes a box of the diagram and what to write in it, like [mark billing ✓]"
+			}
+			return ""
+		},
+	})
+	Register(Kind{
 		Name: "hold", Usage: "[hold response]",
 		Doc: "The step below shows what it sent, and what came back shows with the step after it: for a step that sends a request and gets its answer, where the next cue is the one that says what the answer is.",
 		Check: func(args []string) string {

@@ -34,8 +34,21 @@
 		if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) return;
 		grid[y][x] = { ch, k };
 	}
+	// An emoji, and a character of an East Asian script, is two cells wide.
+	// A check mark that is drawn as text (✓) is one cell; one drawn as an emoji (✅) is two.
+	const WIDE = /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]|\p{Emoji_Presentation}|\ufe0f/u;
 	function write(grid, x, y, text, k) {
-		[...text].forEach((ch, i) => put(grid, x + i, y, ch, k));
+		let at = x;
+		// A variation selector belongs to the character before it.
+		for (const ch of text.match(/\P{M}[\p{M}\ufe0f\u200d]*/gu) || []) {
+			put(grid, at++, y, ch, k);
+			if (WIDE.test(ch)) {
+				// It is drawn in exactly two cells, whatever its font makes of it,
+				// so that the box's edge after it stays in line.
+				if (grid[y] && grid[y][at - 1]) grid[y][at - 1].wide = true;
+				put(grid, at++, y, '', k);
+			}
+		}
 	}
 	function drawBox(grid, b, kind) {
 		const r = RULES[b.style || 'light'];
@@ -105,6 +118,11 @@
 			let out = '', run = '', k = '';
 			const flush = () => { if (run) out += k ? '<span class="k-' + k + '">' + esc(run) + '</span>' : esc(run); run = ''; };
 			for (const c of row) {
+				if (c.wide) {
+					flush(); k = '';
+					out += '<span class="wide' + (c.k ? ' k-' + c.k : '') + '">' + esc(c.ch) + '</span>';
+					continue;
+				}
 				if (c.hot !== undefined && c.k) {
 					flush(); k = '';
 					out += '<span class="k-' + c.k + ' hot hot' + c.hot + '">' + esc(c.ch) + '</span>';
@@ -364,7 +382,7 @@
 		return { past, now };
 	}
 
-	function drawSequence(L, state, { met, lastSaid, kinds, active }) {
+	function drawSequence(L, state, { kinds, active, marks }) {
 		const grid = newGrid(L.width, L.height);
 		const { past, now } = played(L, state, active);
 		const list = active && active.list ? active.list : [];
@@ -403,7 +421,8 @@
 		}
 		for (const b of Object.values(L.boxes)) {
 			const on = now.some((n) => lit[n.m.id].on && n.m.to === b.id && ((n.k === k && n.step === own) || n.role === 'told'));
-			drawBox(grid, { ...b, lines: [{ text: kinds[b.id] || '', kind: 'sub' }] }, on ? (active && active.failed ? 'fail' : 'key') : 'line');
+			const line = marks[b.id] ? { text: clip(marks[b.id], b.w - 4), kind: 'told' } : { text: kinds[b.id] || '', kind: 'sub' };
+			drawBox(grid, { ...b, lines: [line] }, on ? (active && active.failed ? 'fail' : 'key') : 'line');
 		}
 		const found = now.some((n) => n.k === k && n.step === own && n.role === 'found');
 		const from = (now.find((n) => n.k === k && n.step === own && n.role === 'found' && active && active.x.from) || { m: {} }).m.from || '';
@@ -467,6 +486,13 @@
 			layouts.checked = data.timeline;
 			const said = new Set();
 			const problem = (text) => { if (!said.has(text)) { said.add(text); axxStage.problems.push(text); } };
+			// A box a cue writes in is in a diagram shown at that moment.
+			for (const m of data.timeline.marks || []) {
+				const segs = data.timeline.segments.filter((s) => s.start <= m.at + 1e-6);
+				const seg = segs[segs.length - 1] || {};
+				const shown = (seg.diagrams && seg.diagrams.length ? seg.diagrams : [first]).map((name) => layouts[name]).filter(Boolean);
+				if (shown.length && !shown.some((L) => L.boxes[m.box])) problem('[mark ' + m.box + ' ' + m.text + ']: the diagram ' + shown.map((L) => L.map.name).join(' and ') + ' ' + (shown.length > 1 ? 'have' : 'has') + ' no box ' + m.box);
+			}
 			for (const seg of data.timeline.segments) {
 				const shown = (seg.diagrams && seg.diagrams.length ? seg.diagrams : [first]).map((name) => layouts[name]).filter(Boolean);
 				if (!shown.length) continue;
@@ -565,13 +591,16 @@
 					if (list.length) active = { x: list[list.length - 1], phase: 1, failed: take.steps[i].status !== 'passed', over: true };
 				}
 			}
+			// What cues wrote in the boxes by now.
+			const marks = {};
+			for (const m of state.timeline.marks || []) if (m.at <= state.t + 1e-6) marks[m.box] = m.text;
 			const grids = el.querySelectorAll('.grid');
 			let found = false, from = '';
 			grids.forEach((pre, n) => {
 				const L = maps[n];
 				pre.hidden = !L;
 				if (!L) return;
-				const drawn = (L.kind === 'sequence' ? drawSequence : draw)(L, state, { met, lastSaid, kinds, active });
+				const drawn = (L.kind === 'sequence' ? drawSequence : draw)(L, state, { met, lastSaid, kinds, active, marks });
 				pre.innerHTML = drawn.html;
 				found = found || drawn.found;
 				from = from || drawn.from;
@@ -591,7 +620,7 @@
 
 	// One map as it stands at a moment: its boxes, its lines, and on them what
 	// the step that plays sent or found, and what a cue tells.
-	function draw(L, state, { met, lastSaid, kinds, active }) {
+	function draw(L, state, { met, lastSaid, kinds, active, marks }) {
 		const seg = state.segment;
 		const who = seg.as || L.map.caller || '';
 		const grid = newGrid(L.width, L.height);
@@ -606,7 +635,8 @@
 			if (L.map.made && b.id !== L.map.caller && !met[b.id]) continue;
 			const kind = kinds[b.id] || SHAPES[b.shape] || '';
 			const lines = [{ text: kind, kind: 'sub' }];
-			const said = lastSaid[b.id];
+			// What a cue wrote in the box, or what the box last said.
+			const said = marks[b.id] ? { text: marks[b.id], kind: 'told' } : lastSaid[b.id];
 			if (said) lines.push({ text: clip(said.text, b.w - 4), kind: said.kind });
 			const on = (active && !active.over && active.x.peer === b.id) || told.some((e) => e.to === b.id);
 			drawBox(grid, { ...b, lines }, on ? (active && active.failed ? 'fail' : 'key') : 'line');

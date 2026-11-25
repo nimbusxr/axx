@@ -362,3 +362,54 @@ func TestAResponseIsHeldForTheNextStep(t *testing.T) {
 		t.Errorf("at the end: %v", got)
 	}
 }
+
+// [mark box text]: a cue writes in a box the scenario does not talk to, once
+// its step is over, and what it wrote stays. A box its diagram has not makes
+// no film.
+func TestACueWritesInABox(t *testing.T) {
+	ctx := context.Background()
+	system := "flowchart LR\n  shop --> parcels\n  parcels --> parcels-db[(parcels-db)]\n  parcels-db -.-> reports\n"
+	src := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: [mark reports ✅ ✓ sent] [2s] The depot's", 1)
+	var st Settings
+	st.Diagrams = Diagrams{Names: []string{"system"}, Files: map[string]string{"system": "system.mmd"}}
+	var err error
+	if st.mermaid, err = mermaidFile(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), st.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	take := holdTake()
+	tl := Cut(take, script, DefaultPace)
+	sel := tl.Segments[3]
+	if len(tl.Marks) != 1 || tl.Marks[0].Box != "reports" || tl.Marks[0].Text != "✅ ✓ sent" || tl.Marks[0].At != sel.End {
+		t.Fatalf("the mark is there when its step is over: %+v, the step ends at %v", tl.Marks, sel.End)
+	}
+	diagrams := []Diagram{{Name: "system", Source: system}}
+	s, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: tl, Diagrams: diagrams})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	if got := shown(t, s, sel.Start+0.5); strings.Contains(got["diagram"], "sent") {
+		t.Errorf("while its step plays, the box has nothing yet:\n%s", got["diagram"])
+	}
+	if got := shown(t, s, tl.Duration); !strings.Contains(got["diagram"], "✅") || !strings.Contains(got["diagram"], "✓ sent") {
+		t.Errorf("after its step, to the end:\n%s", got["diagram"])
+	}
+	// An emoji takes two of the grid's cells: the lines of a box with one in
+	// it are as long as the others'.
+	width, err := s.page.Evaluate(`() => { const r = document.createRange(), pre = document.querySelector('.surface-diagram .grid'); const lines = pre.innerText.split('\n'); const w = (text) => { const span = document.createElement('span'); span.style.cssText = 'font:inherit;white-space:pre;visibility:hidden;position:absolute'; span.innerHTML = text; pre.appendChild(span); const v = span.getBoundingClientRect().width; span.remove(); return v; }; const html = pre.innerHTML.split('\n'); const i = html.findIndex((l) => l.includes('wide')); return [w(html[i]), w(html[i - 1])]; }`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w, ok := width.([]any); !ok || len(w) != 2 || w[0] != w[1] {
+		t.Errorf("the line with an emoji is %v wide, and the one above it %v", w[0], w[1])
+	}
+	bad := strings.Replace(src, "[mark reports", "[mark warehouse", 1)
+	script, _ = ParseScript("features/hold.demo.feature", []byte(bad), st.known())
+	if _, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: Cut(take, script, DefaultPace), Diagrams: diagrams}); err == nil || !strings.Contains(err.Error(), "the diagram system has no box warehouse") {
+		t.Errorf("a mark in a box there is not: %v", err)
+	}
+}

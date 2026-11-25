@@ -37,6 +37,8 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 .k-ok { --k: var(--seen); color: var(--k); }
 .k-fail { --k: var(--failed); color: var(--k); }
 .k-told { --k: var(--accent); color: var(--k); }
+/* An emoji takes two cells of the grid, exactly. */
+.grid .wide { display: inline-block; width: 2ch; height: 1.17em; line-height: 1.17; overflow: hidden; text-align: center; vertical-align: bottom; }
 .k-zone { color: var(--rule); }
 .hot { text-shadow: 0 0 0.9vh var(--k, currentColor); }
 .hot0 { color: color-mix(in oklab, var(--k, currentColor) 20%, white); }
