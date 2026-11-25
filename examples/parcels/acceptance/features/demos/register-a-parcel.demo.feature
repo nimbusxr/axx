@@ -42,5 +42,5 @@ Feature: Register a parcel, as a demo
     And a selection of rows is retrieved from the parcels.parcels table where:
       | reference | PX-DEMO-9001 |
 
-    # demo: [pause 2s] [parcel-events --> billing] [mark billing ✓ told] and billing is told of it, with an event.
+    # demo: [pause 2s] [parcel-events --> billing] [mark billing ✅ told] and billing is told of it, with an event.
     And the parcel-events kafka event named registered key is PX-DEMO-9001
