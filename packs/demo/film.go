@@ -136,9 +136,11 @@ func serveStage(projectDir string, st Settings, staged func() *Staged, sh *show)
 	// The pictures of the take's screens, from the demo's folder.
 	mux.HandleFunc("/footage/", func(w http.ResponseWriter, r *http.Request) {
 		rel := strings.TrimPrefix(r.URL.Path, "/footage/")
+		// The file served is the take's own name for it, within the demo's
+		// folder: what the request says only picks which.
 		for _, shot := range staged().Take.Footage {
 			if shot.File == rel {
-				http.ServeFile(w, r, filepath.Join(st.footage, filepath.FromSlash(rel)))
+				http.ServeFileFS(w, r, os.DirFS(st.footage), shot.File)
 				return
 			}
 		}
@@ -147,9 +149,11 @@ func serveStage(projectDir string, st Settings, staged func() *Staged, sh *show)
 	// The project's own files, by the paths axx.yaml names them with.
 	mux.HandleFunc("/project/", func(w http.ResponseWriter, r *http.Request) {
 		rel := strings.TrimPrefix(r.URL.Path, "/project/")
+		// The file served is one axx.yaml names, within the project: what the
+		// request says only picks which.
 		for _, allowed := range append(append([]string{}, st.Scenes...), st.Styles...) {
-			if filepath.ToSlash(filepath.Clean(allowed)) == rel {
-				http.ServeFile(w, r, filepath.Join(projectDir, filepath.FromSlash(rel)))
+			if name := filepath.ToSlash(filepath.Clean(allowed)); name == rel {
+				http.ServeFileFS(w, r, os.DirFS(projectDir), name)
 				return
 			}
 		}
