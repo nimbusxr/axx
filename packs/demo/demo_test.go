@@ -1,6 +1,7 @@
 package demo
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +37,7 @@ Feature: Hold a parcel
 `
 
 func TestScript(t *testing.T) {
-	s, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), nil)
+	s, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), Known{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +82,7 @@ func TestScriptProblems(t *testing.T) {
     # demo: [pause 2s
     Given something
 `
-	s, err := ParseScript("f.demo.feature", []byte(src), []string{"confetti"})
+	s, err := ParseScript("f.demo.feature", []byte(src), Known{Directions: []string{"confetti"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +145,7 @@ func holdTake() *Take {
 }
 
 func TestCut(t *testing.T) {
-	s, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), nil)
+	s, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), Known{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +264,7 @@ Feature: Prices
       | 500   | 490   |
       | 7500  | 890   |
 `
-	script, err := ParseScript("prices.demo.feature", []byte(src), nil)
+	script, err := ParseScript("prices.demo.feature", []byte(src), Known{})
 	if err != nil || len(script.Problems) > 0 {
 		t.Fatal(err, script.Problems)
 	}
@@ -305,5 +306,59 @@ func TestCuesCheck(t *testing.T) {
 	})
 	if len(found) != 1 || found[0].URI != "f.demo.feature" || found[0].At != 4 || found[0].Column != 13 || !strings.Contains(found[0].Message, "did you mean [speed]?") {
 		t.Errorf("findings: %+v", found)
+	}
+}
+
+// A cue goes to another of the project's diagrams, says who the scenario is
+// on it, and lights its lines; the timeline carries all three to the stage.
+func TestCuesOfTheDiagram(t *testing.T) {
+	src := `Feature: F
+
+  Scenario: S
+    # demo: [as shop] [shop --> portal --> parcels] The shop registers a parcel.
+    When the request is executed
+    # demo: [diagram billing] [parcel-events -> billing] Billing hears of it.
+    Then the event is consumed
+    # demo: [diagram payments] There is none of that name.
+    And nothing else
+`
+	var st Settings
+	if err := json.Unmarshal([]byte(`{"diagrams": {"system": "docs/system.mmd", "billing": "docs/billing.mmd", "aaa": "docs/a.mmd"}}`), &st); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(st.Diagrams.Names, ","); got != "system,billing,aaa" || st.Diagrams.Files["billing"] != "docs/billing.mmd" {
+		t.Fatalf("the diagrams, in the order they are listed: %s, %v", got, st.Diagrams.Files)
+	}
+	script, err := ParseScript("f.demo.feature", []byte(src), st.known())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(script.Problems) != 1 || !strings.Contains(script.Problems[0].Message, `no diagram "payments": packs.demo.diagrams has system, billing, aaa`) {
+		t.Fatalf("problems: %+v", script.Problems)
+	}
+	take := &Take{Version: TakeVersion, Passed: true, Steps: []TakeStep{
+		{Keyword: "When", Text: "the request is executed", Line: 5, Status: "passed"},
+		{Keyword: "Then", Text: "the event is consumed", Line: 7, Status: "passed"},
+		{Keyword: "And", Text: "nothing else", Line: 9, Status: "passed"},
+	}}
+	tl := Cut(take, script, DefaultPace)
+	var steps []Segment
+	for _, seg := range tl.Segments {
+		if seg.Kind == "step" {
+			steps = append(steps, seg)
+		}
+	}
+	if len(steps) != 3 {
+		t.Fatalf("segments: %+v", tl.Segments)
+	}
+	if s := steps[0]; s.As != "shop" || s.Diagram != "" || len(s.Flows) != 2 || s.Flows[0] != [2]string{"shop", "portal"} || s.Flows[1] != [2]string{"portal", "parcels"} {
+		t.Errorf("the first step: %+v", s)
+	}
+	// Who the scenario is on one diagram, it is not on the next.
+	if s := steps[1]; s.As != "" || s.Diagram != "billing" || len(s.Flows) != 1 || s.Flows[0] != [2]string{"parcel-events", "billing"} {
+		t.Errorf("the second step: %+v", s)
+	}
+	if s := steps[2]; s.Diagram != "billing" || len(s.Flows) != 0 {
+		t.Errorf("the third step keeps the diagram and lights nothing: %+v", s)
 	}
 }

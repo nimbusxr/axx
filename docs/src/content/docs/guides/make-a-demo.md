@@ -85,6 +85,9 @@ What a cue has in square brackets directs the film. The film's time is its own: 
 | `[action]` | The camera starts again with the step below. | The same. |
 | `[card 3s] A title` | A card with the cue's text fills the picture for 3 seconds. | The card stays until the presenter goes on. |
 | `[show diagram]` | Says what the picture shows from the step below on: `diagram`, `browser`, `phone` or `desktop`, two of them side by side like `[show browser + diagram]`, or `auto`. | The same. |
+| `[diagram checkout]` | Goes to another of the project's diagrams, by its name, from the step below on. | The same. |
+| `[as courier]` | Says who the scenario is, from the step below on: a box of the diagram, which what the scenario sends then comes from. | The same. |
+| `[parcels --> addresses]` | Lights that line of the diagram while the step plays. | The same. |
 
 `axx validate`, `axx lint` and your editor report a direction the pack does not know, with the nearest one it has.
 
@@ -93,9 +96,53 @@ What a cue has in square brackets directs the film. The film's time is its own: 
 The picture follows the step:
 
 - **A step on a screen** (a web page, a phone, a desktop app) shows the screen as the scenario used it.
-- **Any other step** shows a diagram. Each thing the scenario talks to is a box: a service, a database, a topic, a mock. When a step sends something, it travels along the line to the box, and what came back is shown under the diagram.
+- **Any other step** shows a diagram of the system, drawn in characters. When a step sends something, it travels along a line to its box, and what came back is shown under the diagram.
 
-The diagram shows only what the run sent and what it saw, from outside the system. Between two services, that is the calls a mock received.
+Without a diagram of your own, the diagram is of what the scenario talked to: a box for each service, database, topic and mock, and what the scenario sends coming in from the edge of the picture.
+
+## Draw your system
+
+A demo is better on a map of your system. Write the map as a [Mermaid](https://mermaid.js.org/syntax/flowchart.html) flowchart, the same file a README or a docs site draws, and name it in `axx.yaml`.
+
+1. Write the flowchart. Give each box the name your scenarios give what they talk to (`parcels`, `parcels-db`), and add the boxes no scenario talks to, so the audience sees the whole system.
+
+   ```text
+   flowchart LR
+     shop([shop]) --> portal --> parcels
+     shop --> parcels
+     parcels --> parcels-db[(parcels-db)]
+     parcels --> addresses
+     parcels --> parcel-events{{parcel-events}} --> billing
+   ```
+
+2. Name it in `axx.yaml`. The first diagram is the one a demo starts on.
+
+   ```yaml
+   packs:
+     demo:
+       diagrams:
+         system: demo/system.mmd
+         checkout: demo/checkout.mmd
+   ```
+
+3. Make the film again. Axx reads the file with Mermaid's own parser, which it downloads once, and draws the map itself, in characters, from left to right.
+
+What a run did plays on the map by these rules:
+
+| What the run did | What the film shows |
+| --- | --- |
+| The scenario sent a request to a service | It travels along the line from who the scenario is (`[as shop]`) to the service, and the answer comes back along it. |
+| The scenario found something in a database or a topic, or a mock received a call | The map's line that leads there lights up, then what was found shows. The run saw it there; the map says how it got there. |
+| A cue has an arrow, `[parcel-events --> billing]` | That line lights up, in another color and with nothing shown under the diagram: the scenario cannot see it, and you are telling the audience. |
+
+A cue that names a box or a line its diagram has not makes no film: `axx demo` says which.
+
+To change the diagram during a demo, name the other one in a cue:
+
+```gherkin
+    # demo: [diagram checkout] Now the same parcel, from the payment's side.
+    Then the response status code is 201
+```
 
 To make the film again after changing the subtitles, the directions or the look, without running the scenario again:
 
@@ -140,7 +187,7 @@ The stage is a web page, and its look is yours to change in `axx.yaml`.
 packs:
   demo:
     theme:
-      caller: shop            # the name of the box that stands for whoever uses the system
+      caller: shop            # with no diagram of your own: a box for whoever uses the system
       colors:
         background: "#101418"
         sent: "#ffb000"
@@ -149,6 +196,8 @@ packs:
     directions: [confetti]    # your own directions, like [confetti]
     size: 1920x1080
 ```
+
+The diagram itself is a scene too, so a project that wants another drawing of its map than characters replaces it.
 
 A scene draws one part of the stage: `diagram`, `browser`, `phone`, `desktop`, `card`, `subtitle` or `ticker` (the line that names the step). A scene your script registers replaces the pack's of that name. It is given the state of the moment and draws it:
 

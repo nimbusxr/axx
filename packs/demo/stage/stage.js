@@ -68,7 +68,17 @@
 		return mounted[name];
 	}
 
+	// What has to be there before a picture is drawn: the take's pictures of
+	// its screens, and what each scene makes ready (the diagrams, read).
+	async function prepare(d) {
+		if (S.preload) await S.preload(d.take);
+		for (const scene of Object.values(scenes)) if (scene.prepare) await scene.prepare(d);
+	}
+
 	const S = {
+		// problems are what the stage could not make sense of in what it was
+		// given: a film is not made of a stage that has any.
+		problems: [],
 		// scene registers what draws a surface ("diagram", "browser"), the
 		// card or the subtitles: { mount(el, state), render(el, state) }.
 		scene(name, def) { scenes[name] = def; },
@@ -78,8 +88,9 @@
 		// load takes what the stage plays, and is done when its pictures are in.
 		async load(d) {
 			data = d;
+			S.problems = [];
 			mount();
-			if (S.preload) await S.preload(d.take);
+			await prepare(d);
 			S.seek(0);
 		},
 		// update takes what the stage plays as it grew: a show's take, as its
@@ -90,7 +101,7 @@
 			const again = !data || key(d) !== key(data);
 			data = d;
 			if (again) mount();
-			if (S.preload) await S.preload(d.take);
+			await prepare(d);
 		},
 		// mark puts a word in the stage's corner, or takes it away.
 		mark(word) { if (data) data.mark = word; },

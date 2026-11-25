@@ -98,6 +98,11 @@ services:
 # The portal's screenshots are kept for Linux (CI) and macOS: each is compared on its own
 # platform; on others, the screenshot steps pass without comparing.
 packs:
+  # The demos (features/demos, `axx demo`) are drawn on a diagram of the system, written in
+  # Mermaid: a box is named as the scenarios name what they talk to.
+  demo:
+    diagrams:
+      system: demo/system.mmd
   # The controls the service is to cover (security/controls.yaml), and what covers the ones no
   # scenario proves: `axx controls report` shows how each stands, and CI runs `axx controls
   # check`, which fails when one is not covered.

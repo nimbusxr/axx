@@ -43,6 +43,12 @@ type Segment struct {
 	Text string `json:"text,omitempty"`
 	// Show is what the picture shows: one surface, or two side by side.
 	Show []string `json:"show,omitempty"`
+	// Diagram is the project's diagram the picture shows, by name ("" is
+	// the first), and As who the scenario is in it. Flows are the lines of
+	// it a cue lights while the step plays: each a pair of boxes.
+	Diagram string      `json:"diagram,omitempty"`
+	As      string      `json:"as,omitempty"`
+	Flows   [][2]string `json:"flows,omitempty"`
 	// Directions are the project's own directions on the step's cues, which
 	// its stage acts on.
 	Directions []Direction `json:"directions,omitempty"`
@@ -116,9 +122,10 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		}
 	}
 	t, camera := 0.0, true
-	var show []string // what a direction says to show; nil follows the steps
-	open := -1        // the subtitle that shows, in tl.Subtitles
-	last := -1        // the last step that ran so far
+	var show []string     // what a direction says to show; nil follows the steps
+	diagram, as := "", "" // the diagram a cue went to, and who the scenario is in it
+	open := -1            // the subtitle that shows, in tl.Subtitles
+	last := -1            // the last step that ran so far
 	// over is set where a live show's timeline ends for now: at a beat the
 	// presenter has not gone on to, or a step that has not ended.
 	over := false
@@ -130,7 +137,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		if last >= 0 {
 			at = take.Steps[last].End
 		}
-		tl.Segments = append(tl.Segments, Segment{Kind: "hold", Start: t, End: t + d, Step: last, From: at, To: at, Show: surfaces(show, take, last)})
+		tl.Segments = append(tl.Segments, Segment{Kind: "hold", Start: t, End: t + d, Step: last, From: at, To: at, Show: surfaces(show, take, last), Diagram: diagram, As: as})
 		t += d
 	}
 	// closeSubtitle ends the subtitle that shows, once it had its time.
@@ -147,6 +154,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 		lasts, speed, pause := -1.0, 1.0, 0.0
 		var cards []Segment
 		var own []Direction
+		var flows [][2]string
 		subtitle := ""
 		for _, c := range cs {
 			text := false
@@ -160,6 +168,15 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 					show = showSurfaces(d.Args)
 					if len(show) == 1 && show[0] == "auto" {
 						show = nil
+					}
+				case "diagram":
+					// Another map: who the scenario is on it is said again.
+					diagram, as = d.Args[0], ""
+				case "as":
+					as = d.Args[0]
+				case "flow":
+					for k := 0; k+1 < len(d.Args); k++ {
+						flows = append(flows, [2]string{d.Args[k], d.Args[k+1]})
 					}
 				case "lasts":
 					v, _ := parseDuration(d.Args[0])
@@ -251,7 +268,7 @@ func Cut(take *Take, script *Script, pace Pace) *Timeline {
 			}
 		}
 		if dur > 0 {
-			tl.Segments = append(tl.Segments, Segment{Kind: "step", Start: t, End: t + dur, Step: i, From: from, To: to, Show: shows, Directions: own})
+			tl.Segments = append(tl.Segments, Segment{Kind: "step", Start: t, End: t + dur, Step: i, From: from, To: to, Show: shows, Directions: own, Diagram: diagram, As: as, Flows: flows})
 			t += dur
 		}
 		if camera {

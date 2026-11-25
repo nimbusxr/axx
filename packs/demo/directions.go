@@ -129,6 +129,39 @@ func init() {
 	})
 }
 
+func init() {
+	Register(Kind{
+		Name: "diagram", Usage: "[diagram checkout]",
+		Doc: "The diagram the picture shows from the step below on: one of the project's (packs.demo.diagrams), by its name.",
+		Check: func(args []string) string {
+			if len(args) != 1 {
+				return "diagram takes the name of one of the project's diagrams, like [diagram checkout]"
+			}
+			return ""
+		},
+	})
+	Register(Kind{
+		Name: "as", Usage: "[as courier]",
+		Doc: "Who the scenario is, from the step below on: a box of the diagram, which what the scenario sends then comes from. It holds until the cue that goes to another diagram.",
+		Check: func(args []string) string {
+			if len(args) != 1 {
+				return "as takes the name of a box of the diagram, like [as courier]"
+			}
+			return ""
+		},
+	})
+	Register(Kind{
+		Name: "flow", Usage: "[parcels --> addresses]",
+		Doc: "Lights a line of the diagram while the step below plays: something one part of the system sends another, which the scenario cannot see. Several in a row, like [shop --> portal --> parcels], light one after the other.",
+		Check: func(args []string) string {
+			if len(args) < 2 || slices.Contains(args, "") {
+				return "an arrow joins two boxes of the diagram, like [parcels --> addresses]"
+			}
+			return ""
+		},
+	})
+}
+
 func noArgs(name string) func([]string) string {
 	return func(args []string) string {
 		if len(args) > 0 {
@@ -147,7 +180,8 @@ func showSurfaces(args []string) []string {
 // checkDirection returns what is wrong with a direction, or "". Custom are
 // the directions a project adds, which its own stage acts on: the pack takes
 // them as they are.
-func checkDirection(d Direction, custom []string) string {
+func checkDirection(d Direction, known Known) string {
+	custom := known.Directions
 	if slices.Contains(custom, d.Name) {
 		return ""
 	}
@@ -160,7 +194,16 @@ func checkDirection(d Direction, custom []string) string {
 		return msg + " The directions are " + usages(custom) + "; a project adds its own in packs.demo.directions"
 	}
 	if k.Check != nil {
-		return k.Check(d.Args)
+		if msg := k.Check(d.Args); msg != "" {
+			return msg
+		}
+	}
+	// A diagram a cue goes to is one the project has.
+	if d.Name == "diagram" && !slices.Contains(known.Diagrams, d.Args[0]) {
+		if len(known.Diagrams) == 0 {
+			return fmt.Sprintf("the project has no diagram %q: packs.demo.diagrams names none", d.Args[0])
+		}
+		return fmt.Sprintf("the project has no diagram %q: packs.demo.diagrams has %s", d.Args[0], strings.Join(known.Diagrams, ", "))
 	}
 	return ""
 }
@@ -182,7 +225,7 @@ func usages(custom []string) string {
 func nearest(word string, custom []string) string {
 	names := append([]string{}, custom...)
 	for _, k := range Kinds() {
-		if k.Name != "lasts" {
+		if k.Name != "lasts" && k.Name != "flow" {
 			names = append(names, k.Name)
 		}
 	}

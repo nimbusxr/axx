@@ -27,7 +27,7 @@ Feature: Register a parcel, as a demo
       | reference          | PX-DEMO-9001 |
       | recipient.postcode | "10115"      |
 
-    # demo: [action] A shop registers a parcel with us.
+    # demo: [action] [as shop] A shop registers a parcel with us.
     When the request is executed
 
     # demo: We answer that it is registered,
@@ -40,5 +40,5 @@ Feature: Register a parcel, as a demo
     And a selection of rows is retrieved from the parcels.parcels table where:
       | reference | PX-DEMO-9001 |
 
-    # demo: [pause 2s] and billing is told of it, with an event.
+    # demo: [pause 2s] [parcel-events --> billing] and billing is told of it, with an event.
     And the parcel-events kafka event named registered key is PX-DEMO-9001

@@ -1,0 +1,12 @@
+flowchart LR
+  %% The parcels system, as its demos draw it (packs.demo.diagrams in axx.yaml). A box is
+  %% named as the scenarios name what they talk to.
+  shop([shop]) --> portal --> parcels
+  shop --> parcels
+  parcels --> parcels-db[(parcels-db)]
+  parcels --> addresses
+  parcels --> parcel-events{{parcel-events}} --> billing
+  subgraph partners
+    addresses
+    billing
+  end

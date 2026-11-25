@@ -26,7 +26,8 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 
 /* The diagram: characters on a grid, each kind of character a color. */
 .surface-diagram .grid { margin: 0; font-family: var(--font); font-size: min(2.05vh, calc(38vh / var(--rows, 9) / 1.17), calc(150vh / var(--cols, 80) / 0.61)); line-height: 1.17; letter-spacing: 0; font-variant-ligatures: none; white-space: pre; color: var(--line); }
-#stage[data-surfaces="2"] .surface-diagram .grid { font-size: min(1.35vh, calc(38vh / var(--rows, 9) / 1.17)); }
+#stage[data-surfaces="2"] .surface-diagram .grid { font-size: min(1.35vh, calc(38vh / var(--rows, 9) / 1.17), calc(78vh / var(--cols, 80) / 0.61)); }
+#stage[data-surfaces="2"] .surface { overflow: hidden; }
 .k-line { color: var(--line); }
 .k-key { color: var(--text); }
 .k-title { color: var(--text); font-weight: 600; }
@@ -35,6 +36,8 @@ html, body { margin: 0; height: 100%; background: var(--background); color: var(
 .k-coord { --k: var(--sent); color: var(--k); }
 .k-ok { --k: var(--seen); color: var(--k); }
 .k-fail { --k: var(--failed); color: var(--k); }
+.k-told { --k: var(--accent); color: var(--k); }
+.k-zone { color: var(--rule); }
 .hot { text-shadow: 0 0 0.9vh var(--k, currentColor); }
 .hot0 { color: color-mix(in oklab, var(--k, currentColor) 20%, white); }
 .hot1 { color: color-mix(in oklab, var(--k, currentColor) 40%, white); }

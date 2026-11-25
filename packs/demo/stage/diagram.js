@@ -1,14 +1,19 @@
-// The diagram: what a scenario with no screen looks like. What the scenario
-// talks to as boxes, what it sends coming in from the left, and for each step the
-// message that went out along a line and what came back. It shows only what
-// the run sent and saw: axx looks at the system from outside.
+// The diagram: what a scenario with no screen looks like. The system as
+// boxes and the lines between them, and for each step what went along a
+// line and what came back. It shows what the run sent and saw, on a map of
+// the system: one of the project's diagrams, written in Mermaid, or, without
+// any, what the scenario talked to.
 //
-// It is drawn in characters on a grid, with the engine of diagrams drawn the
-// same way elsewhere: boxes, lines that turn at right angles and join where
-// they meet, and a brighter band that runs along a line that is in use.
+// The map is drawn in characters on a grid, by the engine below: boxes, lines
+// that turn at right angles and join where they meet, and a brighter band
+// that runs along a line that is in use. Mermaid's library only reads a
+// diagram's text (its boxes, lines and groups): nothing of its drawing is
+// used. Every map is laid out from left to right, whatever way its text says.
 (() => {
+	// --- The engine: characters on a grid.
 	const RULES = {
 		light: { tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│' },
+		round: { tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│' },
 		heavy: { tl: '╔', tr: '╗', bl: '╚', br: '╝', h: '═', v: '║' },
 		zone: { tl: '┌', tr: '┐', bl: '└', br: '┘', h: '╌', v: '╎' },
 	};
@@ -19,6 +24,8 @@
 		[E | S]: '┌', [S | W]: '┐', [N | E]: '└', [N | W]: '┘',
 		[N | E | S]: '├', [N | S | W]: '┤', [E | S | W]: '┬', [N | E | W]: '┴', [N | E | S | W]: '┼',
 	};
+	// How a line that is dotted or thick in the map is drawn, where it runs alone.
+	const STROKE = { dotted: { '─': '╌', '│': '╎' }, thick: { '─': '━', '│': '┃', '┌': '┏', '┐': '┓', '└': '┗', '┘': '┛' } };
 	const TEE = { '─s': '┬', '─n': '┴', '│e': '├', '│w': '┤', '═s': '╤', '═n': '╧', '║e': '╟', '║w': '╢', '╌s': '┬', '╌n': '┴', '╎e': '├', '╎w': '┤' };
 
 	const newGrid = (w, h) => Array.from({ length: h }, () => Array.from({ length: w }, () => ({ ch: ' ', k: '' })));
@@ -36,7 +43,7 @@
 		for (let y = b.y; y <= bottom; y++) { put(grid, b.x, y, r.v, kind); put(grid, right, y, r.v, kind); }
 		put(grid, b.x, b.y, r.tl, kind); put(grid, right, b.y, r.tr, kind);
 		put(grid, b.x, bottom, r.bl, kind); put(grid, right, bottom, r.br, kind);
-		if (b.title) write(grid, b.x + 2, b.y, ' ' + b.title + ' ', kind === 'dim' ? 'dim' : 'title');
+		if (b.title) write(grid, b.x + 2, b.y, ' ' + b.title + ' ', kind === 'dim' ? 'dim' : b.style === 'zone' ? 'sub' : 'title');
 		(b.lines || []).forEach((line, i) => write(grid, b.x + 2, b.y + 1 + i, line.text, kind === 'dim' ? 'dim' : line.kind || 'sub'));
 	}
 	// Every cell of a path of corners, each with the way it is entered and left.
@@ -61,7 +68,7 @@
 	}
 	// An edge, and on a lit one how far each cell is behind the band's head.
 	function drawEdge(grid, e, kind, head) {
-		const path = e.cells;
+		const path = e.cells, stroke = STROKE[e.stroke] || {};
 		path.forEach((c, i) => {
 			const last = i === path.length - 1;
 			if (last) {
@@ -69,8 +76,10 @@
 			} else {
 				let conn = side(-c.inDx, -c.inDy) | side(c.dx, c.dy);
 				const under = grid[c.y] && grid[c.y][c.x];
-				if (under && under.conn) conn |= under.conn;
-				put(grid, c.x, c.y, JOIN[conn] || '┼', kind);
+				const shared = under && under.conn;
+				if (shared) conn |= under.conn;
+				const ch = JOIN[conn] || '┼';
+				put(grid, c.x, c.y, shared ? ch : stroke[ch] || ch, kind);
 				grid[c.y][c.x].conn = conn;
 			}
 			if (head !== undefined && grid[c.y] && grid[c.y][c.x]) {
@@ -78,6 +87,11 @@
 				if (behind < 5) grid[c.y][c.x].hot = Math.floor(behind);
 			}
 		});
+		if (e.label && path.length > e.label.length + 4) {
+			// What the map says of the line, on its first stretch.
+			const c = path[1];
+			if (c.dy === 0) write(grid, Math.min(c.x, c.x + c.dx * (e.label.length + 1)) + 1, c.y - 1, e.label, kind === 'line' ? 'sub' : kind);
+		}
 		const first = path[0];
 		const bx = first.x - first.dx, by = first.y - first.dy;
 		const rule = grid[by] && grid[by][bx];
@@ -102,61 +116,170 @@
 			return out.replace(/\s+$/, '');
 		}).join('\n');
 	}
-
-	// The layout: the caller, then what the scenario talks to in a column,
-	// then the mocks, which the system calls, in a column of their own.
-	const BW = 28, BH = 4, GAP = 1, CALLER_W = 16;
-	function layout(take, theme) {
-		// Only what the scenario sent something to or saw something of: a
-		// broker whose topics do the talking would be a box nothing happens at.
-		const spoke = new Set();
-		for (const st of take.steps) for (const x of acts(st)) spoke.add(x.peer);
-		const peers = take.peers.filter((p) => spoke.has(p.name));
-		const mid = peers.filter((p) => p.kind !== 'mock');
-		const mocks = peers.filter((p) => p.kind === 'mock');
-		const rows = Math.max(mid.length, mocks.length, 1);
-		const height = rows * (BH + GAP) - GAP + 2;
-		// Who uses the system has a box only where the project names them
-		// (theme.caller): the scenario stands outside the system, and without
-		// a name what it sends comes in from the edge of the picture.
-		const cw = theme.caller ? CALLER_W : 0;
-		const midX = cw + (cw ? 18 : 14), mockX = midX + BW + 16;
-		const width = (mocks.length ? mockX + BW : midX + BW) + 1;
-		const boxes = {}, edges = {};
-		const column = (list, x) => {
-			const y0 = Math.floor((height - (list.length * (BH + GAP) - GAP)) / 2);
-			list.forEach((p, i) => {
-				boxes[p.name] = { id: p.name, x, y: y0 + i * (BH + GAP), w: BW, h: BH, title: clip(p.name, BW - 6), kind: p.kind, peer: p };
-			});
-		};
-		column(mid, midX);
-		column(mocks, mockX);
-		const cy = Math.floor(height / 2);
-		const caller = cw ? { id: '@caller', x: 0, y: cy - 2, w: cw, h: 4, title: clip(theme.caller, cw - 6), style: 'heavy' } : null;
-		const trunk = cw + (cw ? 8 : 6);
-		for (const p of mid) {
-			const b = boxes[p.name], py = b.y + 1;
-			edges['c>' + p.name] = { cells: cells(dedupe([[cw, cy - 1], [trunk, cy - 1], [trunk, py], [b.x - 1, py]])) };
-		}
-		const service = mid.find((p) => p.kind === 'service');
-		for (const p of mocks) {
-			const b = boxes[p.name], py = b.y + 1;
-			if (service) {
-				const s = boxes[service.name], sy = s.y + 2, tx = midX + BW + 7;
-				edges['s>' + p.name] = { cells: cells(dedupe([[s.x + BW, sy], [tx, sy], [tx, py], [b.x - 1, py]])) };
-			}
-		}
-		return { width, height, boxes, edges, caller, service: service ? service.name : null };
-	}
 	const dedupe = (path) => path.filter((p, i) => i === 0 || p[0] !== path[i - 1][0] || p[1] !== path[i - 1][1]);
 	const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
-	// What a step did, as the stretches of its time: each thing it sent or
-	// saw goes out along its line and comes back.
-	function acts(step) {
-		return (step.exchanges || []).filter((x) => x.sent || x.seen);
+	// --- The map: boxes, the lines between them, and groups of boxes.
+	// OUTSIDE is where what the scenario sends comes from when the map names
+	// nobody who uses the system: the edge of the picture.
+	const OUTSIDE = '@outside';
+	const SHAPES = { cylinder: 'database', hexagon: 'topic', stadium: '', round: '', circle: '', subroutine: '' };
+	const STYLES = { stadium: 'round', round: 'round', circle: 'round', cylinder: 'round', subroutine: 'heavy' };
+
+	// What a step did, as the stretches of its time: each thing it sent or saw.
+	const acts = (step) => (step.exchanges || []).filter((x) => x.sent || x.seen);
+	// What the scenario looks at, rather than calls: what it finds there got
+	// there by a line of the system's own.
+	const looked = (kind) => ['database', 'topic', 'broker', 'mock'].includes(kind);
+
+	// The map of a take with no diagram: what the scenario talked to, with
+	// what it sent coming from who uses the system, or from outside.
+	function mapOf(take, theme) {
+		const caller = theme.caller || OUTSIDE;
+		const map = { name: '', nodes: [], edges: [], groups: [], caller, made: true };
+		if (theme.caller) map.nodes.push({ id: caller, label: caller, shape: 'stadium' });
+		const spoke = [];
+		for (const st of take.steps) for (const x of acts(st)) if (!spoke.includes(x.peer)) spoke.push(x.peer);
+		const peers = take.peers.filter((p) => spoke.includes(p.name));
+		const service = peers.find((p) => p.kind === 'service');
+		for (const p of peers) {
+			map.nodes.push({ id: p.name, label: p.name, shape: p.kind === 'mock' ? 'round' : null });
+			if (p.kind === 'mock' && service) map.edges.push({ from: service.name, to: p.name });
+			else if (p.kind !== 'mock') map.edges.push({ from: caller, to: p.name });
+		}
+		return map;
 	}
-	const edgeOf = (x) => (x.from ? 's>' : 'c>') + x.peer;
+
+	// A project's diagram, read by Mermaid's parser.
+	async function read(diagram) {
+		const parsed = await mermaid.mermaidAPI.getDiagramFromText(diagram.source);
+		const db = parsed.db;
+		if (!db || !db.getVertices || !db.getEdges) throw new Error('it is a ' + parsed.type + ', and a demo\'s diagram is a flowchart');
+		const vertices = db.getVertices();
+		const map = { name: diagram.name, nodes: [], edges: [], groups: [], caller: null };
+		for (const v of vertices.values ? vertices.values() : Object.values(vertices)) {
+			map.nodes.push({ id: v.id, label: String(v.text || v.id).replace(/<[^>]*>/g, ' ').trim(), shape: v.type || null });
+		}
+		for (const e of db.getEdges()) map.edges.push({ from: e.start, to: e.end, stroke: e.stroke === 'normal' ? '' : e.stroke, label: String(e.text || '').trim() });
+		for (const g of db.getSubGraphs ? db.getSubGraphs() : []) map.groups.push({ id: g.id, label: g.title || g.id, nodes: g.nodes || [] });
+		return map;
+	}
+
+	// The layout: the boxes in columns from left to right, each a line's
+	// length after those that lead to it, and the lines between them.
+	const BH = 4, GAP = 2, CHANNEL = 12;
+	function layout(map) {
+		const ids = map.nodes.map((n) => n.id);
+		const outside = map.edges.some((e) => e.from === OUTSIDE);
+		const real = map.edges.filter((e) => e.from !== e.to && (e.from === OUTSIDE || ids.includes(e.from)) && ids.includes(e.to));
+		// Each box's column: one after the furthest of those that lead to it.
+		// A line that closes a circle does not count.
+		const rank = {}, incoming = {};
+		for (const id of ids) incoming[id] = real.filter((e) => e.to === id && e.from !== OUTSIDE).length;
+		const queue = ids.filter((id) => !incoming[id]);
+		for (const id of queue) rank[id] = 0;
+		for (let i = 0; i < queue.length; i++) {
+			for (const e of real) {
+				if (e.from !== queue[i]) continue;
+				rank[e.to] = Math.max(rank[e.to] || 0, rank[e.from] + 1);
+				if (--incoming[e.to] === 0) queue.push(e.to);
+			}
+		}
+		for (const id of ids) if (rank[id] === undefined) rank[id] = 0;
+		const columns = [];
+		for (const id of ids) (columns[rank[id]] = columns[rank[id]] || []).push(id);
+		for (let c = 0; c < columns.length; c++) columns[c] = columns[c] || [];
+		// Within a column, a box sits near those it is joined to in the columns
+		// beside it: fewer lines cross.
+		const place = {};
+		const index = () => columns.forEach((col) => col.forEach((id, i) => { place[id] = i; }));
+		index();
+		const mean = (id, towards) => {
+			const near = real.filter((e) => (towards < 0 ? e.to === id : e.from === id)).map((e) => (towards < 0 ? e.from : e.to)).filter((o) => o !== OUTSIDE && rank[o] !== rank[id]);
+			return near.length ? near.reduce((s, o) => s + place[o], 0) / near.length : place[id];
+		};
+		for (let sweep = 0; sweep < 4; sweep++) {
+			const towards = sweep % 2 ? 1 : -1;
+			const order = towards < 0 ? columns.keys() : [...columns.keys()].reverse();
+			for (const c of order) {
+				const key = Object.fromEntries(columns[c].map((id) => [id, mean(id, towards)]));
+				columns[c].sort((a, b) => key[a] - key[b] || place[a] - place[b]);
+				index();
+			}
+		}
+		const node = Object.fromEntries(map.nodes.map((n) => [n.id, n]));
+		const bw = Math.max(20, Math.min(30, Math.max(...map.nodes.map((n) => n.label.length), 8) + 8));
+		const tallest = Math.max(...columns.map((col) => col.length), 1);
+		const height = tallest * (BH + GAP) - GAP + 4;
+		const left = outside ? 10 : 0;
+		const colX = (c) => left + c * (bw + CHANNEL);
+		const width = colX(columns.length - 1) + bw + 1;
+		const boxes = {};
+		columns.forEach((col, c) => {
+			const y0 = Math.floor((height - (col.length * (BH + GAP) - GAP)) / 2);
+			col.forEach((id, i) => {
+				boxes[id] = { id, x: colX(c), y: y0 + i * (BH + GAP), w: bw, h: BH, title: clip(node[id].label, bw - 6), style: STYLES[node[id].shape] || 'light', shape: node[id].shape, column: c, slot: i };
+			});
+		});
+		// The lines. One to the next column turns in the channel between the two;
+		// one that goes further, or back, runs along the top or the bottom of
+		// the picture.
+		const mid = Math.floor(height / 2);
+		const edges = real.map((e, i) => {
+			const to = boxes[e.to], ty = to.y + 1;
+			let path;
+			if (e.from === OUTSIDE) {
+				path = [[0, mid], [5, mid], [5, ty], [to.x - 1, ty]];
+				if (to.column > 0) path = [[0, mid], [5, mid], [5, height - 1], [to.x - 4, height - 1], [to.x - 4, ty], [to.x - 1, ty]];
+			} else {
+				const from = boxes[e.from], fy = from.y + 2, fx = from.x + bw;
+				const out = fx + 2 + 2 * (from.slot % 4), into = to.x - 3 - 2 * (to.slot % 3);
+				if (to.column === from.column + 1) {
+					path = [[fx, fy], [out, fy], [out, ty], [to.x - 1, ty]];
+				} else {
+					// Along the boxes it passes, just above them or just below,
+					// whichever is nearer to its two ends.
+					const lo = Math.min(from.column, to.column), hi = Math.max(from.column, to.column);
+					const passed = Object.values(boxes).filter((b) => b.column >= lo && b.column <= hi);
+					const above = Math.min(...passed.map((b) => b.y)) - 2, below = Math.max(...passed.map((b) => b.y + BH - 1)) + 2;
+					const lane = Math.abs(fy - above) + Math.abs(ty - above) <= Math.abs(below - fy) + Math.abs(below - ty) ? above : below;
+					path = [[fx, fy], [out, fy], [out, lane], [into, lane], [into, ty], [to.x - 1, ty]];
+				}
+			}
+			return { id: i, from: e.from, to: e.to, stroke: e.stroke, label: e.label, cells: cells(dedupe(path)) };
+		});
+		// A group of boxes that stand together in one column gets a dashed frame.
+		const zones = [];
+		for (const g of map.groups) {
+			const members = g.nodes.map((id) => boxes[id]).filter(Boolean).sort((a, b) => a.slot - b.slot);
+			if (!members.length || members.some((b, i) => b.column !== members[0].column || b.slot !== members[0].slot + i)) continue;
+			const first = members[0], last = members[members.length - 1];
+			zones.push({ x: first.x - 1, y: first.y - 1, w: bw + 2, h: last.y + BH - first.y + 2, title: clip(g.label, bw - 6), style: 'zone' });
+		}
+		const sources = new Set(ids.filter((id) => !real.some((e) => e.to === id)));
+		const services = Object.values(boxes).filter((b) => !b.shape || b.shape === 'square').map((b) => b.id);
+		return { map, width, height, boxes, edges, zones, sources, services };
+	}
+
+	// The line an exchange went along, in a map, and whether the scenario
+	// sent it (out and back) or found it there (the map's line leads to it).
+	function lineOf(L, x, who) {
+		const into = L.edges.filter((e) => e.to === x.peer);
+		if (x.from) {
+			// A call the system made: a mock knows the calls it got, not who made them.
+			const e = into.find((e) => e.from === x.from) || (into.length === 1 ? into[0] : null);
+			return e ? { edge: e, found: true } : null;
+		}
+		if (!looked(x.kind)) {
+			const mine = into.find((e) => e.from === who) || into.find((e) => e.from === L.map.caller);
+			if (mine) return { edge: mine };
+			const from = into.filter((e) => L.sources.has(e.from));
+			return from.length === 1 ? { edge: from[0] } : null;
+		}
+		const direct = into.find((e) => e.from === OUTSIDE || (who && e.from === who));
+		if (direct) return { edge: direct };
+		return into.length === 1 ? { edge: into[0], found: true } : null;
+	}
 
 	function pretty(m) {
 		if (!m || !m.body) return '';
@@ -170,27 +293,66 @@
 		return shown.join('\n');
 	}
 
+	// The project's diagrams, read and laid out before the first picture.
+	let layouts = {}, first = '';
 	axxStage.scene('diagram', {
-		mount(el, state) {
+		async prepare(data) {
+			const key = JSON.stringify(data.diagrams || []);
+			if (key !== layouts.key) {
+				layouts = { key };
+				first = '';
+				// Mermaid reads; it draws nothing, and starts nothing by itself.
+				if ((data.diagrams || []).length && window.mermaid) mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+				for (const d of data.diagrams || []) {
+					try {
+						layouts[d.name] = layout(await read(d));
+						first = first || d.name;
+					} catch (e) {
+						axxStage.problems.push('the diagram ' + d.name + ' cannot be read: ' + String(e.message || e).split('\n').slice(0, 4).join(' '));
+					}
+				}
+			}
+			// What the cues name is in the diagram they are shown on.
+			if (!first || layouts.checked === data.timeline) return;
+			layouts.checked = data.timeline;
+			const said = new Set();
+			const problem = (text) => { if (!said.has(text)) { said.add(text); axxStage.problems.push(text); } };
+			for (const seg of data.timeline.segments) {
+				const L = layouts[seg.diagram || first];
+				if (!L) continue;
+				if (seg.as && !L.boxes[seg.as]) problem('[as ' + seg.as + ']: the diagram ' + L.map.name + ' has no box ' + seg.as);
+				for (const [a, b] of seg.flows || []) {
+					if (!L.edges.some((e) => e.from === a && e.to === b)) problem('[' + a + ' --> ' + b + ']: the diagram ' + L.map.name + ' has no line from ' + a + ' to ' + b);
+				}
+			}
+		},
+		mount(el) {
 			el.innerHTML = '<pre class="grid"></pre><div class="messages"><div class="msg sent"></div><div class="msg seen"></div></div>';
 		},
 		render(el, state) {
-			const take = state.take;
-			// The layout is of what the scenario has talked to: in a show, whose
-			// take grows as its run goes on, it is made again when another joins.
-			const spoke = [];
-			for (const st of take.steps) for (const x of acts(st)) if (!spoke.includes(x.peer)) spoke.push(x.peer);
-			if (el._spoke !== spoke.join('|')) {
-				el._spoke = spoke.join('|');
-				el._layout = layout(take, state.theme);
-				// The grid is as large as fits: a diagram of many boxes is drawn smaller.
-				el.style.setProperty('--rows', el._layout.height);
-				el.style.setProperty('--cols', el._layout.width);
+			const take = state.take, seg = state.segment;
+			let L = layouts[seg.diagram || first];
+			if (!L) {
+				// No diagram of the project's: the map is of what the scenario has
+				// talked to. In a show, whose take grows, it is made again when
+				// another joins.
+				const spoke = [];
+				for (const st of take.steps) for (const x of acts(st)) if (!spoke.includes(x.peer)) spoke.push(x.peer);
+				const key = spoke.join('|') + '|' + (state.theme.caller || '');
+				if (el._made !== key) { el._made = key; el._layout = layout(mapOf(take, state.theme)); }
+				L = el._layout;
 			}
-			const L = el._layout;
+			if (el._shown !== L) {
+				el._shown = L;
+				// The grid is as large as fits: a map of many boxes is drawn smaller.
+				el.style.setProperty('--rows', L.height);
+				el.style.setProperty('--cols', L.width);
+			}
+			const who = seg.as || L.map.caller || '';
 			const grid = newGrid(L.width, L.height);
-			// Which peers the scenario has met by now, and what each last said.
-			const met = {}, lastSaid = {};
+			// What the scenario has talked to by now, and what each last said.
+			const met = {}, lastSaid = {}, kinds = {};
+			for (const p of take.peers) kinds[p.name] = p.kind;
 			const upTo = state.playing ? state.stepIndex : state.done - 1;
 			for (let i = 0; i <= upTo && i < take.steps.length; i++) {
 				const current = state.playing && i === state.stepIndex;
@@ -219,43 +381,62 @@
 					if (list.length) active = { x: list[list.length - 1], phase: 1, failed: take.steps[i].status !== 'passed', over: true };
 				}
 			}
-			if (L.caller) drawBox(grid, L.caller, 'key');
+			const line = active && !active.over ? lineOf(L, active.x, who) : null;
+			// The lines a cue lights while the step plays: what the scenario
+			// cannot see, told by whoever wrote the demo.
+			const told = state.playing ? (seg.flows || []).map(([a, b]) => L.edges.find((e) => e.from === a && e.to === b)).filter(Boolean) : [];
+			for (const z of L.zones) drawBox(grid, z, 'zone');
 			for (const b of Object.values(L.boxes)) {
-				if (!met[b.id]) continue;
+				// On a project's diagram every box is there from the start; on a
+				// map of what the scenario talked to, a box is there once it did.
+				if (L.map.made && b.id !== L.map.caller && !met[b.id]) continue;
+				const kind = kinds[b.id] || SHAPES[b.shape] || '';
+				const lines = [{ text: kind, kind: 'sub' }];
 				const said = lastSaid[b.id];
-				const lines = [{ text: b.kind, kind: 'sub' }];
-				if (said) lines.push({ text: clip(said.text, BW - 4), kind: said.kind });
-				const on = active && active.x.peer === b.id && !active.over;
-				drawBox(grid, { ...b, lines }, on ? (active.failed ? 'fail' : 'key') : 'line');
+				if (said) lines.push({ text: clip(said.text, b.w - 4), kind: said.kind });
+				const on = (active && !active.over && active.x.peer === b.id) || told.some((e) => e.to === b.id);
+				drawBox(grid, { ...b, lines }, on ? (active && active.failed ? 'fail' : 'key') : 'line');
 			}
-			for (const [id, e] of Object.entries(L.edges)) {
-				const peer = id.slice(2);
-				if (!met[peer]) continue;
-				if (active && !active.over && edgeOf(active.x) === id) continue;
+			const lit = new Set(told.map((e) => e.id));
+			if (line) lit.add(line.edge.id);
+			for (const e of L.edges) {
+				if (lit.has(e.id) || (L.map.made && !met[e.to])) continue;
 				drawEdge(grid, e, 'line');
 			}
+			told.forEach((e, i) => {
+				// One after the other, over the step's time.
+				const p = Math.min(1, Math.max(0, state.progress * told.length - i));
+				drawEdge(grid, e, 'told', p > 0 && p < 1 ? p * (e.cells.length - 1) : undefined);
+			});
 			let sent = null, seen = null;
 			if (active) {
-				const e = L.edges[edgeOf(active.x)];
 				const x = active.x, p = active.phase;
-				// Out in the first part of its time, back in the next, then it rests.
-				const out = Math.min(1, p / 0.4), back = Math.min(1, Math.max(0, (p - 0.45) / 0.4));
-				const going = x.sent && p < 0.45, coming = x.seen && (x.sent ? p >= 0.45 && p < 0.9 : p < 0.5);
-				if (e && !active.over) {
-					const n = e.cells.length - 1;
+				if (line) {
+					const n = line.edge.cells.length - 1;
 					let head, kind = 'coord';
-					if (going) head = out * n;
-					else if (coming) { head = (1 - (x.sent ? back : Math.min(1, p / 0.45))) * n; kind = active.failed ? 'fail' : 'ok'; }
-					drawEdge(grid, e, kind, head);
+					if (line.found) {
+						// What the scenario found there came along the system's own line.
+						kind = active.failed ? 'fail' : 'ok';
+						if (p < 0.6) head = (p / 0.6) * n;
+					} else if (x.sent && p < 0.45) {
+						head = Math.min(1, p / 0.4) * n;
+					} else if (x.seen && (x.sent ? p < 0.9 : p < 0.5)) {
+						head = (1 - Math.min(1, Math.max(0, x.sent ? (p - 0.45) / 0.4 : p / 0.45))) * n;
+						kind = active.failed ? 'fail' : 'ok';
+					}
+					drawEdge(grid, line.edge, kind, head);
 				}
+				const found = line && line.found;
 				if (x.sent && (active.over || p > 0.05)) sent = x.sent;
-				if (x.seen && (active.over || (x.sent ? p >= 0.85 : p >= 0.45))) seen = x.seen;
-				el._peer = x.peer;
+				if (x.seen && (active.over || (found ? p >= 0.55 : x.sent ? p >= 0.85 : p >= 0.45))) seen = x.seen;
 			}
 			el.querySelector('.grid').innerHTML = html(grid);
-			// A mock knows the calls it got, not who made them: where the scenario
-			// talks to one service, it was that one.
-			const from = active && active.x.from ? (active.x.from === 'system' && L.service ? L.service : active.x.from) : '';
+			// A mock knows the calls it got, not who made them: the map's line says.
+			let from = '';
+			if (active && active.x.from) {
+				const l = lineOf(L, active.x, who);
+				from = active.x.from === 'system' ? (l ? l.edge.from : (L.services.length === 1 ? L.services[0] : 'system')) : active.x.from;
+			}
 			message(el.querySelector('.msg.sent'), sent, from ? from + ' → ' + active.x.peer : '→ ' + (active ? active.x.peer : ''));
 			message(el.querySelector('.msg.seen'), seen, '← ' + (active ? active.x.peer : ''), active && active.failed);
 		},

@@ -43,7 +43,7 @@ func shown(t *testing.T, s *studio, at float64) map[string]string {
 // timeline says: the card, then each step with its subtitle and what it sent
 // and saw, and nothing of the steps the camera was off for.
 func TestTheStageShowsEachMomentOfTheFilm(t *testing.T) {
-	script, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), nil)
+	script, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), Known{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ axxStage.on('direction', (d) => window.saidDirections.push(d.name + ' ' + d.args
 	}
 	src := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: [confetti twice] [2s] The depot's", 1)
 	st := Settings{Directions: []string{"confetti"}, Scenes: []string{"demo/scenes.js"}, Styles: []string{"demo/stage.css"}}
-	script, err := ParseScript("features/hold.demo.feature", []byte(src), st.Directions)
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), st.known())
 	if err != nil || len(script.Problems) > 0 {
 		t.Fatal(err, script.Problems)
 	}
@@ -151,5 +151,76 @@ axxStage.on('direction', (d) => window.saidDirections.push(d.name + ' ' + d.args
 	color, err := s.page.Evaluate(`() => getComputedStyle(document.querySelector('.own-scene')).color`)
 	if err != nil || color != "rgb(1, 2, 3)" {
 		t.Errorf("the project's stylesheet: %v, %v", color, err)
+	}
+}
+
+// A project's diagram, written in Mermaid, is the map the demo is drawn on,
+// in characters: every box of it, the scenario's exchanges on its lines, the
+// lines a cue lights, and another diagram where a cue goes to one. A cue that
+// names what its diagram has not makes no film.
+func TestAProjectsDiagrams(t *testing.T) {
+	ctx := context.Background()
+	system := "flowchart TD\n  shop([shop]) --> parcels\n  parcels --> parcels-db[(parcels-db)]\n  parcels -.-> address\n  parcels-db --> reports[Monthly reports]\n"
+	other := "flowchart LR\n  parcels --> warehouse\n"
+	src := strings.Replace(holdFeature, "# demo: [2s] The depot's", "# demo: [parcels-db --> reports] [2s] The depot's", 1)
+	src = strings.Replace(src, "# demo: [speed 4x]", "# demo: [diagram other] [speed 4x]", 1)
+	src = strings.Replace(src, "# demo: [action] Ms Okafor", "# demo: [action] [as shop] Ms Okafor", 1)
+	var st Settings
+	st.Diagrams = Diagrams{Names: []string{"system", "other"}, Files: map[string]string{"system": "system.mmd", "other": "other.mmd"}}
+	var err error
+	if st.mermaid, err = mermaidFile(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	script, err := ParseScript("features/hold.demo.feature", []byte(src), st.known())
+	if err != nil || len(script.Problems) > 0 {
+		t.Fatal(err, script.Problems)
+	}
+	take := holdTake()
+	tl := Cut(take, script, DefaultPace)
+	diagrams := []Diagram{{Name: "system", Source: system}, {Name: "other", Source: other}}
+	s, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: tl, Diagrams: diagrams})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.close()
+	lit := func() string {
+		got, err := s.page.Evaluate(`() => [...new Set([...document.querySelectorAll('.surface-diagram .grid span')].filter((e) => /k-(coord|ok|told)/.test(e.className) && /[─│>┌┐└┘├┤┬┴┼╌╎]/.test(e.textContent)).map((e) => e.className.match(/k-(coord|ok|told)/)[1]))].sort().join(',')`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.(string)
+	}
+	// The request: every box of the map is there, the one the scenario never
+	// talks to among them, and the request goes along the shop's line.
+	req := tl.Segments[1]
+	got := shown(t, s, req.Start+0.2*2.2)
+	for _, box := range []string{"shop", "parcels", "parcels-db", "address", "Monthly reports"} {
+		if !strings.Contains(got["diagram"], box) {
+			t.Errorf("the map has no %q:\n%s", box, got["diagram"])
+		}
+	}
+	if lit() != "coord" {
+		t.Errorf("as the request goes out, the lines lit: %q", lit())
+	}
+	// The selection: what the scenario found came along the system's own
+	// line, and the cue's line is lit as told.
+	sel := tl.Segments[3]
+	shown(t, s, sel.Start+0.4)
+	if lit() != "ok,told" {
+		t.Errorf("as the selection plays, the lines lit: %q", lit())
+	}
+	// The cue went to the other diagram.
+	if got = shown(t, s, tl.Segments[5].Start+0.1); !strings.Contains(got["diagram"], "warehouse") || strings.Contains(got["diagram"], "Monthly reports") {
+		t.Errorf("after [diagram other]:\n%s", got["diagram"])
+	}
+
+	// What a cue names is in its diagram, and a diagram is a flowchart.
+	bad := strings.Replace(src, "[parcels-db --> reports]", "[parcels-db --> nowhere]", 1)
+	script, _ = ParseScript("features/hold.demo.feature", []byte(bad), st.known())
+	if _, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: Cut(take, script, DefaultPace), Diagrams: diagrams}); err == nil || !strings.Contains(err.Error(), "the diagram system has no line from parcels-db to nowhere") {
+		t.Errorf("a cue that lights a line there is not: %v", err)
+	}
+	if _, err := openStudio(ctx, t.TempDir(), st, &Staged{Take: take, Timeline: tl, Diagrams: []Diagram{{Name: "system", Source: "flowchart LR\n  a --> "}}}); err == nil || !strings.Contains(err.Error(), "the diagram system cannot be read") {
+		t.Errorf("a diagram that is no Mermaid: %v", err)
 	}
 }

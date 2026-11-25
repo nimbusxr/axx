@@ -18,7 +18,7 @@ func TestStills(t *testing.T) {
 	if dir == "" {
 		t.Skip("AXX_DEMO_STILLS names no folder")
 	}
-	s, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), nil)
+	s, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), Known{})
 	if err != nil {
 		t.Fatal(err)
 	}

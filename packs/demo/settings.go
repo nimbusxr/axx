@@ -1,6 +1,10 @@
 package demo
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -14,12 +18,75 @@ type Settings struct {
 	// the stage, loaded after the pack's.
 	Scenes []string `json:"scenes,omitempty"`
 	Styles []string `json:"styles,omitempty"`
+	// Diagrams are the project's diagrams of its system, by name: files of
+	// Mermaid flowcharts. A demo starts on the first, and a cue goes to
+	// another ([diagram name]).
+	Diagrams Diagrams `json:"diagrams,omitzero"`
 	// Size is the film's, like 1920x1080, and FPS its frames a second.
 	Size string `json:"size,omitempty"`
 	FPS  int    `json:"fps,omitempty"`
 
 	// footage is the folder a take's pictures are in: its own.
 	footage string
+	// mermaid is Mermaid's library on this machine, for a project with
+	// diagrams.
+	mermaid string
+}
+
+// Diagrams are a project's diagrams: each one's file by its name, and the
+// names in the order axx.yaml has them.
+type Diagrams struct {
+	Names []string
+	Files map[string]string
+}
+
+// UnmarshalJSON reads the diagrams as a mapping of name to file, keeping its
+// order.
+func (d *Diagrams) UnmarshalJSON(b []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if tok != json.Delim('{') {
+		return errors.New("packs.demo.diagrams is a mapping of a diagram's name to its file")
+	}
+	d.Files = map[string]string{}
+	for dec.More() {
+		key, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		var file string
+		if err := dec.Decode(&file); err != nil {
+			return fmt.Errorf("packs.demo.diagrams.%v is a file's path: %w", key, err)
+		}
+		name, _ := key.(string)
+		d.Names = append(d.Names, name)
+		d.Files[name] = file
+	}
+	return nil
+}
+
+// IsZero reports whether the project has no diagrams.
+func (d Diagrams) IsZero() bool { return len(d.Names) == 0 }
+
+// MarshalJSON writes the diagrams as they are read.
+func (d Diagrams) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteByte('{')
+	for i, name := range d.Names {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		k, _ := json.Marshal(name)
+		v, _ := json.Marshal(d.Files[name])
+		b.Write(k)
+		b.WriteByte(':')
+		b.Write(v)
+	}
+	b.WriteByte('}')
+	return b.Bytes(), nil
 }
 
 // Theme is the look of a project's demos.
@@ -83,6 +150,12 @@ const configSchema = `{
         },
         "font": {"type": "string", "description": "The font the diagram is drawn in, as CSS names it."}
       }
+    },
+    "diagrams": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+      "description": "The project's diagrams of its system, by name: files of Mermaid flowcharts (system: docs/system.mmd), whose boxes are named as the scenarios name what they talk to. A demo's diagram is the first; a cue goes to another with [diagram name]. Axx draws them itself, in characters. Without any, a demo's diagram is of what its scenario talked to."
     },
     "scenes": {
       "type": "array", "items": {"type": "string"},

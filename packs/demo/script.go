@@ -2,6 +2,7 @@ package demo
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -71,9 +72,21 @@ type Script struct {
 
 const marker = "demo:"
 
+// Known is what a project has that a cue can name: its own directions, and
+// its diagrams.
+type Known struct {
+	Directions []string
+	Diagrams   []string
+}
+
+// known is what the project's settings say a cue can name.
+func (s Settings) known() Known {
+	return Known{Directions: s.Directions, Diagrams: s.Diagrams.Names}
+}
+
 // ParseScript reads the cues of a feature file. A file with none has an
-// empty script. Custom are the names of the directions a project adds.
-func ParseScript(uri string, src []byte, custom []string) (*Script, error) {
+// empty script.
+func ParseScript(uri string, src []byte, custom Known) (*Script, error) {
 	n := 0
 	doc, _, err := feature.ParseSource(uri, src, func() string { n++; return strconv.Itoa(n) })
 	if err != nil {
@@ -82,7 +95,7 @@ func ParseScript(uri string, src []byte, custom []string) (*Script, error) {
 	return scriptOf(doc.AST, custom), nil
 }
 
-func scriptOf(ast *messages.GherkinDocument, custom []string) *Script {
+func scriptOf(ast *messages.GherkinDocument, custom Known) *Script {
 	s := &Script{Rows: map[int]map[string]string{}}
 	if ast.Feature != nil {
 		s.FeatureLine = int(ast.Feature.Location.Line)
@@ -201,7 +214,7 @@ func continuation(comment string) (text string, indent int, isCue bool) {
 }
 
 // parseCue reads a cue's directions, which come first, and its text.
-func parseCue(body string, line, column int, custom []string, problems []Problem) ([]Direction, string, []Problem) {
+func parseCue(body string, line, column int, custom Known, problems []Problem) ([]Direction, string, []Problem) {
 	var dirs []Direction
 	rest, col := body, column+1
 	for strings.HasPrefix(rest, "[") {
@@ -213,6 +226,9 @@ func parseCue(body string, line, column int, custom []string, problems []Problem
 		fields := strings.Fields(rest[1:end])
 		d := Direction{Column: col}
 		switch {
+		case strings.Contains(rest[1:end], "->"):
+			// An arrow lights a line of the diagram: [parcels --> addresses].
+			d.Name, d.Args = "flow", arrowOf(rest[1:end])
 		case len(fields) == 0:
 			problems = append(problems, Problem{line, col, "an empty direction: say what to do between the brackets, like [pause 2s]"})
 		case isDuration(fields[0]):
@@ -233,6 +249,18 @@ func parseCue(body string, line, column int, custom []string, problems []Problem
 		rest = trimmed
 	}
 	return dirs, rest, problems
+}
+
+// arrow splits what an arrow joins: the names on either side of each "-->"
+// or "->", so that a --> b --> c is a, b and c.
+var arrow = regexp.MustCompile(`\s*-+>\s*`)
+
+func arrowOf(text string) []string {
+	var out []string
+	for _, name := range arrow.Split(strings.TrimSpace(text), -1) {
+		out = append(out, strings.TrimSpace(name))
+	}
+	return out
 }
 
 // anchorLines are the lines a cue can belong to, in order: every step, and

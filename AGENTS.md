@@ -243,7 +243,11 @@ the skills instead: `axx skills install`.
   packs with a screen show to what watches them, `packs/internal/recording/screens.go`). The cut (`cut.go`) is the film's
   timeline, whose time is its own; the stage (`stage/`, a page: `axxStage.seek(t)` draws any moment, so draw from the state
   and never from a clock) is filmed frame by frame in a browser of web-core's (`film.go`, `webcore.OwnPage`). The diagram of
-  what has no screen (`stage/diagram.js`) draws only what the run sent and saw: keep it so. `--present` is the same stage
+  what has no screen (`stage/diagram.js`) is a map drawn in characters, by an engine of its own: the project's diagrams
+  (`packs.demo.diagrams`, Mermaid flowcharts) or, without any, what the scenario talked to. Mermaid's library only reads a
+  diagram's text (`mermaid.go` pins it and its hash; downloaded from npm, never distributed with axx): nothing of its
+  drawing is used, keep it so. What the run sent and saw plays on the map's lines, and what a cue tells (`[a --> b]`) is
+  drawn apart from what was seen: keep that so too. `--present` is the same stage
   before an audience (`present.go`): the run waits at each beat for the presenter, back shows again and undoes nothing, and a
   step that failed is asked about (`core.StepFailed`) before the audience sees anything of it. The pack's scenes are
   registered as a project's are (`axxStage.scene`): keep them no different. Its browser tests run in CI's web job.

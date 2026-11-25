@@ -21,6 +21,8 @@ type show struct {
 	// fallback is the last good take of the demo, which the show plays on
 	// from when a step fails and the presenter says so.
 	fallback *Take
+	// diagrams are the project's diagrams.
+	diagrams []Diagram
 
 	mu sync.Mutex
 	// take is the run so far, and timeline its cut; nil before the first
@@ -393,7 +395,7 @@ func (sh *show) staged() *Staged {
 	for _, b := range beatsOf(sh.script) {
 		live.Beats = append(live.Beats, b.text)
 	}
-	out := &Staged{Take: sh.take, Timeline: sh.timeline, Theme: sh.st.Theme, Live: live}
+	out := &Staged{Take: sh.take, Timeline: sh.timeline, Theme: sh.st.Theme, Live: live, Diagrams: sh.diagrams}
 	if out.Take == nil || out.Timeline == nil || len(out.Timeline.Segments) == 0 || sh.mode == "restarting" {
 		// Before the run has a step to show, and while it runs again from
 		// the top: a card.

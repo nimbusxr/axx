@@ -97,7 +97,7 @@ func runDemo(call *core.CommandCall) error {
 		return err
 	}
 	uri := filepath.ToSlash(rel)
-	script, err := ParseScript(uri, src, st.Directions)
+	script, err := ParseScript(uri, src, st.known())
 	if err != nil {
 		return err
 	}
@@ -109,8 +109,20 @@ func runDemo(call *core.CommandCall) error {
 		return fmt.Errorf("the demo's cues have mistakes:%s", b.String())
 	}
 	dir := takeDir(call.ProjectDir, uri)
+	// The project's diagrams, and Mermaid's library, which reads them.
+	diagrams, err := diagramsOf(call.ProjectDir, st)
+	if err != nil {
+		return err
+	}
+	if len(diagrams) > 0 {
+		if st.mermaid, err = mermaidFile(call.Context, func() {
+			fmt.Fprintf(call.Stderr, "axx: downloading Mermaid %s, once: it reads the project's diagrams\n", mermaidVersion)
+		}); err != nil {
+			return err
+		}
+	}
 	if call.Flags["present"] == "true" || call.Flags["recorded"] == "true" {
-		return present(call, st, script, dir, uri, abs)
+		return present(call, st, script, diagrams, dir, uri, abs)
 	}
 	var takes []string
 	if call.Flags["recut"] == "true" {
@@ -184,7 +196,7 @@ func runDemo(call *core.CommandCall) error {
 			pace := DefaultPace
 			pace.Row = i
 			tl := Cut(take, script, pace)
-			parts = append(parts, &Staged{Take: take, Timeline: tl, Theme: st.Theme})
+			parts = append(parts, &Staged{Take: take, Timeline: tl, Theme: st.Theme, Diagrams: diagrams})
 			titles = append(titles, fmt.Sprintf("%s (%d of %d)", take.Scenario, i+1, len(of)))
 			seconds += tl.Duration
 		}
@@ -223,7 +235,7 @@ func lastTake(dir string) *Take {
 }
 
 // present shows a demo to an audience.
-func present(call *core.CommandCall, st Settings, script *Script, dir, uri, abs string) error {
+func present(call *core.CommandCall, st Settings, script *Script, diagrams []Diagram, dir, uri, abs string) error {
 	st.footage = dir
 	fallback := lastTake(dir)
 	recorded := call.Flags["recorded"] == "true"
@@ -243,6 +255,7 @@ func present(call *core.CommandCall, st Settings, script *Script, dir, uri, abs 
 	}
 	title := strings.TrimSuffix(filepath.Base(uri), Suffix)
 	sh := newShow(script, st, fallback, title)
+	sh.diagrams = diagrams
 	if recorded {
 		sh.mu.Lock()
 		sh.playFallback()

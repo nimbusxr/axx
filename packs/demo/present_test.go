@@ -77,7 +77,7 @@ func stage(t *testing.T, sh *show, fail, failures int) (done chan bool) {
 }
 
 func TestAShowGoesOnABeatAtATime(t *testing.T) {
-	script, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), nil)
+	script, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), Known{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestAShowGoesOnABeatAtATime(t *testing.T) {
 }
 
 func TestAShowWhoseStepFails(t *testing.T) {
-	script, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), nil)
+	script, err := ParseScript("features/hold.demo.feature", []byte(holdFeature), Known{})
 	if err != nil {
 		t.Fatal(err)
 	}

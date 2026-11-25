@@ -45,6 +45,9 @@ type Staged struct {
 	Mark string `json:"mark,omitempty"`
 	// Live is the state of a show before an audience; nil for a film.
 	Live *Live `json:"live,omitempty"`
+	// Diagrams are the project's diagrams, the first the one a demo starts
+	// on. With none, the diagram is of what the scenario talked to.
+	Diagrams []Diagram `json:"diagrams,omitempty"`
 }
 
 // stageServer serves the stage to a page, on this machine only: the pack's
@@ -106,6 +109,14 @@ func serveStage(projectDir string, st Settings, staged func() *Staged, sh *show)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(staged())
 	})
+	// Mermaid's library, which reads the project's diagrams.
+	mux.HandleFunc("/mermaid.min.js", func(w http.ResponseWriter, r *http.Request) {
+		if st.mermaid == "" {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, st.mermaid)
+	})
 	// The pictures of the take's screens, from the demo's folder.
 	mux.HandleFunc("/footage/", func(w http.ResponseWriter, r *http.Request) {
 		rel := strings.TrimPrefix(r.URL.Path, "/footage/")
@@ -142,6 +153,9 @@ func serveStage(projectDir string, st Settings, staged func() *Staged, sh *show)
 			fmt.Fprintf(&scenes, `<script src="project/%s"></script>`+"\n", filepath.ToSlash(filepath.Clean(s)))
 		}
 		out := strings.Replace(string(page), "<!--theme-->", styles.String(), 1)
+		if st.mermaid != "" {
+			out = strings.Replace(out, "<!--mermaid-->", `<script src="mermaid.min.js"></script>`, 1)
+		}
 		out = strings.Replace(out, "<!--scenes-->", scenes.String(), 1)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(out))
@@ -200,6 +214,14 @@ func openStudio(ctx context.Context, projectDir string, st Settings, staged *Sta
 		err = fmt.Errorf("the demo's stage did not start: %w", stageError(s.page, err))
 		s.close()
 		return nil, err
+	}
+	// What the stage could not make sense of: a diagram that is no Mermaid
+	// flowchart, a cue that names a box or a line its diagram has not.
+	if said, err := s.page.Evaluate(`() => (axxStage.problems || []).join("\n")`); err == nil {
+		if problems, _ := said.(string); problems != "" {
+			s.close()
+			return nil, fmt.Errorf("the demo's diagrams have mistakes:\n  %s", strings.ReplaceAll(problems, "\n", "\n  "))
+		}
 	}
 	return s, nil
 }
