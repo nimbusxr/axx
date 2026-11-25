@@ -216,3 +216,36 @@ func lastOutput(h *cloudtest.Harness) string {
 	defer st.mu.Unlock()
 	return string(st.runs["admin"].result.Stdout)
 }
+
+// A command's run is said for what shows a run to people: the command line
+// and its input, how it ended, and what it printed on both of its outputs, in
+// the order it came, with the scenario's secrets masked.
+func TestARunSaysItsExchange(t *testing.T) {
+	const token = "desk-token-desk-token"
+	t.Setenv("PARCELS_ADMIN_TOKEN", token)
+	h := cloudtest.New(t, Pack())
+	register(h, [][]string{{"env.PARCELS_ADMIN_TOKEN", "${env:PARCELS_ADMIN_TOKEN}"}})
+	h.OK("the admin command is run with 'cancel -' and the input:", "PX-ADM-6103\nPX-ADM-6104")
+	h.OK("the admin command is run with 'token'")
+	got := h.SC.Exchanges()
+	if len(got) != 2 {
+		t.Fatalf("exchanges: %+v, want the two runs", got)
+	}
+	cancel := got[0]
+	if cancel.Peer != "admin" || cancel.Kind != "command" || cancel.Sent == nil || cancel.Seen == nil {
+		t.Fatalf("the run: %+v", cancel)
+	}
+	if !strings.HasSuffix(cancel.Sent.Title, " cancel -") || cancel.Sent.Body != "PX-ADM-6103\nPX-ADM-6104" {
+		t.Errorf("what ran, and its input: %+v", cancel.Sent)
+	}
+	if cancel.Seen.Title != "exit code 0" || cancel.Seen.Body != "cancelled PX-ADM-6103\ncancelled PX-ADM-6104" {
+		t.Errorf("how it ended, and what it printed: %+v", cancel.Seen)
+	}
+	// Both outputs (two lines printed at once come in either order), and no
+	// secret.
+	said := got[1].Seen
+	out, errOut := "token "+secrets.Masked, "using "+secrets.Masked
+	if said.Title != "exit code 1" || said.Body != out+"\n"+errOut && said.Body != errOut+"\n"+out {
+		t.Errorf("a failing run with a secret: %+v", said)
+	}
+}

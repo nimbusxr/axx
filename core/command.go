@@ -70,6 +70,13 @@ type CommandCall struct {
 	// v, as a command hook's does. It leaves v as it is when there is no
 	// section, and fails when axx.yaml cannot be read.
 	Settings func(v any) error
+	// Run runs scenarios as `axx run` does, in this process, with the
+	// arguments `axx run` takes, flags included: the project's services
+	// start and stop around them, and the packs' hooks see the run as any
+	// other. It returns what `axx run` would end with: nil when every
+	// scenario passed. A command that shows a run to people (a demo) runs
+	// its scenario with it.
+	Run func(ctx context.Context, args ...string) error
 }
 
 // CommandPhase says when a command hook runs: before its command or after it.

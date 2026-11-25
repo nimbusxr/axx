@@ -25,6 +25,7 @@ import (
 	"github.com/nimbusxr/axx/internal/axxerr"
 	"github.com/nimbusxr/axx/internal/cloudstep"
 	"github.com/nimbusxr/axx/internal/secrets"
+	"github.com/nimbusxr/axx/packs/internal/recording"
 	"github.com/nimbusxr/axx/packs/web/internal/driver"
 )
 
@@ -696,9 +697,9 @@ func open(sc *core.Scenario, a *App) (*session, error) {
 	ctx.SetDefaultTimeout(float64(actionTimeout.Milliseconds()))
 	ctx.SetDefaultNavigationTimeout(float64(navigationTimeout.Milliseconds()))
 	s := &session{app: a, ctx: ctx, dialogOpened: make(chan struct{})}
-	if cfg.videos != "never" {
+	if cfg.videos != "never" || recording.Watched(sc) {
 		if st.video == nil {
-			st.video = newVideo(sc)
+			st.video = newVideo(sc, cfg.videos != "never")
 		}
 		s.video = st.video
 	}

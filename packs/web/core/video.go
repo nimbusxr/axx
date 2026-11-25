@@ -78,9 +78,14 @@ type tabFeed struct {
 }
 
 // newVideo starts the scenario's video, of the session's tabs first.
-func newVideo(sc *core.Scenario) *webVideo {
+// The video itself is recorded when the settings keep one (record); what
+// watches the scenario's screens (a demo) is shown the same picture.
+func newVideo(sc *core.Scenario, record bool) *webVideo {
 	v := &webVideo{feeds: map[playwright.Page]*tabFeed{}}
-	v.recorder = recording.Record(sc, v.look, video.StreamQuality)
+	if record {
+		v.recorder = recording.Record(sc, v.look, video.StreamQuality)
+	}
+	recording.Screen(sc, "browser", v.look)
 	return v
 }
 
@@ -213,7 +218,9 @@ func fitted(frame image.Image) (*image.RGBA, image.Rectangle) {
 
 // keep ends the video, and keeps it when the settings say.
 func (v *webVideo) keep(sc *core.Scenario, policy string, failed bool) {
-	recording.Keep(sc, "web", v.recorder, policy, failed)
+	if v.recorder != nil {
+		recording.Keep(sc, "web", v.recorder, policy, failed)
+	}
 }
 
 // pointAt puts the video's pointer on the element a step acts on, in the

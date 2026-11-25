@@ -1,0 +1,22 @@
+/* The terminal's look: a window of the stage's colors, in the stage's font. */
+.surface-terminal { align-items: stretch; }
+.term { width: 100%; max-width: 150vh; height: 100%; max-height: 66vh; margin: auto; display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 1.2vh; background: var(--surface); overflow: hidden; box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.45); }
+.term-bar { display: flex; align-items: center; gap: 0.8vh; padding: 1.2vh 1.6vh; border-bottom: 1px solid var(--rule); }
+.term-bar i { width: 1.2vh; height: 1.2vh; border-radius: 50%; background: var(--rule); }
+.term-bar span { margin-left: 1vh; font-family: var(--font); font-size: 1.5vh; color: var(--muted); }
+/* The lines stand at the bottom of the window, as a terminal's do. */
+.term-body { flex: 1; min-height: 0; display: flex; align-items: flex-end; overflow: hidden; }
+.term-lines { width: 100%; margin: 0; padding: 1.8vh 2.2vh; font-family: var(--font); font-size: 1.9vh; line-height: 1.45; color: var(--text); white-space: pre-wrap; word-break: break-all; }
+#stage[data-surfaces="2"] .term-lines { font-size: 1.45vh; }
+.t-prompt { color: var(--accent); }
+.t-command { color: var(--text); }
+.t-remark { color: var(--muted); }
+.t-status { color: var(--seen); font-weight: 600; }
+.t-failed { color: var(--failed); font-weight: 600; }
+.t-body { color: var(--text); opacity: 0.8; }
+/* A cue of a demo's file, in a file a command printed. */
+.t-cue { color: var(--accent); }
+/* A long thing printed: smaller letters, so that more of it shows. */
+.term.dense .term-lines { font-size: 1.5vh; line-height: 1.34; }
+.term.dense { max-height: 72vh; }
+.t-cursor { display: inline-block; width: 1ch; background: var(--sent); }

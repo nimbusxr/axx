@@ -6,6 +6,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -157,6 +158,11 @@ type FeatureFinding struct {
 	// Tag is the tag the finding is about ("@asvs:6.2.99"), when it is
 	// about one: the finding is then reported where the tag is written.
 	Tag string
+	// At is the line of the feature file the finding is about, with its
+	// column, when it is about one that is no scenario's and no tag's (a
+	// comment a pack reads): the finding is then reported there.
+	At     int
+	Column int
 	// Message says what is wrong, and what would be right.
 	Message string
 }
@@ -448,7 +454,19 @@ const (
 	// like what it does as an app launches; what its two sides must know of
 	// each other, it notes ([Scenario.Note]).
 	HostScenario
+	// StepFailed runs when a step's own work failed, before its AfterStep
+	// hooks: the scenario's progress has the failure. A hook that returns
+	// [ErrRetryStep] has the step run once more, and the hooks again should
+	// it fail again; any other error, and nil, leave the step failed. It is
+	// for where a person follows the run and decides (a demo before an
+	// audience): a run nobody follows has no such hook, and its steps run
+	// once.
+	StepFailed
 )
+
+// ErrRetryStep is what a [StepFailed] hook returns to have the step that
+// failed run once more.
+var ErrRetryStep = errors.New("run the step once more")
 
 func (p Phase) String() string {
 	switch p {
@@ -462,6 +480,8 @@ func (p Phase) String() string {
 		return "afterStep"
 	case HostScenario:
 		return "hostScenario"
+	case StepFailed:
+		return "stepFailed"
 	}
 	return "unknown"
 }

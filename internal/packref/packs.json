@@ -6217,6 +6217,151 @@
       "steps": []
     },
     {
+      "name": "demo",
+      "doc": "Make a demo of a scenario: a video of it, with subtitles, that shows only what ran and passed. A demo is a feature file named `*.demo.feature`, with one scenario that tells a story from its start to its end, in the steps of the project's other packs. A comment that starts with `demo:` says what the people who watch read, and what it has in square brackets directs the video.\n\n```gherkin\n# demo: [card 3s] Holding a parcel at the depot\nFeature: Hold a parcel\n\n  Scenario: A shop holds a parcel for a recipient who is away\n    # demo: [cut]\n    Given the parcels service with the following properties:\n      | property | value                      |\n      | url      | http://${sys:local.host}:8080 |\n    # demo: [action] Ms Okafor is away until Friday.\n    #       Her shop asks us to hold her parcel.\n    When ...\n```\n\n- **The video.** `axx demo features/hold.demo.feature` runs the scenario and writes the video beside what the run did (its take) in `.axx/demo`. `--recut` makes the video again from the take, after a change to the subtitles or the directions, without another run.\n- **What it shows.** A step on a screen shows the screen. Any other step shows a diagram of the system, drawn in characters: what the step sent travels along a line to its box, and what came back shows under it.\n- **Your system's diagrams.** `diagrams` names diagrams of the system by name, each a file of a Mermaid flowchart or sequence diagram whose boxes and participants are named as the scenarios name what they talk to. A demo is drawn on the first, `[diagram name]` goes to another, and `[diagram one + other]` shows two side by side. `[as shop]` says which box the scenario is, an arrow, `[parcels --\u003e addresses]`, lights a line the scenario cannot see, and `[mark billing ✓]` writes in a box it does not talk to. Without a diagram, the picture is of what the scenario talked to.\n- **A terminal.** `[show terminal]` shows the steps as someone would type them: a request is its curl command, typed out, with what came back printed under it. `[show terminal + diagram]` shows both.\n- **Your own pictures.** A surface of your own is a scene, a few lines of JavaScript that draw the state of a moment: name it in `surfaces`, its script in `scenes`, and show it with `[show name]`. A pack shares scenes, styles and directions as a module. The guide \"Build a demo's scenes\" lists what a scene is given.\n- **The directions.** `[2s]` (how long the step below lasts; `[0s]` cuts it), `[speed 4x]`, `[pause 2s]`, `[cut]` and `[action]` (the camera stops and starts), `[card 3s] A title`, `[show diagram]`, `[hold response]` (the step shows what it sent, and what came back shows with the step after it). A comment line right below a cue, indented to its text, goes on with it.\n- **Its sound.** Beside each video is a `.srt` file of its subtitles with their times. `soundtrack.command` names a command of the project's that reads it and writes the video's sound, a WAV file as long as the video (a model that speaks, say), which the video then has. The pack makes no sound itself.\n- **Before an audience.** `axx demo --present` opens a page for the screen the audience sees, and the scenario runs as you go on, a subtitle at a time: forward shows the next and runs its steps, back shows again what was shown. A step that fails is not shown: you try it once more, play on from the last take, or start again from the top.\n- **Your own look.** The stage is a web page: `theme` sets its colors and names, `styles` and `scenes` load a stylesheet and scripts of the project's own, and `directions` names directions of its own, which its scenes act on.\n- **As a test.** `axx run` runs a demo's file as any feature. A demo does several things in turn, so the rule of one behavior per scenario is not for it.",
+      "requires": [
+        "web-core"
+      ],
+      "experimental": true,
+      "steps": [],
+      "settings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "directions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "description": "The project's own directions, like confetti for [confetti]: the demo pack takes them as they are, and the project's scenes act on them."
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "description": "The project's own surfaces, like ledger for [show ledger]: each is a scene one of the project's scripts registers under that name (axxStage.scene)."
+          },
+          "theme": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "The look of the project's demos.",
+            "properties": {
+              "caller": {
+                "type": "string",
+                "description": "A name for whoever uses the system, like shop: the diagram then has a box of that name, which what the scenario sends comes from. Without it there is no such box, and what is sent comes in from the edge of the picture."
+              },
+              "steps": {
+                "type": "boolean",
+                "description": "Whether the video says, in a line, which step it shows. Default: true."
+              },
+              "colors": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "The stage's colors, by name: background, surface, text, muted, line, sent, seen, failed, accent."
+              },
+              "font": {
+                "type": "string",
+                "description": "The font the diagram is drawn in, as CSS names it."
+              }
+            }
+          },
+          "diagrams": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "description": "The project's diagrams of its system, by name: files of Mermaid flowcharts or sequence diagrams (system: docs/system.mmd), whose boxes and participants are named as the scenarios name what they talk to. A demo's diagram is the first; a cue goes to another with [diagram name]. Axx draws them itself, in characters. Without any, a demo's diagram is of what its scenario talked to."
+          },
+          "soundtrack": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "How a video's sound is made, once its picture is: by a command of the project's. Axx makes no sound itself.",
+            "properties": {
+              "command": {
+                "type": "string",
+                "description": "A command of the project's, run through the shell in axx.yaml's folder for each video. It reads the video's subtitles with their times ($AXX_DEMO_SUBTITLES, a .srt file) and writes the video's sound to $AXX_DEMO_SOUNDTRACK, a WAV file as long as the video ($AXX_DEMO_SECONDS); $AXX_DEMO_VIDEO is the video without sound. A model that speaks, or anything else that makes sound."
+              }
+            }
+          },
+          "scenes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Scripts of the project's own for the stage, loaded after the pack's: a scene one registers replaces the pack's of that name."
+          },
+          "styles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Stylesheets of the project's own for the stage, loaded after the pack's."
+          },
+          "size": {
+            "type": "string",
+            "pattern": "^[0-9]+x[0-9]+$",
+            "description": "The video's size, like 1920x1080 (the default)."
+          },
+          "fps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60,
+            "description": "The video's frames a second. Default: 30."
+          },
+          "pace": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "How fast a demo video goes, in seconds. The defaults are slow enough for someone who reads the subtitles and sees the system for the first time; a video with a voice is tighter, as a line is heard faster than it is read.",
+            "properties": {
+              "read": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long a subtitle stays before its words are counted. Default: 2."
+              },
+              "word": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "What each word of a subtitle adds to how long it stays. Default: 0.42."
+              },
+              "exchange": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long a step lasts for each thing it sent or saw. Default: 3.4."
+              },
+              "check": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long a step lasts that sent nothing: a check. Default: 1.8."
+              },
+              "screen": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "The least a step on a screen lasts. Default: 1.8."
+              },
+              "card": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long a card stays that says no time. Default: 3."
+              },
+              "end": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "How long the last picture stays. Default: 2.5."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "name": "controls-core",
       "doc": "Show which of the controls a project is required to cover its scenarios prove. A scenario claims a control with a tag, `@asvs:6.2.1`; a tag on a Feature or a Rule covers every scenario under it. `require` names the lists of controls the project is to cover: a list a pack carries (`controls-asvs` has OWASP ASVS's levels), or a file of the project's own, for any other framework. Each run writes what it proved to `.axx/controls/run.json` and ends with a summary. A run never fails because of a control.\n\n- **The report.** `axx controls report` lists every required control with what covers it: the scenarios that claim it, what other sources say (`evidence`: a pen test, a scanner, a review) and the exceptions the project recorded (`exceptions`). It writes text, Markdown, CSV and JSON, and the formats other packs add (`controls-oscal`).\n- **The gate.** `axx controls check` fails when a required control is not covered. It judges the evidence of one run or of several together, as the jobs of a CI run each write their own.\n- **Finding a control.** `axx controls list \u003cwords\u003e` finds the controls that mention them, and `axx controls show \u003ccontrol\u003e` shows one with its text and what covers it.\n\n```yaml\npacks:\n  controls-core:\n    require: [asvs-5.0-level-1, security/pci.yaml]\n    evidence: [security/pen-test-2027-03.yaml]\n    exceptions:\n      - control: asvs:5.2.1\n        kind: not-applicable\n        reason: The service takes no files.\n```",
       "experimental": true,
@@ -8222,7 +8367,7 @@
     },
     {
       "name": "mobile-ios",
-      "doc": "iOS apps, on simulators axx runs, driven through WebDriverAgent, the app on the simulator that drives yours: axx downloads the build of it that the [Appium](https://appium.io) project publishes on first use, and starts it on each simulator itself. It needs a Mac with Xcode and an iOS simulator runtime.\n\n**Each scenario has a simulator to itself.** axx makes simulators as scenarios need them, up to `devices` at once (1 by default: iOS scenarios then take turns), each a clone, deleted when the run ends: for a device type, like iPhone 16, of axx's own simulator of it, which it sets up once and keeps in its cache (no scenario ever runs on it); for a simulator the project set up, of that one. A scenario leases a simulator for its whole run.\n\n**Each scenario starts from a clean app.** Before the app starts, it is installed afresh (its data and its notifications go with the old one), the simulator's keychain and the app's permissions are reset, the permissions the registration names are granted, the documents a scenario before put On My iPhone are taken out (and the registration's put in), and the location is set. A dialog a scenario leaves unanswered, like a request for notifications, is dismissed as it ends: it would outlive the app and take the next scenario's taps. The app starts in the registration's language, region and time zone. There is no switch that skips it: a scenario is one journey, and that journey is its own.",
+      "doc": "iOS apps, on simulators axx runs, driven through WebDriverAgent, the app on the simulator that drives yours: axx downloads the build of it that the [Appium](https://appium.io) project publishes on first use, and starts it on each simulator itself. It needs a Mac with Xcode and an iOS simulator runtime.\n\n**Each scenario has a simulator to itself.** axx makes simulators as scenarios need them, up to `devices` at once (1 by default: iOS scenarios then take turns), each a clone, deleted when the run ends: for a device type, like iPhone 16, of axx's own simulator of it, which it sets up once and keeps in its cache (no scenario ever runs on it); for a simulator the project set up, of that one. A scenario leases a simulator for its whole run.\n\n**Each scenario starts from a clean app.** Before the app starts, it is installed afresh (its data and its notifications go with the old one), the simulator's keychain and the app's permissions are reset, the permissions the registration names are granted, the documents a scenario before put On My iPhone are taken out (and the registration's put in), and the location is set. A dialog a scenario leaves unanswered, like a request for notifications, is dismissed as it ends: it would outlive the app and take the next scenario's taps. The app starts in the registration's language, region and time zone. There is no switch that skips it: a scenario is one journey, and that journey is its own. A new simulator's keyboard does not teach sliding a finger over its letters the first time it shows: that sheet would cover the lower half of the app.",
       "requires": [
         "mobile-core"
       ],

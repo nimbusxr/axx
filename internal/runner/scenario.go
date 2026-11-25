@@ -218,9 +218,13 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 	pack, def := m.Def().Pack, m.Def().Step.ID
 	sc.SetStep(&core.StepInfo{Keyword: sr.Keyword, Text: sr.Text, Line: sr.Line, Pack: pack, Definition: def})
 	defer sc.SetStep(nil)
-	sc.UpdateProgress(i, func(sp *core.StepProgress) { sp.Status, sp.Pack, sp.Definition = "running", pack, def })
+	sc.UpdateProgress(i, func(sp *core.StepProgress) {
+		sp.Status, sp.Pack, sp.Definition, sp.Started = "running", pack, def, start
+	})
 
 	err := r.checkArgKind(m.Def().Step.Arg, sr)
+	// rerun runs the step's own work, once it can run at all.
+	var rerun func() error
 	var args core.Args
 	if err == nil {
 		// A row naming the table's columns is not part of the step's data.
@@ -242,8 +246,28 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 		if run == nil {
 			err = fmt.Errorf("step %s has no implementation", m.Def().Step.ID)
 		} else {
-			err = r.withTimeout(ctx, sc, "step", timeout, func() error { return run(sc, args) })
+			rerun = func() error {
+				return r.withTimeout(ctx, sc, "step", timeout, func() error { return run(sc, args) })
+			}
+			err = rerun()
 		}
+	}
+	// The step's own outcome, which the hooks after it read. Where a person
+	// follows the run, a StepFailed hook may have a step that failed run once
+	// more.
+	for {
+		own, ended := err, r.opts.Now()
+		sc.UpdateProgress(i, func(sp *core.StepProgress) {
+			sp.Status, sp.Ended, sp.Error = statusOf(own).String(), ended, ""
+			if own != nil {
+				sp.Error = own.Error()
+			}
+		})
+		if own == nil || rerun == nil || !r.retry(ctx, sc) {
+			break
+		}
+		sc.UpdateProgress(i, func(sp *core.StepProgress) { sp.Status, sp.Error = "running", "" })
+		err = rerun()
 	}
 	for _, h := range r.hooksFor(core.AfterStep, sc.Tags) {
 		if herr := r.callHook(ctx, sc, h); herr != nil && err == nil {
@@ -254,6 +278,17 @@ func (r *Runner) execStep(ctx context.Context, sc *core.Scenario, sk *sink, sr *
 	sr.Err = err
 	sr.Status = statusOf(err)
 	r.msg.stepFinished(tcs, tc, sr)
+}
+
+// retry asks the StepFailed hooks whether the step that failed runs once more.
+func (r *Runner) retry(ctx context.Context, sc *core.Scenario) bool {
+	again := false
+	for _, h := range r.hooksFor(core.StepFailed, sc.Tags) {
+		if errors.Is(r.callHook(ctx, sc, h), core.ErrRetryStep) {
+			again = true
+		}
+	}
+	return again
 }
 
 func (r *Runner) execHook(ctx context.Context, sc *core.Scenario, sk *sink, h *PackHook, sr *StepResult, tcs *testCaseState, tc *messages.TestCase) {

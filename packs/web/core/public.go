@@ -254,3 +254,31 @@ func (c *Current) AsideTab() (playwright.Page, error) {
 	c.s.setAside(p)
 	return p, nil
 }
+
+// OwnPage opens a page of Chromium that is no scenario's, for a pack that
+// draws something of its own in a browser: the demo pack draws its stage in
+// one, and films it. The page has no window, a viewport of the size given
+// (in CSS pixels) and scale device pixels to each of them. Its browser is
+// the suite's, started as a web app's Chromium is, and closes with the suite:
+// a pack's command makes a suite of its own ([core.NewSuite]) and closes it.
+// Close the page when done.
+func OwnPage(s *core.Suite, width, height int, scale float64) (playwright.Page, error) {
+	b, err := browserFor(s, &App{Name: "own", Engine: "chromium"})
+	if err != nil {
+		return nil, err
+	}
+	bc, err := b.NewContext(playwright.BrowserNewContextOptions{
+		Viewport:          &playwright.Size{Width: width, Height: height},
+		DeviceScaleFactor: playwright.Float(scale),
+	})
+	if err != nil {
+		return nil, err
+	}
+	p, err := bc.NewPage()
+	if err != nil {
+		_ = bc.Close()
+		return nil, err
+	}
+	p.OnClose(func(playwright.Page) { go func() { _ = bc.Close() }() })
+	return p, nil
+}

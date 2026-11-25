@@ -18,6 +18,7 @@ Axx downloads each of these the first time something needs it, and keeps it.
 | The packs' Go modules | preparing a project's packs | the Go module proxy | `GOPROXY`, `GOSUMDB`, `GOPRIVATE` |
 | Node.js | the web packs | nodejs.org | `NODE_MIRROR` |
 | Playwright, Lighthouse and axe-core | the web packs | the npm registry | `npm_config_registry` |
+| Mermaid, which reads a project's diagrams | the demo pack | the npm registry | `npm_config_registry` |
 | Browsers | web-core | Playwright's servers | `PLAYWRIGHT_DOWNLOAD_HOST`, Playwright's own setting |
 | WebDriverAgent and the UiAutomator2 server | mobile-ios and mobile-android | Appium's releases on github.com | `AXX_GITHUB_URL` |
 | Piper | models-windows | Piper's releases on github.com | `AXX_GITHUB_URL` |

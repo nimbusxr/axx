@@ -82,7 +82,10 @@ type recordings struct {
 	mu       sync.Mutex
 	feeds    map[string]*feed
 	recorder *recording.Recorder
-	traces   map[string][]recording.TraceStep
+	// shown is whether what watches the scenario's screens was shown the
+	// phones.
+	shown  bool
+	traces map[string][]recording.TraceStep
 }
 
 var scenarioRecordings = core.NewStateKey(Name+"/recordings", func(*core.Scenario) *recordings {
@@ -93,7 +96,10 @@ var scenarioRecordings = core.NewStateKey(Name+"/recordings", func(*core.Scenari
 // keep a trace or a video.
 func startRecording(sc *core.Scenario, app string, d Device) {
 	cfg, err := settingsFor(sc.Suite())
-	if err != nil || cfg.traces == "never" && cfg.videos == "never" {
+	// What watches the scenario's screens (a demo) is shown the phones
+	// whatever the settings keep.
+	watched := recording.Watched(sc)
+	if err != nil || cfg.traces == "never" && cfg.videos == "never" && !watched {
 		return
 	}
 	url := d.Stream()
@@ -111,6 +117,10 @@ func startRecording(sc *core.Scenario, app string, d Device) {
 	rs.feeds[app] = f
 	if cfg.videos != "never" && rs.recorder == nil {
 		rs.recorder = recording.Record(sc, func() *image.RGBA { return rs.look(sc) }, video.StreamQuality)
+	}
+	if watched && !rs.shown {
+		rs.shown = true
+		recording.Screen(sc, "phone", func() *image.RGBA { return rs.look(sc) })
 	}
 }
 

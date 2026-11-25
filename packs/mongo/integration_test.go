@@ -80,6 +80,22 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 	if err := run("a selection of documents is retrieved from the telemetry collection where:", []string{"mission", "m1"}, []string{"speed", "7.5"}); err != nil {
 		t.Fatal(err)
 	}
+	// What the steps said they sent and saw (core.Exchange): the registration,
+	// the seed that wrote, and the selection with its document. The seed that
+	// failed wrote nothing, and says nothing.
+	said := sc.Exchanges()
+	if len(said) != 3 {
+		t.Fatalf("exchanges: %+v", said)
+	}
+	if reg, seeded := said[0], said[1]; reg.Peer != "space-mongodb" || reg.Kind != "database" || reg.Sent != nil ||
+		seeded.Sent == nil || seeded.Sent.Title != "seed telemetry: 1 document" || seeded.Seen != nil {
+		t.Errorf("the registration and the seed: %+v, %+v", reg, seeded)
+	}
+	if found := said[2]; found.Peer != "space-mongodb" || found.Kind != "database" ||
+		found.Sent.Title != "find telemetry where mission = m1 and speed = 7.5" || found.Seen.Title != "1 document" ||
+		found.Seen.MediaType != "application/json" || !strings.HasPrefix(found.Seen.Body, `[{"_id":"65a1b2c3d4e5f60718293a4b","mission":"m1","speed":7.5,"mass":6.0,`) {
+		t.Errorf("the selection: %+v, %+v", found.Sent, found.Seen)
+	}
 	if err := run("a 2nd selection of documents is retrieved from the telemetry collection on space-mongodb where:", []string{"speed", `"7.5"`}); err != nil {
 		t.Fatal(err)
 	}
@@ -226,6 +242,15 @@ func TestSeedAgainstRealMongo(t *testing.T) {
 	err = run("within 1s the scans collection has no documents where:", []string{"parcelRef", "PX-1"}, []string{"projected", "true"})
 	if !core.IsAssertion(err) || !strings.Contains(err.Error(), "but 2 still do") {
 		t.Errorf("documents that still match should fail the step: %v", err)
+	}
+	// The step that waits for no document says what it last found, as a selection does.
+	said = sc.Exchanges()
+	if last := said[len(said)-1]; last.Sent.Title != "find scans where parcelRef = PX-1 and projected = true" || last.Seen.Title != "2 documents" ||
+		!strings.Contains(last.Seen.Body, `"status":"DELIVERED"`) {
+		t.Errorf("the documents that still match: %+v, %+v", last.Sent, last.Seen)
+	}
+	if gone := said[len(said)-2]; gone.Sent.Title != "find scans where parcelRef = PX-2" || gone.Seen.Title != "0 documents" || gone.Seen.Body != "" {
+		t.Errorf("the documents a job deleted: %+v, %+v", gone.Sent, gone.Seen)
 	}
 	// A value means what it says: the string "true" is not true, so none match.
 	if err := run("within 1s the scans collection has no documents where:", []string{"projected", `"true"`}); err != nil {

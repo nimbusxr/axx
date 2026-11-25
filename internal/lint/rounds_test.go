@@ -8,6 +8,7 @@ import (
 	messages "github.com/cucumber/messages/go/v35"
 
 	"github.com/nimbusxr/axx/internal/feature"
+	"github.com/nimbusxr/axx/internal/match"
 )
 
 const roundsFeature = `Feature: Rounds
@@ -168,5 +169,21 @@ func TestCheckRoundsReadsAnyLanguage(t *testing.T) {
 	}
 	if fs := CheckRounds(pickles, "").Findings; len(fs) != 1 || fs[0].Code != CodeSecondClause {
 		t.Errorf("findings: %+v", fs)
+	}
+}
+
+// A demo's scenario tells a story from its start to its end: the rule of one behavior per
+// scenario is for every file but a demo's.
+func TestADemoIsNotHeldToOneBehavior(t *testing.T) {
+	for name, findings := range map[string]bool{"rounds.feature": true, "rounds.demo.feature": false} {
+		_, pickles, err := feature.ParseSource(name, []byte(roundsFeature), messages.UUID{}.NewId)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, rr := range FeatureChecks(match.NewRegistry(), pickles, ".") {
+			if rr.ID == RoundsRuleID && (len(rr.Findings) > 0) != findings {
+				t.Errorf("%s: %d findings of %s", name, len(rr.Findings), rr.ID)
+			}
+		}
 	}
 }

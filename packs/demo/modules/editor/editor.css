@@ -1,0 +1,26 @@
+/* The editor's look: a window of the stage's colors, with a tab for its
+   file. A project's stylesheet changes the colors of what a file is made of
+   (--e-keyword and the others). */
+.surface-editor { align-items: stretch; --e-keyword: var(--accent); --e-step: var(--sent); --e-string: var(--seen); --e-name: #c79bf2; --e-tag: #c79bf2; --e-cue: var(--accent); --e-direction: var(--sent); }
+.ed { width: 100%; max-width: 150vh; height: 100%; max-height: 72vh; margin: auto; display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 1.2vh; background: var(--surface); overflow: hidden; box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.45); }
+.ed-bar { display: flex; align-items: center; gap: 0.8vh; padding: 0 1.6vh; border-bottom: 1px solid var(--rule); background: color-mix(in srgb, var(--background) 55%, var(--surface)); }
+.ed-bar i { width: 1.2vh; height: 1.2vh; border-radius: 50%; background: var(--rule); }
+.ed-tab { margin-left: 1.4vh; padding: 1.1vh 1.8vh; font-family: var(--text-font); font-size: 1.55vh; color: var(--text); background: var(--surface); border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); border-top: 0.25vh solid var(--accent); }
+.ed-path { font-family: var(--text-font); font-size: 1.4vh; color: var(--muted); margin-left: 0.6vh; }
+.ed-body { flex: 1; min-height: 0; overflow: hidden; padding: 1.4vh 0; }
+.ed-lines { font-family: var(--font); font-size: min(1.9vh, calc(60vh / var(--lines, 24) / 1.5)); line-height: 1.5; color: var(--text); white-space: pre; }
+.ed-line { display: flex; }
+.ed-no { flex: none; padding: 0 1.8vh 0 2vh; color: var(--muted); opacity: 0.55; text-align: right; user-select: none; }
+.ed-code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.e-keyword { color: var(--e-keyword); font-weight: 700; }
+.e-title { color: var(--text); font-weight: 600; }
+.e-step { color: var(--e-step); font-weight: 600; }
+.e-string { color: var(--e-string); }
+.e-name { color: var(--e-name); }
+.e-tag { color: var(--e-tag); }
+.e-pipe { color: var(--muted); opacity: 0.7; }
+.e-prose, .e-comment { color: var(--muted); }
+.e-comment { font-style: italic; }
+.e-cue-mark { color: var(--e-cue); opacity: 0.7; }
+.e-cue { color: var(--e-cue); }
+.e-direction { color: var(--e-direction); font-weight: 600; }

@@ -219,6 +219,7 @@ func (o Objects) Checks() []core.StepDef {
 					case err != nil:
 						return false, err.Error(), nil //nolint:nilerr // a file still being written, say: wait
 					case ok:
+						o.read(sc, a.String(2), name, got)
 						return true, "", nil
 					}
 					return false, fmt.Sprintf("its text does not contain %q. %s", want, filecontent.Nearest(text, want)), nil

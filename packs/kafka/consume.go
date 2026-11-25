@@ -96,6 +96,10 @@ func (tc *TopicClient) await(sc *core.Scenario, l *label, distinctHeaders bool, 
 			ok, why := l.eval(d, distinctHeaders)
 			tc.mu.Unlock()
 			report.Checked++
+			if ok {
+				// Before its contract is checked: the record is on the topic whatever the check says.
+				tc.consumed(sc, r, d)
+			}
 			if ok && d.Value != nil {
 				if err := tc.check(sc, []byte(*d.Value), d.Headers, false); err != nil {
 					return err

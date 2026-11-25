@@ -368,7 +368,11 @@ func addService(sc *core.Scenario, a core.Args) error {
 	if err != nil {
 		return fmt.Errorf("Could not connect to database: %w", err) //nolint:staticcheck // user-facing message
 	}
-	return Context(sc).AddService(svc)
+	if err := Context(sc).AddService(svc); err != nil {
+		return err
+	}
+	sc.Exchanged(core.Exchange{Peer: svc.Name, Kind: "database"})
+	return nil
 }
 
 func seedStep(sc *core.Scenario, a core.Args) error {
@@ -391,6 +395,7 @@ func seedStep(sc *core.Scenario, a core.Args) error {
 	if err := svc.insert(sc.Context(), ds, now); err != nil {
 		return fmt.Errorf("Could not perform seed: %w", err) //nolint:staticcheck // user-facing message
 	}
+	svc.seeded(sc, ds)
 	return nil
 }
 
@@ -409,6 +414,7 @@ func selectStep(sc *core.Scenario, a core.Args) error {
 	}
 	keepStored(sel, f.untyped)
 	svc.addSelection(sel)
+	svc.selected(sc, sel, asked(a.Table))
 	return nil
 }
 
@@ -457,6 +463,7 @@ func pollStep(sc *core.Scenario, a core.Args) error {
 		return fmt.Errorf("Could not perform polling selection; no result was obtained within %s: %w", d, typeMismatch(lastErr)) //nolint:staticcheck // user-facing message
 	}
 	svc.addSelection(last)
+	svc.selected(sc, last, asked(a.Table))
 	if len(last.Rows) < minRows {
 		return core.Fail(fmt.Sprintf("expected at least %d row(s) from %s within %s%s", minRows, last.Table, d, last.hints()), minRows, len(last.Rows))
 	}
@@ -484,6 +491,7 @@ func jsonbStep(sc *core.Scenario, a core.Args) error {
 		return fmt.Errorf("Could not perform JSONB containment selection: %w", err) //nolint:staticcheck // user-facing message
 	}
 	svc.addSelection(sel)
+	svc.selected(sc, sel, c.asked(a.Table))
 	return nil
 }
 
@@ -511,6 +519,7 @@ func jsonbPollStep(sc *core.Scenario, a core.Args) error {
 		return fmt.Errorf("Could not perform JSONB containment selection; no result was obtained within %s: %w", d, err) //nolint:staticcheck // user-facing message
 	}
 	svc.addSelection(last)
+	svc.selected(sc, last, c.asked(a.Table))
 	if len(last.Rows) < minRows {
 		return core.Fail(fmt.Sprintf("expected at least %d row(s) from %s whose %s contains the properties within %s%s", minRows, last.Table, c.column, d, last.hints()), minRows, len(last.Rows))
 	}
@@ -590,6 +599,7 @@ func noRowsStep(sc *core.Scenario, a core.Args) error {
 	case last == nil:
 		return fmt.Errorf("Could not check the rows of %s; no result was obtained within %s: %w", a.String(1), d, typeMismatch(err)) //nolint:staticcheck // user-facing message
 	}
+	svc.selected(sc, last, asked(a.Table))
 	if n := len(last.Rows); n > 0 {
 		return core.Fail(fmt.Sprintf("expected no rows of %s to match within %s, but %d still %s%s", last.Table, d, n, pluralVerb(n, "does", "do"), last.hints()), 0, n)
 	}

@@ -1,0 +1,10 @@
+# A parcel out for delivery with CR-LEJ-97, on the porch of a house up a garden path: the courier
+# walks up from the van, measures it and photographs it at the door.
+parcels.parcels:
+  - reference: "PX-DEMO-9103"
+    sender: "maple-crafts"
+    status: "OUT_FOR_DELIVERY"
+    service_level: "STANDARD"
+    weight_grams: 2400
+    recipient: '{"name": "Jakob Neumann", "street": "Kochstr. 30", "city": "Leipzig", "postcode": "04275", "country": "DE"}'
+    details: '{"source": "api", "zone": "DE-1", "courier": "CR-LEJ-97"}'

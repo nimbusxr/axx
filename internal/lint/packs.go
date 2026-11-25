@@ -66,6 +66,12 @@ func CheckPacks(reg *match.Registry, pickles []*feature.Pickle, workDir string) 
 					l.Line, l.Column, l.Text = int(tag.Location.Line), int(tag.Location.Column), f.Tag
 				}
 			}
+			if f.At > 0 {
+				l.Line, l.Column, l.Text = f.At, f.Column, ""
+				if lines := strings.Split(string(p.Doc.Source), "\n"); f.At <= len(lines) {
+					l.Text = clip(strings.TrimSpace(lines[f.At-1]))
+				}
+			}
 			// A tag of a feature or a rule is one line of many scenarios.
 			once := fmt.Sprintf("%s:%d:%d:%s", l.abs, l.Line, l.Column, f.Message)
 			if seen[once] {

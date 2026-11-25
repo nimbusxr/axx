@@ -35,6 +35,13 @@ func (c Clip) Length() time.Duration {
 // players read: a QuickTime chapter track (QuickTime Player) and a Nero
 // chapter list (VLC, IINA, mpv and most others).
 func WriteMP4(w io.Writer, clips []Clip, chapters ...Chapter) error {
+	return WriteMP4Sound(w, clips, nil, chapters...)
+}
+
+// WriteMP4Sound is WriteMP4 for a video with a sound track, when sound is
+// not nil: FLAC, which axx encodes itself. The sound is as long as it is;
+// a caller that wants it to end with the picture fits it first (Sound.Fit).
+func WriteMP4Sound(w io.Writer, clips []Clip, sound *Sound, chapters ...Chapter) error {
 	if len(clips) == 0 || len(clips[0].Samples) == 0 {
 		return errors.New("a video has at least one frame")
 	}
@@ -64,28 +71,68 @@ func WriteMP4(w io.Writer, clips []Clip, chapters ...Chapter) error {
 		}
 	}
 	marks := chapterSamples(chapters, length)
+	// The sound's frames, after the picture's and the chapters' in the file.
+	var heard []mp4Sample
+	var said *soundTrack
+	if sound != nil && len(sound.Samples) > 0 {
+		frames, info := flacFrames(sound)
+		total := len(sound.Samples) / sound.Channels
+		for i, f := range frames {
+			heard = append(heard, mp4Sample{data: f, key: true, ms: int64(min(flacBlock, total-i*flacBlock))})
+		}
+		said = &soundTrack{sound: sound, frames: heard, info: info}
+	}
 	ftyp := box("ftyp", []byte("isom"), u32(0x200), []byte("isomiso2avc1mp41"))
 	var mdatSize int
-	for _, s := range append(samples, marks...) {
+	for _, s := range append(append(samples, marks...), heard...) {
 		mdatSize += len(s.data)
 	}
-	moov := moovBox(first, samples, marks, chapters, length, 0)
+	moov := moovBox(first, samples, marks, chapters, said, length, 0)
 	offset := len(ftyp) + len(moov) + 8
 	if offset+mdatSize > 1<<32-1 {
 		return errors.New("a video is under 4 GB")
 	}
-	moov = moovBox(first, samples, marks, chapters, length, offset)
+	moov = moovBox(first, samples, marks, chapters, said, length, offset)
 	for _, b := range [][]byte{ftyp, moov, u32(uint32(8 + mdatSize)), []byte("mdat")} { //nolint:gosec // under 4 GB
 		if _, err := w.Write(b); err != nil {
 			return err
 		}
 	}
-	for _, s := range append(samples, marks...) {
+	for _, s := range append(append(samples, marks...), heard...) {
 		if _, err := w.Write(s.data); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// soundTrack is a video's sound as its file has it: FLAC frames, each a
+// sample of the track that lasts as many of the sound's samples as it has
+// (the track's clock is the sound's rate), and the block that says what
+// they are.
+type soundTrack struct {
+	sound  *Sound
+	frames []mp4Sample
+	info   []byte
+}
+
+// trak is the sound's track, whose number is id; its frames' data starts at
+// offset in the file.
+func (s *soundTrack) trak(id uint32, matrix []byte, offset *int) []byte {
+	total := uint32(len(s.sound.Samples) / s.sound.Channels) //nolint:gosec // a sound's samples
+	rate := uint32(s.sound.Rate)                             //nolint:gosec // 8000 to 65535
+	ms := u32(uint32(s.sound.Length().Milliseconds()))       //nolint:gosec // a video's length
+	tkhd := fullBox("tkhd", 3, u32(0), u32(0), u32(id), u32(0), ms, make([]byte, 8), u16(0), u16(1), u16(0x100), u16(0), matrix, u32(0), u32(0))
+	mdhd := fullBox("mdhd", 0, u32(0), u32(0), u32(rate), u32(total), u16(0x55c4), u16(0))
+	hdlr := fullBox("hdlr", 0, u32(0), []byte("soun"), make([]byte, 12), []byte("SoundHandler\x00"))
+	smhd := fullBox("smhd", 0, u16(0), u16(0))
+	dinf := box("dinf", fullBox("dref", 0, u32(1), fullBox("url ", 1)))
+	// FLAC in an MP4 file: the sample entry fLaC, with the stream's
+	// STREAMINFO in its dfLa box, marked as the last of its blocks.
+	dfLa := fullBox("dfLa", 0, []byte{0x80, 0, 0, byte(len(s.info))}, s.info)
+	entry := box("fLaC", make([]byte, 6), u16(1), make([]byte, 8), u16(uint16(s.sound.Channels)), u16(16), u16(0), u16(0), u32(rate<<16), dfLa) //nolint:gosec // 1 or 2
+	stbl := sampleTable(fullBox("stsd", 0, u32(1), entry), s.frames, offset)
+	return box("trak", tkhd, box("mdia", mdhd, hdlr, box("minf", smhd, dinf, stbl)))
 }
 
 // chapterSamples are the chapter track's samples: each chapter's title (UTF-8, as
@@ -120,12 +167,18 @@ func lengthPrefixed(nal []byte) []byte {
 
 // moovBox is the video's index; its samples' data starts at offset in the
 // file, the chapter track's (marks) after them.
-func moovBox(c Clip, samples, marks []mp4Sample, chapters []Chapter, d time.Duration, offset int) []byte {
+func moovBox(c Clip, samples, marks []mp4Sample, chapters []Chapter, said *soundTrack, d time.Duration, offset int) []byte {
 	dur := u32(uint32(d.Milliseconds())) //nolint:gosec // a run's length
 	matrix := concat(u32(0x10000), u32(0), u32(0), u32(0), u32(0x10000), u32(0), u32(0), u32(0), u32(0x40000000))
 	next := uint32(2)
 	if len(marks) > 0 {
 		next = 3
+	}
+	// The sound's track comes after the picture's, and the chapters' when
+	// there is one.
+	soundID := next
+	if said != nil {
+		next++
 	}
 	mvhd := fullBox("mvhd", 0, u32(0), u32(0), u32(1000), dur, u32(0x10000), u16(0x100), make([]byte, 10), matrix, make([]byte, 24), u32(next))
 	w, h := uint32(c.Width), uint32(c.Height) //nolint:gosec // a screen's size
@@ -149,10 +202,17 @@ func moovBox(c Clip, samples, marks []mp4Sample, chapters []Chapter, d time.Dura
 	minf := box("minf", vmhd, dinf, stbl)
 	mdia := box("mdia", mdhd, hdlr, minf)
 	if len(marks) == 0 {
-		return box("moov", mvhd, box("trak", tkhd, mdia))
+		if said == nil {
+			return box("moov", mvhd, box("trak", tkhd, mdia))
+		}
+		return box("moov", mvhd, box("trak", tkhd, mdia), said.trak(soundID, matrix, &offset))
 	}
 	video := box("trak", tkhd, box("tref", box("chap", u32(2))), mdia)
-	return box("moov", mvhd, video, chapterTrack(marks, dur, matrix, &offset), box("udta", chplBox(chapters)))
+	chapter := chapterTrack(marks, dur, matrix, &offset)
+	if said == nil {
+		return box("moov", mvhd, video, chapter, box("udta", chplBox(chapters)))
+	}
+	return box("moov", mvhd, video, chapter, said.trak(soundID, matrix, &offset), box("udta", chplBox(chapters)))
 }
 
 // chapterTrack is QuickTime's chapter track: a text track, not shown, that

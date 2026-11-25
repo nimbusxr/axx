@@ -42,13 +42,59 @@ func (commandPack) Manifest() core.Manifest {
 			})
 		},
 	}
-	return core.Manifest{Name: "command-probe", Commands: []core.Command{
-		{Name: "parcels", Short: "Work with parcels", Commands: []core.Command{label}},
+	// `axx parcels show` runs a feature as `axx run` does, and says how the
+	// run ended and what its scenarios did.
+	show := core.Command{
+		Name: "show", Args: "<file>", Short: "Show a feature's scenarios as they run", MinArgs: 1, MaxArgs: 1,
+		Run: func(call *core.CommandCall) error {
+			sorted = nil
+			err := call.Run(call.Context, call.Args[0], "--workers", "1")
+			return call.Emit(sorted, func(w io.Writer) error {
+				_, werr := fmt.Fprintf(w, "ran: %s (the run ended with: %v)\n", strings.Join(sorted, ", "), err)
+				return werr
+			})
+		},
+	}
+	sort := core.StepDef{ID: "probe.sorted", Expr: "the parcel {word} is sorted", Run: func(_ *core.Scenario, args core.Args) error {
+		sorted = append(sorted, args.String(0))
+		if args.String(0) == "PX-LOST" {
+			return errors.New("no such parcel")
+		}
+		return nil
+	}}
+	return core.Manifest{Name: "command-probe", Steps: []core.StepDef{sort}, Commands: []core.Command{
+		{Name: "parcels", Short: "Work with parcels", Commands: []core.Command{label, show}},
 		{Name: "version", Short: "Not axx's version", Run: func(*core.CommandCall) error { return errors.New("the pack's version ran") }},
 	}}
 }
 
+// sorted are the parcels the probe's step sorted, in the last `axx parcels show`.
+var sorted []string
+
 func init() { engine.Register("./command-probe", commandPack{}) }
+
+// A pack's command runs scenarios as `axx run` does: the project's packs' steps run, and the
+// command gets what the run ended with.
+func TestAPacksCommandRunsScenarios(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeFiles(t, dir, map[string]string{
+		"axx.yaml":                         "version: 1\n",
+		"axx-packs.yaml":                   "packs: [./command-probe]\n",
+		"command-probe/pack.go":            "package probe\n",
+		"features/sorting/sorting.feature": "Feature: Sorting\n\n  Scenario: Two parcels\n    When the parcel PX-1 is sorted\n    Then the parcel PX-2 is sorted\n",
+		"features/sorting/lost.feature":    "Feature: Lost\n\n  Scenario: A parcel nobody has\n    When the parcel PX-LOST is sorted\n",
+	})
+	out, errOut, code := run(t, "parcels", "show", "features/sorting/sorting.feature")
+	if code != int(exitcode.OK) || !strings.Contains(out, "ran: PX-1, PX-2 (the run ended with: <nil>)") {
+		t.Fatalf("exit %d, out %q, err %q", code, out, errOut)
+	}
+	// A run whose scenario fails ends as `axx run` does, and the command knows.
+	out, _, code = run(t, "parcels", "show", "features/sorting/lost.feature")
+	if code != int(exitcode.OK) || !strings.Contains(out, "ran: PX-LOST (the run ended with: ") || strings.Contains(out, "<nil>") {
+		t.Errorf("a failing run: exit %d, out %q", code, out)
+	}
+}
 
 func TestAPacksCommandRunsAsOneOfAxxs(t *testing.T) {
 	out, errOut, code := run(t, "parcels", "label", "PX-1042", "-f", "pdf", "--return")

@@ -89,6 +89,10 @@ jobs:
           tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 50 --json tagName \
             --jq '[.[] | select(.tagName | test("^v[0-9]"))][0].tagName')
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      # The demo video the guides show is the showcase example's, which keeps it in Git LFS: of the
+      # examples' LFS files, the docs take this one.
+      - working-directory: .
+        run: git lfs install --local && git lfs pull --include "examples/parcels/showcase/demo/*"
       - run: npm ci
       # This ref's docs, as main's at /next/: a pull request's are checked the same way.
       # prebuild runs scripts/gen.mjs: go build, axx docs export, skills, schemas.
@@ -173,6 +177,8 @@ jobs:
             echo "::error::$ROOT_TAG moved while this run built the root: run it again"
             exit 1
           fi
+          # The demo video its guides show (Git LFS), where the release has one.
+          git lfs install --local && git lfs pull --include "examples/parcels/showcase/demo/*"
           npm ci
           npm run build
           mv dist "$GITHUB_WORKSPACE/docs-release"

@@ -94,6 +94,7 @@ func addClient(sc *core.Scenario, svc *Service, topic string, t *core.Table) err
 		}
 	}
 	svc.clients = append(svc.clients, tc)
+	sc.Exchanged(core.Exchange{Peer: topic, Kind: "topic"})
 	return nil
 }
 
@@ -368,6 +369,7 @@ func (tc *TopicClient) produce(sc *core.Scenario, ev *Event, value []byte, info 
 	tc.mu.Lock()
 	ev.Published = append(ev.Published, info)
 	tc.mu.Unlock()
+	tc.published(sc, ev)
 	msg := fmt.Sprintf("published to %s partition %d offset %d", tc.Topic, res.Partition, res.Offset)
 	if info.SchemaID > 0 {
 		msg += fmt.Sprintf(" (schema %d, subject %s)", info.SchemaID, info.Subject)

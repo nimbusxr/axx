@@ -1,0 +1,112 @@
+/* The stage's look. A project changes the colors and the font in axx.yaml
+   (packs.demo.theme), which sets these variables, or brings a stylesheet of
+   its own. */
+:root {
+	--background: #0b0e14;
+	--surface: #121722;
+	--rule: #2a3242;
+	--text: #e6e9ef;
+	--muted: #8b93a5;
+	--line: #5b6477;
+	--sent: #5ab0ff;
+	--seen: #4fd18b;
+	--failed: #ff6b6b;
+	--accent: #f2b84b;
+	--font: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+	--text-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--background); color: var(--text); overflow: hidden; }
+#stage { position: relative; width: 100vw; height: 100vh; font-family: var(--font); background: var(--background); color: var(--text); }
+[hidden] { display: none !important; }
+
+.surfaces { position: absolute; inset: 0 0 16vh 0; display: flex; align-items: center; justify-content: center; gap: 2vw; padding: 12vh 3vw 0; }
+.surface { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.missing { color: var(--muted); font-family: var(--text-font); font-size: 2.2vh; }
+
+/* The diagram: characters on a grid, each kind of character a color. */
+.surface-diagram .grid { margin: 0; font-family: var(--font); font-size: min(2.05vh, calc(38vh / var(--rows, 9) / 1.17), calc(150vh / var(--cols, 80) / 0.61)); line-height: 1.17; letter-spacing: 0; font-variant-ligatures: none; white-space: pre; color: var(--line); }
+#stage[data-surfaces="2"] .surface-diagram .grid { font-size: min(1.35vh, calc(38vh / var(--rows, 9) / 1.17), calc(78vh / var(--cols, 80) / 0.61)); }
+#stage[data-surfaces="2"] .surface { overflow: hidden; }
+.k-line { color: var(--line); }
+.k-key { color: var(--text); }
+.k-title { color: var(--text); font-weight: 600; }
+.k-sub { color: var(--muted); }
+.k-dim { color: var(--line); opacity: 0.45; }
+.k-coord { --k: var(--sent); color: var(--k); }
+.k-ok { --k: var(--seen); color: var(--k); }
+.k-fail { --k: var(--failed); color: var(--k); }
+.k-told { --k: var(--accent); color: var(--k); }
+/* An emoji takes two cells of the grid, exactly. */
+.grid .wide { display: inline-block; width: 2ch; height: 1.17em; line-height: 1.17; overflow: hidden; text-align: center; vertical-align: bottom; }
+.k-zone { color: var(--rule); }
+.hot { text-shadow: 0 0 0.9vh var(--k, currentColor); }
+.hot0 { color: color-mix(in oklab, var(--k, currentColor) 20%, white); }
+.hot1 { color: color-mix(in oklab, var(--k, currentColor) 40%, white); }
+.hot2 { color: color-mix(in oklab, var(--k, currentColor) 60%, white); }
+.hot3 { color: color-mix(in oklab, var(--k, currentColor) 80%, white); }
+.hot4 { color: var(--k, currentColor); }
+
+/* Two diagrams stand side by side. */
+.maps { display: flex; align-items: center; justify-content: center; gap: calc(8 * 0.61em); font-size: min(2.05vh, calc(38vh / var(--rows, 9) / 1.17), calc(150vh / var(--cols, 80) / 0.61)); }
+.maps .grid { font-size: inherit !important; }
+#stage[data-surfaces="2"] .maps { font-size: min(1.35vh, calc(38vh / var(--rows, 9) / 1.17), calc(78vh / var(--cols, 80) / 0.61)); }
+
+/* What went out and what came back, under the diagram. */
+.messages { display: flex; gap: 2vw; width: 100%; max-width: 150vh; height: 27vh; margin-top: 2.5vh; flex: none; }
+.msg { flex: 1 1 0; min-width: 0; padding: 1.4vh 1.8vh; border: 1px solid var(--rule); border-radius: 1vh; background: var(--surface); opacity: 0; overflow: hidden; }
+.msg.on { opacity: 1; }
+.msg .where { color: var(--muted); font-size: 1.6vh; }
+.msg .title { margin-top: 0.4vh; font-size: 2.1vh; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msg.sent .title { color: var(--sent); }
+.msg.seen .title { color: var(--seen); }
+.msg.seen.failed .title { color: var(--failed); }
+.msg pre { margin: 0.9vh 0 0; font-family: var(--font); font-size: 1.55vh; line-height: 1.35; color: var(--text); opacity: 0.85; white-space: pre; overflow: hidden; }
+
+/* The step the picture is of, in the feature's words: at the top, away from
+   the subtitle, which is what the audience reads, and as far from the top
+   edge as the subtitle is from the bottom one. */
+.ticker { position: absolute; left: 0; right: 0; top: 7.5vh; padding: 0 12vw; text-align: center; font-size: 1.7vh; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticker b { font-weight: 600; color: var(--line); }
+.ticker .passed { color: var(--seen); }
+.ticker .failed { color: var(--failed); }
+.ticker .running { color: var(--accent); }
+
+.subtitle { position: absolute; left: 0; right: 0; bottom: 3.5vh; height: 11vh; display: flex; align-items: center; justify-content: center; padding: 0 8vw; }
+.subtitle p { margin: 0; max-width: 150vh; font-family: var(--text-font); font-size: 3.3vh; line-height: 1.3; text-align: center; color: var(--text); text-wrap: balance; }
+
+.card { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 12vw; background: var(--background); }
+.card p { margin: 0; font-family: var(--text-font); font-size: 6.4vh; font-weight: 650; line-height: 1.2; text-align: center; text-wrap: balance; }
+
+/* Says that what plays is a recording, where a live show falls back on one. */
+.mark { position: absolute; top: 2.2vh; right: 2.6vh; padding: 0.4vh 1.1vh; border: 1px solid var(--rule); border-radius: 0.6vh; font-size: 1.5vh; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* Before an audience: a line at the top while the picture waits for the run. */
+.loading { position: fixed; top: 0; left: 0; right: 0; height: 0.45vh; overflow: hidden; background: color-mix(in srgb, var(--accent) 18%, transparent); z-index: 10; }
+.loading::before { content: ""; position: absolute; top: 0; bottom: 0; width: 28%; background: var(--accent); border-radius: 1vh; animation: loading 1.6s ease-in-out infinite; }
+@keyframes loading { from { left: -28%; } to { left: 100%; } }
+/* The show is over, on a page the browser did not let close itself. */
+.over { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--background); color: var(--muted); font-family: var(--text-font); font-size: 2.6vh; z-index: 20; }
+/* How to get the presenter's page, where the browser did not open it. */
+.presenter-hint { position: fixed; left: 0; right: 0; bottom: 3vh; text-align: center; font-family: var(--text-font); font-size: 1.7vh; color: var(--muted); z-index: 10; }
+
+/* A screen of the run: a browser, a phone, a desktop. */
+.screen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.screen canvas { max-width: 100%; max-height: 100%; border: 1px solid var(--rule); border-radius: 1vh; box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.45); }
+.surface-phone .screen canvas { border-radius: 3vh; }
+/* A phone is narrow: beside something else it takes its own width, and what
+   stands beside it has the rest. */
+#stage[data-surfaces="2"] .surface-phone { flex: 0 0 auto; }
+#stage[data-surfaces="2"] .surface-phone .screen { width: auto; }
+#stage[data-surfaces="2"] .surface-phone .screen canvas { height: 100%; max-width: none; }
+#stage[data-surfaces="2"][data-show~="phone"] .surface-diagram .grid,
+#stage[data-surfaces="2"][data-show~="phone"] .maps { font-size: min(1.9vh, calc(38vh / var(--rows, 9) / 1.17), calc(118vh / var(--cols, 80) / 0.61)); }
+#stage[data-surfaces="2"][data-show~="phone"] .msg pre { font-size: 1.6vh; }
+#stage[data-surfaces="2"][data-show~="phone"] .msg .title { font-size: 2vh; }
+
+/* Two surfaces side by side: the diagram's messages stack, to stay readable. */
+#stage[data-surfaces="2"] .messages { flex-direction: column; height: auto; gap: 1.2vh; margin-top: 2vh; }
+#stage[data-surfaces="2"] .msg { flex: none; }
+#stage[data-surfaces="2"] .msg:not(.on) { display: none; }
+#stage[data-surfaces="2"] .msg pre { font-size: 1.35vh; }
+#stage[data-surfaces="2"] .msg .title { font-size: 1.8vh; }

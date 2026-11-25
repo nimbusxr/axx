@@ -225,7 +225,7 @@ export default defineConfig({
 						{ label: 'Mobile apps', items: ['guides/test-mobile-apps'] },
 						{ label: 'Desktop apps', items: ['guides/test-desktop-apps'] },
 						{ label: 'Test data', items: ['guides/fixture-factories', 'guides/isolate-test-data'] },
-						{ label: 'Run and diagnose', items: ['guides/parallel-runs', 'guides/tags-and-filtering', 'guides/watch-runs', 'guides/reports', 'guides/measure-coverage', 'guides/prove-controls', 'guides/debug-failures'] },
+						{ label: 'Run and diagnose', items: ['guides/parallel-runs', 'guides/tags-and-filtering', 'guides/watch-runs', 'guides/make-a-demo', 'guides/build-demo-scenes', 'guides/reports', 'guides/measure-coverage', 'guides/prove-controls', 'guides/debug-failures'] },
 					],
 				},
 				{
@@ -285,6 +285,11 @@ export default defineConfig({
 									label: 'Controls',
 									collapsed: true,
 									items: packsOf(['controls-core', 'controls-asvs', 'controls-nist', 'controls-oscal']),
+								},
+								{
+									label: 'Demos',
+									collapsed: true,
+									items: packsOf(['demo']),
 								},
 								{
 									label: 'Models',

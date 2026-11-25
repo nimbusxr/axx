@@ -19,16 +19,19 @@ import (
 // when the settings keep its video.
 func startRecording(sc *core.Scenario, s *scenario) {
 	cfg, err := settingsFor(sc.Suite())
-	if err != nil || cfg.videos == "never" {
+	// What watches the scenario's screens (a demo) is shown the desktop
+	// whatever the settings keep.
+	watched := recording.Watched(sc)
+	if err != nil || cfg.videos == "never" && !watched {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.recorder != nil || s.desktop == nil {
+	if s.desktop == nil || (s.recorder != nil || cfg.videos == "never") && (s.shown || !watched) {
 		return
 	}
 	desk := s.desktop
-	s.recorder = recording.Record(sc, func() *image.RGBA {
+	look := func() *image.RGBA {
 		sh, err := desk.Screen()
 		if err != nil || sh.Image == nil {
 			return nil
@@ -39,7 +42,14 @@ func startRecording(sc *core.Scenario, s *scenario) {
 			video.DrawPointer(screen, image.Pt(int(float64(sh.Pointer.X)/f), int(float64(sh.Pointer.Y)/f)), 1)
 		}
 		return screen
-	}, video.ScreenQuality)
+	}
+	if s.recorder == nil && cfg.videos != "never" {
+		s.recorder = recording.Record(sc, look, video.ScreenQuality)
+	}
+	if watched && !s.shown {
+		s.shown = true
+		recording.Screen(sc, "desktop", look)
+	}
 }
 
 // finishVideo keeps the scenario's video when the settings say, and adds it

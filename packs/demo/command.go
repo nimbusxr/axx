@@ -1,0 +1,374 @@
+package demo
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/nimbusxr/axx/core"
+)
+
+func demoCommand() core.Command {
+	return core.Command{
+		Name: "demo", Args: "<file>",
+		Short: "Make a demo of a scenario: a video of what it did, or a live presentation",
+		Long: `Make the demo of a feature file named *.demo.feature.
+
+axx runs the file's scenario as ` + "`axx run`" + ` does, against the project's
+services, and keeps what the run did as a take. From the take and the file's
+cues (comments that start with "demo:") it makes a demo video: a step on a
+screen shows the screen, and any other step a diagram of what it sent and what
+came back. A scenario that does not pass makes no video.
+
+--recut makes the video again from the last take, without a run: after a
+change to the subtitles, the directions or the look.
+
+--present presents the demo live, before an audience, instead. A page opens for the screen
+the audience sees, and the scenario runs as you go on: forward (the right
+arrow, a clicker) shows the next subtitle and runs its steps, back shows again
+what was shown and undoes nothing. The directions that set a video's time do
+nothing there. When a step fails, the audience sees nothing of it until you
+say what to do, on the presenter's page or with a key: try the step once more
+(r), play on from the last take (t), with "recorded" in a corner, or start
+again from the top (0). --recorded shows the last take and runs nothing.
+
+The video and the take are in .axx/demo, in a folder named after the file.`,
+		MinArgs: 1, MaxArgs: 1,
+		Flags: []core.Flag{
+			{Name: "recut", Bool: true, Usage: "make the video again from the last take, without running the scenario"},
+			{Name: "present", Bool: true, Usage: "present the demo live instead of making its video: the scenario runs as you go on, a subtitle at a time"},
+			{Name: "recorded", Bool: true, Usage: "with --present, show the last take and run nothing"},
+			{Name: "no-open", Bool: true, Usage: "with --present, print the show's addresses and open no browser"},
+			{Name: "out", Short: "o", Usage: "where to write the video (default: .axx/demo/<name>/<name>.mp4)"},
+			{Name: "profile", Usage: "the profile of axx.yaml to run with"},
+		},
+		Run: runDemo,
+	}
+}
+
+// Made is what `axx demo` reports.
+type Made struct {
+	Feature string `json:"feature"`
+	// Films are the videos made, one for each scenario that ran.
+	Films []MadeFilm `json:"videos"`
+}
+
+// MadeFilm is one video.
+type MadeFilm struct {
+	Scenario string `json:"scenario"`
+	Film     string `json:"video"`
+	Take     string `json:"take"`
+	// Subtitles is the video's subtitles with their times, a .srt file, and
+	// Sound whether the video has a soundtrack.
+	Subtitles string  `json:"subtitles"`
+	Sound     bool    `json:"sound"`
+	Seconds   float64 `json:"seconds"`
+	// Chapters is how many rows of a Scenario Outline the video has, each a
+	// chapter: 1 for a scenario that is no outline.
+	Chapters int `json:"chapters"`
+}
+
+func runDemo(call *core.CommandCall) error {
+	if call.ProjectDir == "" {
+		return errors.New("no axx.yaml here or above: a demo is made in an axx project, where its services and packs are")
+	}
+	var st Settings
+	if err := call.Settings(&st); err != nil {
+		return err
+	}
+	file := call.Args[0]
+	abs, err := filepath.Abs(file)
+	if err != nil {
+		return err
+	}
+	src, err := os.ReadFile(abs)
+	if err != nil {
+		return fmt.Errorf("cannot read the demo's feature file: %w", err)
+	}
+	if !strings.HasSuffix(abs, Suffix) {
+		return fmt.Errorf("%s is no demo: a demo's feature file is named like hold%s", file, Suffix)
+	}
+	rel, err := filepath.Rel(call.ProjectDir, abs)
+	if err != nil {
+		return err
+	}
+	uri := filepath.ToSlash(rel)
+	script, err := ParseScript(uri, src, st.known())
+	if err != nil {
+		return err
+	}
+	if len(script.Problems) > 0 {
+		var b strings.Builder
+		for _, p := range script.Problems {
+			fmt.Fprintf(&b, "\n  %s:%d:%d: %s", uri, p.Line, p.Column, p.Message)
+		}
+		return fmt.Errorf("the demo's cues have mistakes:%s", b.String())
+	}
+	dir := takeDir(call.ProjectDir, uri)
+	// The project's diagrams, and Mermaid's library, which reads them.
+	diagrams, err := diagramsOf(call.ProjectDir, st)
+	if err != nil {
+		return err
+	}
+	if len(diagrams) > 0 {
+		if st.mermaid, err = mermaidFile(call.Context, func() {
+			fmt.Fprintf(call.Stderr, "axx: downloading Mermaid %s, once: it reads the project's diagrams\n", mermaidVersion)
+		}); err != nil {
+			return err
+		}
+	}
+	if call.Flags["present"] == "true" || call.Flags["recorded"] == "true" {
+		return present(call, st, script, diagrams, dir, uri, abs)
+	}
+	var takes []string
+	if call.Flags["recut"] == "true" {
+		takes, _ = filepath.Glob(filepath.Join(dir, "take-*.json"))
+		sort.Strings(takes)
+		if len(takes) == 0 {
+			return fmt.Errorf("there is no take of %s yet: run `axx demo %s` once, and --recut cuts its take again", uri, file)
+		}
+	} else {
+		// A run's takes replace the last run's.
+		old, _ := filepath.Glob(filepath.Join(dir, "take-*.json"))
+		for _, o := range old {
+			_ = os.Remove(o)
+		}
+		footage, _ := filepath.Glob(filepath.Join(dir, "footage-*"))
+		for _, f := range footage {
+			_ = os.RemoveAll(f)
+		}
+		begin(&session{dir: dir, feature: uri, stamp: stamp()})
+		args := []string{abs, "--workers", "1"}
+		if p := call.Flags["profile"]; p != "" {
+			args = append(args, "--profile", p)
+		}
+		rerr := call.Run(call.Context, args...)
+		s := end()
+		if rerr != nil {
+			// What failed is what the run said: a demo shows only what passed.
+			fmt.Fprintln(call.Stderr, "axx: the demo's scenario did not pass, so there is no video of it")
+			return rerr
+		}
+		takes = s.takes
+		if len(takes) == 0 {
+			return fmt.Errorf("no scenario of %s ran: the project's run.tags or run.uses may leave it out", uri)
+		}
+	}
+	made := Made{Feature: uri, Films: []MadeFilm{}}
+	st.footage = dir
+	// A video for each scenario: the rows of a Scenario Outline are one
+	// scenario, and each a chapter of its video.
+	var films [][]*Take
+	rows := map[string]int{}
+	for _, path := range takes {
+		take, err := readTake(path)
+		if err != nil {
+			return err
+		}
+		if !take.Passed {
+			return fmt.Errorf("the take of %q did not pass, so there is no video of it: run `axx demo %s` again", take.Scenario, file)
+		}
+		// A take is of the file's scenario as it was: where its steps are no
+		// longer the file's, cutting it again would put the cues on the wrong
+		// steps.
+		if _, _, ok := script.Placed(take, 0); !ok && len(script.Cues) > 0 {
+			return fmt.Errorf("the steps of %q changed since its take: run `axx demo %s`, without --recut", take.Scenario, file)
+		}
+		key := outlineOf(take)
+		if i, ok := rows[key]; ok {
+			films[i] = append(films[i], take)
+			continue
+		}
+		rows[key] = len(films)
+		films = append(films, []*Take{take})
+	}
+	for _, of := range films {
+		// A demo of one scenario is named after its file; of several, each
+		// video after its scenario too.
+		out := filepath.Join(dir, filepath.Base(dir)+".mp4")
+		if len(films) > 1 {
+			out = filepath.Join(dir, fmt.Sprintf("%s-%s.mp4", filepath.Base(dir), slug(of[0].Scenario)))
+		} else if call.Flags["out"] != "" {
+			out = call.Flags["out"]
+		}
+		var parts []*Staged
+		var titles []string
+		seconds := 0.0
+		for i, take := range of {
+			pace := st.pace()
+			pace.Row = i
+			tl := Cut(take, script, pace)
+			parts = append(parts, &Staged{Take: take, Timeline: tl, Theme: st.Theme, Diagrams: diagrams})
+			titles = append(titles, fmt.Sprintf("%s (%d of %d)", take.Scenario, i+1, len(of)))
+			seconds += tl.Duration
+		}
+		fmt.Fprintf(call.Stderr, "axx: making the video of %q (%.0f seconds)\n", of[0].Scenario, seconds)
+		clip, chapters, err := shoot(call.Context, call.ProjectDir, st, parts, titles, nil)
+		if err != nil {
+			return err
+		}
+		if err := writeFilm(out, clip, nil, chapters); err != nil {
+			return err
+		}
+		// The video's subtitles with their times: what its sound is made from,
+		// and what a video site takes as captions.
+		subtitles := strings.TrimSuffix(out, filepath.Ext(out)) + ".srt"
+		if err := os.WriteFile(subtitles, []byte(srtOf(parts)), 0o644); err != nil {
+			return err
+		}
+		film := MadeFilm{Scenario: of[0].Scenario, Film: out, Subtitles: subtitles, Take: filepath.Join(dir, fmt.Sprintf("take-%d.json", of[0].Line)), Seconds: seconds, Chapters: len(of)}
+		if st.Soundtrack.Command != "" {
+			// The picture is made: the project's command makes its sound.
+			fmt.Fprintf(call.Stderr, "axx: making the soundtrack of %q\n", of[0].Scenario)
+			sound, err := soundtrackOf(call.Context, call.ProjectDir, st.Soundtrack, out, subtitles, clip.Length(), call.Stderr)
+			if err != nil {
+				return fmt.Errorf("%w\n  the video is made, without sound: %s", err, out)
+			}
+			if err := writeFilm(out, clip, sound, chapters); err != nil {
+				return err
+			}
+			film.Sound = true
+		}
+		made.Films = append(made.Films, film)
+	}
+	return call.Emit(made, func(w io.Writer) error {
+		for _, f := range made.Films {
+			film := f.Film
+			if r, err := filepath.Rel(call.ProjectDir, film); err == nil && !strings.HasPrefix(r, "..") {
+				film = r
+			}
+			fmt.Fprintf(w, "%s (%.0f seconds): %s\n", f.Scenario, f.Seconds, film)
+		}
+		return nil
+	})
+}
+
+// stamp names a run's folder of pictures.
+func stamp() string { return time.Now().Format("20060102-150405") }
+
+// lastTakes are the last good takes of a demo's scenarios, in the file's
+// order: one for a scenario, one for each row of a Scenario Outline.
+func lastTakes(dir string) []*Take {
+	paths, _ := filepath.Glob(filepath.Join(dir, "take-*.json"))
+	var out []*Take
+	for _, path := range paths {
+		if t, err := readTake(path); err == nil && t.Passed {
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Line < out[j].Line })
+	return out
+}
+
+// present shows a demo to an audience.
+func present(call *core.CommandCall, st Settings, script *Script, diagrams []Diagram, dir, uri, abs string) error {
+	st.footage = dir
+	fallbacks := lastTakes(dir)
+	recorded := call.Flags["recorded"] == "true"
+	if recorded && len(fallbacks) == 0 {
+		return fmt.Errorf("there is no take of %s to show: run `axx demo %s` once", uri, call.Args[0])
+	}
+	// The pictures of runs before this one go, but for the last good takes'.
+	keep := map[string]bool{}
+	for _, t := range fallbacks {
+		if len(t.Footage) > 0 {
+			folder, _, _ := strings.Cut(t.Footage[0].File, "/")
+			keep[folder] = true
+		}
+	}
+	footage, _ := filepath.Glob(filepath.Join(dir, "footage-*"))
+	for _, f := range footage {
+		if !keep[filepath.Base(f)] {
+			_ = os.RemoveAll(f)
+		}
+	}
+	title := strings.TrimSuffix(filepath.Base(uri), Suffix)
+	sh := newShow(script, st, fallbacks, title)
+	sh.diagrams = diagrams
+	if recorded {
+		sh.mu.Lock()
+		sh.playFallback()
+		sh.mu.Unlock()
+	}
+	srv, err := serveStage(call.ProjectDir, st, sh.staged, sh)
+	if err != nil {
+		return err
+	}
+	defer srv.Close()
+	fmt.Fprintf(call.Stderr, "axx: the show, for the screen the audience sees: %s\n", srv.URL)
+	fmt.Fprintf(call.Stderr, "axx: the presenter's page, for you:             %spresenter\n", srv.URL)
+	fmt.Fprintln(call.Stderr, "axx: forward is the right arrow, back the left; p on the show's page opens the presenter's page in a window of its own; q or Esc there, or Ctrl+C here, ends the show and closes its pages")
+	if call.Flags["no-open"] != "true" {
+		openBrowser(call.Context, srv.URL)
+	}
+	ctx, cancel := context.WithCancel(call.Context)
+	defer cancel()
+	go func() {
+		// The presenter ends the show from a page too, and the show's pages
+		// close however it ends: Ctrl+C in the terminal as well.
+		sh.wait(ctx)
+		sh.end()
+		cancel()
+	}()
+	for !recorded {
+		begin(&session{dir: dir, feature: uri, stamp: stamp(), show: sh})
+		sh.start()
+		// Nobody but the presenter says how long a scenario may take.
+		args := []string{abs, "--workers", "1", "--set", "run.timeouts.scenario=0"}
+		if p := call.Flags["profile"]; p != "" {
+			args = append(args, "--profile", p)
+		}
+		rerr := call.Run(ctx, args...)
+		end()
+		sh.ended(rerr == nil)
+		sh.mu.Lock()
+		again := sh.decision == "top"
+		sh.mu.Unlock()
+		if !again || ctx.Err() != nil {
+			break
+		}
+	}
+	if !recorded && ctx.Err() == nil {
+		// The run is over and its summary is the last thing on the terminal:
+		// say that the show is still there, and how it closes.
+		fmt.Fprintln(call.Stderr, "axx: the run is over. The show stays open, so that back still shows what was played: Ctrl+C, q on the show's page or \"End the show\" on the presenter's page closes it")
+	}
+	sh.wait(ctx)
+	sh.end()
+	// The pages are told over the connections they hold: a moment for that,
+	// before the server goes.
+	time.Sleep(300 * time.Millisecond)
+	return nil
+}
+
+// openBrowser opens an address in the person's browser, when it can.
+func openBrowser(ctx context.Context, url string) {
+	name, args := "xdg-open", []string{url}
+	switch runtime.GOOS {
+	case "darwin":
+		name = "open"
+	case "windows":
+		name, args = "rundll32", []string{"url.dll,FileProtocolHandler", url}
+	}
+	_ = exec.CommandContext(ctx, name, args...).Start()
+}
+
+// outlineOf names what a take is a run of: the rows of a Scenario Outline
+// run the same steps, on the same lines of the feature.
+func outlineOf(t *Take) string {
+	var b strings.Builder
+	for _, st := range t.Steps {
+		if !st.Background {
+			fmt.Fprintf(&b, "%d,", st.Line)
+		}
+	}
+	return b.String()
+}
