@@ -334,6 +334,11 @@ func present(call *core.CommandCall, st Settings, script *Script, diagrams []Dia
 			break
 		}
 	}
+	if !recorded && ctx.Err() == nil {
+		// The run is over and its summary is the last thing on the terminal:
+		// say that the show is still there, and how it closes.
+		fmt.Fprintln(call.Stderr, "axx: the run is over. The show stays open, so that back still shows what was played: Ctrl+C, or \"End the show\" on the presenter's page, closes it")
+	}
 	sh.wait(ctx)
 	return nil
 }
