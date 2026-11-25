@@ -364,7 +364,7 @@ jobs:
         with:
           install_args: "go goreleaser"
           cache: false
-      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
       - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
       # Docker Hub's images (the builder's own among them) through Google's mirror.
       - uses: ./.github/actions/docker-hub-mirror
