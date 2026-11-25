@@ -415,21 +415,23 @@
 				if (line) {
 					const n = line.edge.cells.length - 1;
 					let head, kind = 'coord';
+					// An exchange's time: out along the line, a moment there, back,
+					// and then the rest of it for what came back to be read.
 					if (line.found) {
 						// What the scenario found there came along the system's own line.
 						kind = active.failed ? 'fail' : 'ok';
-						if (p < 0.6) head = (p / 0.6) * n;
-					} else if (x.sent && p < 0.45) {
-						head = Math.min(1, p / 0.4) * n;
-					} else if (x.seen && (x.sent ? p < 0.9 : p < 0.5)) {
-						head = (1 - Math.min(1, Math.max(0, x.sent ? (p - 0.45) / 0.4 : p / 0.45))) * n;
+						if (p < 0.4) head = (p / 0.4) * n;
+					} else if (x.sent && p < 0.32) {
+						head = Math.min(1, p / 0.28) * n;
+					} else if (x.seen && (x.sent ? p >= 0.36 && p < 0.66 : p < 0.4)) {
+						head = (1 - Math.min(1, Math.max(0, x.sent ? (p - 0.36) / 0.28 : p / 0.36))) * n;
 						kind = active.failed ? 'fail' : 'ok';
 					}
 					drawEdge(grid, line.edge, kind, head);
 				}
 				const found = line && line.found;
 				if (x.sent && (active.over || p > 0.05)) sent = x.sent;
-				if (x.seen && (active.over || (found ? p >= 0.55 : x.sent ? p >= 0.85 : p >= 0.45))) seen = x.seen;
+				if (x.seen && (active.over || (found ? p >= 0.38 : x.sent ? p >= 0.62 : p >= 0.36))) seen = x.seen;
 			}
 			el.querySelector('.grid').innerHTML = html(grid);
 			// A mock knows the calls it got, not who made them: the map's line says.

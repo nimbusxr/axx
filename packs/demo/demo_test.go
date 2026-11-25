@@ -167,7 +167,7 @@ func TestCut(t *testing.T) {
 	if seg[0].End != 3 || seg[0].Text != "Holding a parcel at the depot" {
 		t.Errorf("the card: %+v", seg[0])
 	}
-	if seg[1].Step != 2 || seg[1].End-seg[1].Start != 2*pace.Exchange {
+	if d := seg[1].End - seg[1].Start; seg[1].Step != 2 || d < 2*pace.Exchange-0.001 || d > 2*pace.Exchange+0.001 {
 		t.Errorf("the request: %+v", seg[1])
 	}
 	if d := seg[3].End - seg[3].Start; seg[3].Step != 3 || d < 1.999 || d > 2.001 {

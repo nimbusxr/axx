@@ -64,19 +64,20 @@ func TestTheStageShowsEachMomentOfTheFilm(t *testing.T) {
 	// The request: its subtitle, the box of what it went to, what was sent
 	// and, once the answer is back, what was seen.
 	req := tl.Segments[1]
-	got := shown(t, s, req.Start+0.3*2.2)
+	each := DefaultPace.Exchange
+	got := shown(t, s, req.Start+0.2*each)
 	if !strings.HasPrefix(got["subtitle"], "Ms Okafor is away") || !strings.Contains(got["diagram"], "parcels") || !strings.Contains(got["diagram"], "shop") {
 		t.Errorf("as the request goes out: %v", got)
 	}
 	if !strings.Contains(got["sent"], "PUT /api/parcels/PX-1/hold") || got["seen"] != "" || !strings.Contains(got["ticker"], "a PUT request to") {
 		t.Errorf("as the request goes out, the messages: %v", got)
 	}
-	if got = shown(t, s, req.Start+0.95*2.2); !strings.Contains(got["seen"], "200 OK") || !strings.Contains(got["seen"], `"AT_DEPOT"`) {
+	if got = shown(t, s, req.Start+0.95*each); !strings.Contains(got["seen"], "200 OK") || !strings.Contains(got["seen"], `"AT_DEPOT"`) {
 		t.Errorf("once the answer is back: %v", got)
 	}
 	// The mock's call came from the system, and where the scenario talks to
 	// one service, from that one.
-	if got = shown(t, s, req.Start+2.2+0.3*2.2); !strings.Contains(got["sent"], "parcels → address") || !strings.Contains(got["sent"], "GET /v1/postcodes/DE/10115") {
+	if got = shown(t, s, req.Start+each+0.3*each); !strings.Contains(got["sent"], "parcels → address") || !strings.Contains(got["sent"], "GET /v1/postcodes/DE/10115") {
 		t.Errorf("the call the mock received: %v", got)
 	}
 	sel := tl.Segments[3]
@@ -193,7 +194,7 @@ func TestAProjectsDiagrams(t *testing.T) {
 	// The request: every box of the map is there, the one the scenario never
 	// talks to among them, and the request goes along the shop's line.
 	req := tl.Segments[1]
-	got := shown(t, s, req.Start+0.2*2.2)
+	got := shown(t, s, req.Start+0.2*DefaultPace.Exchange)
 	for _, box := range []string{"shop", "parcels", "parcels-db", "address", "Monthly reports"} {
 		if !strings.Contains(got["diagram"], box) {
 			t.Errorf("the map has no %q:\n%s", box, got["diagram"])

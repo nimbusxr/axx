@@ -89,8 +89,11 @@ type Pace struct {
 	Row int
 }
 
-// DefaultPace is the pace of a film whose project sets none.
-var DefaultPace = Pace{Exchange: 2.2, Most: 5, Meet: 0.6, Check: 1, Failed: 3, Card: 3, Read: 1.2, Word: 0.33, End: 1.5, Screen: 1.1}
+// DefaultPace is the pace of a film whose project sets none: slow enough to
+// follow for someone who sees the system for the first time. What a step
+// sent has time to be read before its answer comes, and the answer before
+// the next step.
+var DefaultPace = Pace{Exchange: 3.4, Most: 8, Meet: 0.9, Check: 1.8, Failed: 4, Card: 3, Read: 2, Word: 0.42, End: 2.5, Screen: 1.8}
 
 // Cut makes the timeline of a take with a script's cues.
 func Cut(take *Take, script *Script, pace Pace) *Timeline {
