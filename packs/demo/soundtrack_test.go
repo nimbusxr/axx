@@ -15,11 +15,13 @@ import (
 // A film's subtitles are written with their times, as SRT: of the rows of an
 // outline, each after the one before.
 func TestTheSubtitlesWithTheirTimes(t *testing.T) {
-	one := &Staged{Timeline: &Timeline{Duration: 10, Subtitles: []Subtitle{{Start: 3, End: 7.94, Text: "A shop registers a parcel with us."}, {Start: 7.94, End: 10, Text: "We answer that it is registered,"}}}}
+	one := &Staged{Timeline: &Timeline{Duration: 10, Segments: []Segment{{Kind: "card", Start: 0, End: 3, Text: "Registering a parcel"}, {Kind: "step", Start: 3, End: 10}}, Subtitles: []Subtitle{{Start: 3, End: 7.94, Text: "A shop registers a parcel with us."}, {Start: 7.94, End: 10, Text: "We answer that it is registered,"}}}}
 	two := &Staged{Timeline: &Timeline{Duration: 5, Subtitles: []Subtitle{{Start: 0.5, End: 3661.25, Text: "Later."}}}}
-	want := "1\n00:00:03,000 --> 00:00:07,940\nA shop registers a parcel with us.\n\n" +
-		"2\n00:00:07,940 --> 00:00:10,000\nWe answer that it is registered,\n\n" +
-		"3\n00:00:10,500 --> 01:01:11,250\nLater.\n\n"
+	// A card's text is said too: it is in the file, at the card's time.
+	want := "1\n00:00:00,000 --> 00:00:03,000\nRegistering a parcel\n\n" +
+		"2\n00:00:03,000 --> 00:00:07,940\nA shop registers a parcel with us.\n\n" +
+		"3\n00:00:07,940 --> 00:00:10,000\nWe answer that it is registered,\n\n" +
+		"4\n00:00:10,500 --> 01:01:11,250\nLater.\n\n"
 	if got := srtOf([]*Staged{one, two}); got != want {
 		t.Errorf("the subtitles:\n%s\nwant:\n%s", got, want)
 	}

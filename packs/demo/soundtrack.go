@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -16,9 +17,9 @@ import (
 
 // A film's sound is made after its picture, by whatever the project says:
 // a model that speaks, a person who records. The picture's time is the
-// film's, and the sound follows it. Beside each film axx writes its
-// subtitles with their times (a .srt file), which is what a soundtrack is
-// made from; a project's soundtrack command is given that file and writes one
+// film's, and the sound follows it. Beside each film axx writes what it says
+// with when (a .srt file: its subtitles, and its cards' texts), which is what
+// a soundtrack is made from; a project's soundtrack command is given that file and writes one
 // sound file as long as the film, which axx puts under the picture. Axx
 // itself makes no sound and has no voice.
 
@@ -35,17 +36,27 @@ type Soundtrack struct {
 	Command string `json:"command,omitempty"`
 }
 
-// srtOf is a film's subtitles with their times, as an SRT file: of each of
-// its takes, one after another.
+// srtOf is what a film says, with when: its subtitles and the texts of its
+// cards, as an SRT file, of each of its takes, one after another. A card's
+// text is there so that a soundtrack says it too.
 func srtOf(parts []*Staged) string {
-	var b strings.Builder
-	n, offset := 0, 0.0
+	var said []Subtitle
+	offset := 0.0
 	for _, part := range parts {
+		for _, seg := range part.Timeline.Segments {
+			if seg.Kind == "card" && seg.Text != "" {
+				said = append(said, Subtitle{Start: offset + seg.Start, End: offset + seg.End, Text: seg.Text})
+			}
+		}
 		for _, s := range part.Timeline.Subtitles {
-			n++
-			fmt.Fprintf(&b, "%d\n%s --> %s\n%s\n\n", n, srtTime(offset+s.Start), srtTime(offset+s.End), s.Text)
+			said = append(said, Subtitle{Start: offset + s.Start, End: offset + s.End, Text: s.Text})
 		}
 		offset += part.Timeline.Duration
+	}
+	sort.SliceStable(said, func(i, j int) bool { return said[i].Start < said[j].Start })
+	var b strings.Builder
+	for i, s := range said {
+		fmt.Fprintf(&b, "%d\n%s --> %s\n%s\n\n", i+1, srtTime(s.Start), srtTime(s.End), s.Text)
 	}
 	return b.String()
 }

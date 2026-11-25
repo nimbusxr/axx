@@ -152,7 +152,7 @@ axx demo --recut features/demos/register-a-parcel.demo.feature
 
 ## Add a soundtrack
 
-Axx makes no sound and has no voice of its own. It makes the picture, and writes the film's subtitles with their times beside it, as a `.srt` file: what a soundtrack is made from, and what a video site takes as captions.
+Axx makes no sound and has no voice of its own. It makes the picture, and writes what the film says, with when, beside it as a `.srt` file: its subtitles, and the texts of its cards, so that a soundtrack says those too. That file is what a soundtrack is made from, and what a video site takes as captions.
 
 ```text
 .axx/demo/register-a-parcel/
@@ -181,6 +181,8 @@ packs:
 
 3. Your command writes the WAV file, with each line said at its time.
 4. Axx puts the sound under the picture. A soundtrack shorter than the film is silent to its end, and a longer one is cut.
+
+A sentence often runs over several subtitles, each beside its own step. Write it as one sentence, with a comma where a subtitle ends and the next goes on. A soundtrack command can then speak the lines as one sentence, which sounds like a person, and still start each part at its own time.
 
 If a line takes longer to say than its subtitle shows, give that step more time with a cue (`[pause 2s]`, `[6s]`) and run `axx demo` again.
 
