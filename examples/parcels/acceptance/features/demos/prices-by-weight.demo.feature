@@ -16,7 +16,7 @@ Feature: Prices by weight, as a demo
     # demo: [action] [diagram quote] [as shop] A shop asks what a parcel of <grams> grams costs within Germany.
     When the request is executed
 
-    # demo: [pause 1s] We answer with its price, in cents: <price>.
+    # demo: [pause 5s] We answer with its price, in cents: <price>.
     Then the response payload property priceCents is '<price>'
 
     Examples:
