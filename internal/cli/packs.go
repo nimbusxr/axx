@@ -42,7 +42,7 @@ var commandsNeedingPacks = []string{"run", "up", "env", "config", "validate", "l
 // their hooks; one that needs none of its own (commandsNeedingPacks) runs
 // without them when they cannot be prepared, and says that their hooks did
 // not run.
-var commandsWithoutPacks = []string{"pack", "init", "upgrade", "install", "version", "fmt", "supervise", "help", "completion", "__complete", "__completeNoDesc"}
+var commandsWithoutPacks = []string{"pack", "init", "upgrade", "install", "version", "cache", "fmt", "supervise", "help", "completion", "__complete", "__completeNoDesc"}
 
 // commandsFromReference only say what steps and packs there are: when the
 // project's packs cannot be prepared (no network yet, say), they answer from
@@ -166,6 +166,7 @@ func (a *App) prepareProjectPacks(ctx context.Context) error {
 			return err
 		}
 	}
+	a.tidyCache()
 	return reexec(res.Binary)
 }
 

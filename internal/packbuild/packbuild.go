@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/nimbusxr/axx/internal/axxerr"
+	"github.com/nimbusxr/axx/internal/cachedir"
 	"github.com/nimbusxr/axx/internal/exitcode"
 	"github.com/nimbusxr/axx/internal/filelock"
 	"github.com/nimbusxr/axx/internal/gotool"
@@ -126,7 +127,25 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 		return res
 	}
 	if res := cached(); res != nil {
-		return res, nil
+		if cachedir.UsedLately(dir) {
+			return res, nil
+		}
+		// The use is marked under the build's lock, which the axx that removes
+		// the builds nothing uses holds while it looks at the mark: so it never
+		// removes one that is about to run. A cache this process cannot write
+		// (a sandbox's) has the build as it is.
+		unlock, err := filelock.Lock(ctx, dir+".lock", nil)
+		if err != nil {
+			return res, nil //nolint:nilerr // the build is there, and runs
+		}
+		res = cached()
+		if res != nil {
+			cachedir.Use(dir)
+		}
+		unlock()
+		if res != nil {
+			return res, nil
+		}
 	}
 	// One axx prepares a build at a time (a run and the language server often
 	// start together); the others wait for it and use what it built.
@@ -138,6 +157,7 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 	}
 	defer unlock()
 	if res := cached(); res != nil {
+		cachedir.Use(dir)
 		return res, nil
 	}
 
@@ -227,6 +247,7 @@ func Ensure(ctx context.Context, o Options) (*Result, error) {
 	if err := os.Rename(tmp, bin); err != nil {
 		return nil, err
 	}
+	cachedir.Use(dir)
 	step.Done()
 	fmt.Fprintf(o.Log, "axx: ready in %s\n", time.Since(start).Round(100*time.Millisecond))
 	return &Result{Binary: bin, Lock: lock}, nil

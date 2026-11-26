@@ -284,7 +284,7 @@ func configHooks(root *cobra.Command, cfg *config.Config, command string, strict
 // or after) is no command with hooks.
 func hookCommandError(cfg *config.Config, i int, when, problem string) error {
 	e := axxerr.New(CodeHookCommand, exitcode.Usage, "hooks.commands[%d].%s: %s", i, when, problem).
-		WithHint("name an axx command by its words after axx, as `axx --help` lists them: every command has hooks but pack, init, upgrade, install and version")
+		WithHint("name an axx command by its words after axx, as `axx --help` lists them: every command has hooks but pack, init, upgrade, install, version and cache")
 	if loc, ok := cfg.Position("hooks", "commands", strconv.Itoa(i), when); ok {
 		e = e.At(loc.File, loc.Line, loc.Column)
 	}
@@ -442,7 +442,7 @@ func hookChecks(root *cobra.Command, cfg *config.Config, packs []engine.NamedPac
 	}
 	detail = strings.Join(append(runs, never...), "; ")
 	if status != "ok" {
-		hint = "a hook names a command by its words after axx, as `axx --help` lists them: every command has hooks but pack, init, upgrade, install and version"
+		hint = "a hook names a command by its words after axx, as `axx --help` lists them: every command has hooks but pack, init, upgrade, install, version and cache"
 	}
 	return "command hooks", status, detail, hint
 }
