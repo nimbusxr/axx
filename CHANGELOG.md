@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.3](https://github.com/nimbusxr/axx/compare/v0.8.2...v0.8.3) (2026-11-26)
+
+
+### Features
+
+* axx cache lists what axx keeps on the machine, and axx removes the binaries of itself that nothing used for 30 days ([885992c](https://github.com/nimbusxr/axx/commit/885992cc548c55383588d739e016ebb8651a2bc7))
+* axx clean removes what runs left in a project ([885992c](https://github.com/nimbusxr/axx/commit/885992cc548c55383588d739e016ebb8651a2bc7))
+* **mobile-android:** axx warns of an emulator without a front camera, where an app's camera stays black for 6 seconds ([#443](https://github.com/nimbusxr/axx/issues/443)) ([adb440c](https://github.com/nimbusxr/axx/commit/adb440c456f49c625bcd14cde92352337f9e53a9))
+
 ## [0.8.2](https://github.com/nimbusxr/axx/compare/v0.8.1...v0.8.2) (2026-11-25)
 
 
