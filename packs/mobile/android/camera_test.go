@@ -165,3 +165,44 @@ func TestJPEGOrientation(t *testing.T) {
 		t.Error("orientation 6 does not turn the photo a quarter clockwise: its top left is not at the top right")
 	}
 }
+
+// An AVD's config.ini says whether its emulator has a front camera: one avdmanager made says
+// none, and one that does not say has none either.
+func TestAVDHasFrontCamera(t *testing.T) {
+	for config, want := range map[string]bool{
+		"hw.camera.back=emulated\nhw.camera.front=none\n":          false,
+		"hw.camera.back=environment\nhw.camera.front=emulated\n":   true,
+		"hw.camera.front = webcam0\n":                              true,
+		"hw.camera.front=none\nhw.camera.front=emulated\n":         true, // the emulator takes the last
+		"hw.camera.back=virtualscene\n":                            false,
+		"hw.camera.front=\n":                                       false,
+		"hw.camera.front.orientation=90\nhw.camera.front=none\r\n": false,
+	} {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "config.ini"), []byte(config), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := avdHasFrontCamera(dir); got != want {
+			t.Errorf("%q: front camera %v, want %v", config, got, want)
+		}
+	}
+	// Nothing is known of an AVD with no folder, or no config.ini: it gets no warning.
+	if !avdHasFrontCamera("") || !avdHasFrontCamera(t.TempDir()) {
+		t.Error("an AVD whose config.ini cannot be read was taken to have no front camera")
+	}
+}
+
+func TestHasFeature(t *testing.T) {
+	listed := "feature:reqGlEsVersion=0x30002\nfeature:android.hardware.camera\nfeature:android.hardware.camera.front\r\nfeature:android.hardware.camera.level.full=1\n"
+	for name, want := range map[string]bool{
+		"android.hardware.camera.front":      true,
+		"android.hardware.camera":            true,
+		"android.hardware.camera.level.full": true,
+		"android.hardware.camera.flash":      false,
+		"android.hardware.camera.fron":       false,
+	} {
+		if got := hasFeature(listed, name); got != want {
+			t.Errorf("%s: %v, want %v", name, got, want)
+		}
+	}
+}

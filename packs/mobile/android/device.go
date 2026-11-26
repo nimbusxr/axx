@@ -398,6 +398,7 @@ func (d *running) resetDevice(ctx context.Context) error {
 	if err := d.showCamera(ctx); err != nil {
 		return err
 	}
+	d.noFrontCamera(ctx)
 	if c := d.app.camera; c != nil {
 		d.resets = append(d.resets, "camera "+c.sees)
 	}
