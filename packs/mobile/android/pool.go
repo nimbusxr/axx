@@ -62,6 +62,8 @@ type pool struct {
 
 	// afresh warns once that the AVD's snapshot has another camera (bootAfresh).
 	afresh sync.Once
+	// frontCamera warns once that the AVD has no front camera (noFrontCamera).
+	frontCamera sync.Once
 	// newDevice makes a device ready for the pool: start, but for the tests.
 	newDevice func(ctx context.Context, logDir string) (*device, error)
 

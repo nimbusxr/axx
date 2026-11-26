@@ -367,6 +367,66 @@ func (d *running) cameraClosed(ctx context.Context) {
 	}
 }
 
+// frontCameraFeature is what Android says of a phone that has a front camera.
+const frontCameraFeature = "android.hardware.camera.front"
+
+// noFrontCamera warns, once a run, of an AVD without a front camera whose Android says the phone
+// has one: CameraX, which most apps take their camera from, then looks for it every half second,
+// for 6 seconds, before it shows the back camera, and the app's camera view is black until then.
+// avdmanager makes an AVD without one, and Android Studio with one. It says so only where the
+// scenario's app uses the camera: it is granted CAMERA, or given something to see.
+func (d *running) noFrontCamera(ctx context.Context) {
+	if d.dev == nil || d.dev.avd == "" || d.pool == nil || d.sdk == nil {
+		return
+	}
+	if d.app.camera == nil && !slices.Contains(d.app.permissions, "android.permission.CAMERA") {
+		return
+	}
+	d.pool.frontCamera.Do(func() {
+		if slices.Contains(d.pool.args, "-camera-front") || avdHasFrontCamera(avdDir(d.dev.avd)) {
+			return
+		}
+		out, err := d.sdk.shell(ctx, d.dev.serial, "pm", "list", "features")
+		if err != nil || !hasFeature(out, frontCameraFeature) {
+			return
+		}
+		d.pool.suite.Logger().Warn("the "+d.dev.avd+" AVD has no front camera, and its Android says the phone has one: an app that takes its camera from CameraX looks for it for 6 seconds before its camera shows; "+
+			"give the AVD one (hw.camera.front=emulated in its config.ini), then save its quick-boot snapshot again", "avd", d.dev.avd)
+	})
+}
+
+// avdHasFrontCamera reports whether the config.ini of the AVD in dir gives its emulator a front
+// camera (hw.camera.front): one that does not say has none. An AVD whose file cannot be read is
+// taken to have one, as nothing is known of it.
+func avdHasFrontCamera(dir string) bool {
+	if dir == "" {
+		return true
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "config.ini"))
+	if err != nil {
+		return true
+	}
+	front := "none"
+	for _, line := range strings.Split(string(data), "\n") {
+		if k, v, ok := strings.Cut(line, "="); ok && strings.TrimSpace(k) == "hw.camera.front" {
+			front = strings.TrimSpace(v)
+		}
+	}
+	return front != "" && front != "none"
+}
+
+// hasFeature reports whether `pm list features` lists the feature: a line each, "feature:" and
+// its name, with a version after "=" on some.
+func hasFeature(listed, name string) bool {
+	for _, line := range strings.Split(listed, "\n") {
+		f, _, _ := strings.Cut(strings.TrimPrefix(strings.TrimSpace(line), "feature:"), "=")
+		if f == name {
+			return true
+		}
+	}
+	return false
+}
+
 // hideCamera is the scenario's end: its camera shows on no device.
 func (d *running) hideCamera() {
 	if c := d.shown; c != nil {
