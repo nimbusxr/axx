@@ -100,7 +100,13 @@ func report(t *testing.T, h *cloudtest.Harness) {
 		// never came to the app, or came and was not taken: twice a tap left the app as it was,
 		// and the log had only that XCTest made it); all of what iOS's resolver of documents
 		// for apps and its store of document ids say; and what SpringBoard, iOS's service of
-		// notifications and RunningBoard say of the app (its notifications, its priority).
+		// notifications and RunningBoard say of the app (its notifications, its priority);
+		// and what the simulator's touch service says of each tap's finger: XCTest makes a tap
+		// with a touchscreen of its own, which it takes away a tenth of a second after the
+		// finger is up, and a finger still down then is cancelled (a tap on "Measure parcel"
+		// began in the app and was cancelled 170 ms on, with no finger up: the log had no word
+		// of the service's). A tap whose "presence: touching" is followed by "digitizer
+		// detached" with no "presence: none" between them is that.
 		// What the device says of itself: the simulator may be one the axx host runs.
 		udid, _ := d.Describe()["udid"].(string)
 		if udid != "" {
@@ -110,7 +116,9 @@ func report(t *testing.T, h *cloudtest.Harness) {
 					` OR ((process == "Courier" OR process CONTAINS[c] "document" OR process CONTAINS[c] "fileprovider") AND messageType IN {16, 17})`+
 					` OR (process == "Courier" AND subsystem == "com.apple.UIKit" AND category == "EventDispatch")`+
 					` OR process == "ResolverService" OR process == "revisiond" OR eventMessage BEGINSWITH "axx models:" OR eventMessage BEGINSWITH "[axx ar]"`+
-					` OR ((process == "SpringBoard" OR process == "usernotificationsd" OR process == "runningboardd") AND eventMessage CONTAINS[c] "courier")`).CombinedOutput()
+					` OR ((process == "SpringBoard" OR process == "usernotificationsd" OR process == "runningboardd") AND eventMessage CONTAINS[c] "courier")`+
+					` OR (process == "backboardd" AND subsystem == "com.apple.BackBoard" AND category == "TouchEvents" AND (eventMessage CONTAINS "presence:" OR eventMessage CONTAINS "digitizer" OR eventMessage BEGINSWITH "cancel"))`+
+					` OR (process == "testmanagerd" AND subsystem == "com.apple.recap" AND eventMessage CONTAINS "service")`).CombinedOutput()
 			lines := strings.Split(string(out), "\n")
 			t.Logf("the simulator's log (%v):\n%s", err, strings.Join(lines[max(0, len(lines)-2000):], "\n"))
 		}
